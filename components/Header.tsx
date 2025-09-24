@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-
+import logo from "@/public/logo.png"; // <- existing file
 export default function Header() {
   const [open, setOpen] = useState(false);
 
@@ -14,13 +14,12 @@ export default function Header() {
         {/* Logo only, fills row height */}
         <Link href="/" className="flex items-center">
           <Image
-            src="/logo.png"
-            alt="Panavest"
-            width={256}
-            height={256}
-            className="block h-16 md:h-20 w-auto object-contain"
-            priority
-          />
+  src={logo}
+  alt="Panavest"
+  className="h-16 md:h-20 w-auto"
+  sizes="(max-width: 768px) 64px, 80px"
+  priority
+/>
           <span className="sr-only">Panavest</span>
         </Link>
 
