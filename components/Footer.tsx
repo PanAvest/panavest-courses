@@ -1,18 +1,19 @@
 import Image from "next/image";
 import Link from "next/link";
+import logo from "@/public/logo-v3.png"; // NEW: static import
 
 export default function Footer() {
   return (
     <footer className="w-full bg-white border-t border-light">
       <div className="mx-auto max-w-screen-2xl px-6 md:px-8 2xl:px-10 py-6 flex flex-col sm:flex-row items-center gap-4 sm:gap-6 justify-between">
-        {/* Logo only */}
         <Link href="/" className="flex items-center">
+          {/* Display at 40–48px tall, never upscale beyond intrinsic */}
           <Image
-            src="/logo.png"
+            src={logo}
             alt="Panavest"
-            width={40}
-            height={40}
-            className="h-10 w-auto object-contain"
+            className="h-10 w-auto md:h-12"
+            sizes="(max-width: 640px) 40px, 48px"
+            priority={false}
           />
           <span className="sr-only">Panavest</span>
         </Link>
@@ -30,4 +31,3 @@ export default function Footer() {
     </footer>
   );
 }
-
