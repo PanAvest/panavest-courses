@@ -2,37 +2,38 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase =
-  typeof window !== "undefined"
-    ? createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
-    : (null as any);
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 type Mode = "sign-in" | "sign-up";
 
+// Create the client only in the browser to avoid SSR issues
+const supabase: SupabaseClient | null =
+  typeof window !== "undefined"
+    ? createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL as string,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
+      )
+    : null;
+
 export default function AuthForm({ mode }: { mode: Mode }) {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [email, setEmail] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+  const [busy, setBusy] = useState<boolean>(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   const title = mode === "sign-in" ? "Sign In" : "Create Account";
   const cta = mode === "sign-in" ? "Sign In" : "Sign Up";
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setErr(null);
     setMsg(null);
     setBusy(true);
 
     if (!supabase) {
-      setErr("Client not ready. Try refreshing the page.");
+      setErr("Client not ready. Refresh the page and try again.");
       setBusy(false);
       return;
     }
@@ -51,8 +52,9 @@ export default function AuthForm({ mode }: { mode: Mode }) {
         if (error) throw error;
         setMsg("Account created. Check your email to verify, then sign in.");
       }
-    } catch (e: any) {
-      setErr(e?.message ?? "Something went wrong");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
+      setErr(message);
     } finally {
       setBusy(false);
     }
@@ -74,7 +76,7 @@ export default function AuthForm({ mode }: { mode: Mode }) {
             required
             className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 ring-1 ring-[color:var(--color-light)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-brand)]/40"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(ev) => setEmail(ev.target.value)}
             placeholder="you@example.com"
           />
         </label>
@@ -88,7 +90,7 @@ export default function AuthForm({ mode }: { mode: Mode }) {
             minLength={6}
             className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 ring-1 ring-[color:var(--color-light)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-brand)]/40"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(ev) => setPassword(ev.target.value)}
             placeholder="••••••••"
           />
         </label>
