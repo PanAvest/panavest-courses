@@ -1,26 +1,30 @@
 @import "tailwindcss";
 
+/* Your palette */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-bg: #fefdfa;          /* cream page bg */
+  --color-accent-red: #b65437;  /* brick red buttons & logo */
+  --color-accent-gold: #f5b750; /* bulb */
+  --color-text-dark: #2c2522;   /* main text */
+  --color-text-muted: #6d7d6f;  /* muted copy */
+  --color-light: #f3e9e0;       /* card border / header divider */
+  --color-soft: #d0c5be;        /* soft beige alt */
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-bg: var(--color-bg);
+  --color-brand: var(--color-accent-red);
+  --color-gold: var(--color-accent-gold);
+  --color-ink: var(--color-text-dark);
+  --color-muted: var(--color-text-muted);
+  --color-light: var(--color-light);
+  --color-soft: var(--color-soft);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --radius-xl: 1rem;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
