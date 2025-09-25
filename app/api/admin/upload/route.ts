@@ -15,7 +15,7 @@ export async function POST(req: Request) {
 
   const ab = await file.arrayBuffer();
   // Buffer is available in the default Node.js runtime for App Routes
-  // @ts-ignore
+  // -expect-error
   const buffer = Buffer.from(ab);
 
   const path = `admin/${Date.now()}-${name}`;
