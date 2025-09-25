@@ -12,16 +12,18 @@ export default function Header() {
       {/* Fixed row height so the logo fills without increasing header height */}
       <div className="mx-auto max-w-screen-2xl px-6 md:px-8 2xl:px-10 h-16 md:h-20 flex items-center justify-between">
         {/* Logo only, fills row height */}
-        <Link href="/" className="flex items-center">
-          <Image
-  src={logo}
-  alt="Panavest"
-  className="h-16 md:h-20 w-auto"
-  sizes="(max-width: 768px) 64px, 80px"
-  priority
-/>
-          <span className="sr-only">Panavest</span>
-        </Link>
+       <Link href="/" className="flex items-center">
+  <Image
+    src={logo}
+    alt="Panavest"
+    // exact CSS display size; DOES NOT upscale the bitmap
+    className="h-16 md:h-20 w-auto"
+    sizes="(max-width: 768px) 64px, 80px"
+    priority
+    unoptimized  // <— serve original PNG 1:1 (no re-encoding)
+  />
+  <span className="sr-only">Panavest</span>
+</Link>
 
         {/* Desktop nav */}
         <nav className="hidden sm:flex items-center gap-6">
