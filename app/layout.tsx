@@ -4,7 +4,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
 export const metadata: Metadata = {
-  title: "PanAvest Courses",
+  title: "PanAvest Knowledge",
   description: "Learn. Assess. Excel.",
 };
 

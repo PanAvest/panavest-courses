@@ -59,7 +59,7 @@ export default function Header() {
 
         {/* Desktop nav (unchanged layout) */}
         <nav className="hidden sm:flex items-center gap-6">
-          <Link href="/courses" className="text-sm text-muted hover:text-ink">Courses</Link>
+          <Link href="/courses" className="text-sm text-muted hover:text-ink">Knowledge</Link>
           <Link href="/about" className="text-sm text-muted hover:text-ink">About</Link>
           <Link href="/leaderboard" className="text-sm text-muted hover:text-ink">Leaderboard</Link>
 
@@ -98,7 +98,7 @@ export default function Header() {
       {open && (
         <div className="sm:hidden border-t border-light bg-[color:var(--color-bg)]">
           <div className="px-4 py-3 flex flex-col gap-3">
-            <Link href="/courses" onClick={() => setOpen(false)} className="text-ink">Courses</Link>
+            <Link href="/courses" onClick={() => setOpen(false)} className="text-ink">Knowledge</Link>
             <Link href="/about" onClick={() => setOpen(false)} className="text-ink">About</Link>
             <Link href="/leaderboard" onClick={() => setOpen(false)} className="text-ink">Leaderboard</Link>
 

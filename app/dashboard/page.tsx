@@ -91,13 +91,13 @@ export default function DashboardPage() {
         full_name: (user.user_metadata?.full_name as string | undefined) ?? null,
       };
 
-      // Enrollments + joined courses (handle object OR array for joined "courses")
+      // Enrollments + joined knowledge (handle object OR array for joined "knowledge")
       const { data: enrData } = await supabase
         .from("enrollments")
         .select(`
           progress_pct,
           course_id,
-          courses:courses!inner (
+          knowledge:knowledge!inner (
             title,
             slug,
             img,
@@ -116,7 +116,7 @@ export default function DashboardPage() {
 
         const course_id = String(r.course_id ?? "");
 
-        const picked = pickCourse(r.courses);
+        const picked = pickCourse(r.knowledge);
 
         return {
           course_id,
@@ -212,7 +212,7 @@ export default function DashboardPage() {
         <p className="text-muted mt-1">Track your certified CPD (CPPD) progress, assessments and certificates.</p>
         <div className="mt-6 grid gap-4 sm:grid-cols-3">
           <StatCard label="CPPD credits earned" value={Math.max(0, stats.cpdEarned)} suffix="pts" />
-          <StatCard label="Courses in progress" value={stats.coursesInProgress} />
+          <StatCard label="Knowledge in progress" value={stats.coursesInProgress} />
           <StatCard label="Certificates" value={stats.certCount} />
         </div>
       </section>
@@ -224,7 +224,7 @@ export default function DashboardPage() {
           <Link href="/courses" className="text-sm text-muted hover:text-ink">Browse all</Link>
         </div>
         {enrolled.length === 0 ? (
-          <EmptyCard text="You haven’t enrolled yet. Explore our programs to get started." ctaHref="/courses" ctaLabel="Explore courses" />
+          <EmptyCard text="You haven’t enrolled yet. Explore our programs to get started." ctaHref="/courses" ctaLabel="Explore knowledge" />
         ) : (
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             {enrolled.map((c) => (

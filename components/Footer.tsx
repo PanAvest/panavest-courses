@@ -33,7 +33,7 @@ export default function Footer() {
           <div className="space-y-3">
             <Image src={logo} alt="Panavest" className="h-12 w-auto" sizes="48px" unoptimized />
             <p className="text-sm text-muted max-w-sm">
-              PanAvest delivers certified CPD (CPPD) courses and practical learning
+              PanAvest delivers certified CPD (CPPD) knowledge and practical learning
               pathways for modern professionals across leadership, analytics, project
               management and supply chain.
             </p>
@@ -52,7 +52,7 @@ export default function Footer() {
           <div>
             <h4 className="font-semibold">Why PanAvest</h4>
             <ul className="mt-3 space-y-2 text-sm text-muted">
-              <li>CPD (CPPD) certified courses</li>
+              <li>CPD (CPPD) certified knowledge</li>
               <li>Hands-on assessments & certificates</li>
               <li>Industry-relevant projects</li>
               <li>Flexible learning</li>

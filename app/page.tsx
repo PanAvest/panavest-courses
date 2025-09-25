@@ -21,7 +21,7 @@ export default function HomePage() {
               potential
             </h1>
             <p className="mt-4 text-[16px] sm:text-[18px] text-muted max-w-2xl">
-              Certified CPD (CPPD) courses and practical learning pathways for
+              Certified CPD (CPPD) knowledge and practical learning pathways for
               modern professionals. Learn with PanAvest through industry-aligned
               modules, assessments, and verifiable certificates.
             </p>
@@ -30,7 +30,7 @@ export default function HomePage() {
                 href="/courses"
                 className="rounded-lg bg-brand text-white px-5 py-3 font-semibold hover:opacity-90 animate-float"
               >
-                Explore Courses
+                Explore Knowledge
               </Link>
               <Link
                 href="/leaderboard"
@@ -61,7 +61,7 @@ export default function HomePage() {
           <h2 className="text-2xl sm:text-3xl font-bold">What we do</h2>
           <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             {[
-              { emoji: "🎓", title: "Certified CPD (CPPD)", text: "Professional courses with verifiable certificates." },
+              { emoji: "🎓", title: "Certified CPD (CPPD)", text: "Professional knowledge with verifiable certificates." },
               { emoji: "🧪", title: "Assessments", text: "Rigorous evaluations that prove capability." },
               { emoji: "🏢", title: "Corporate Training", text: "Tailored programs delivered to teams." },
               { emoji: "📈", title: "Career Acceleration", text: "Job-ready, practical skill-building." },
@@ -83,7 +83,7 @@ export default function HomePage() {
           <h2 className="text-2xl sm:text-3xl font-bold">Why you need us</h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[
-              { title: "Recognized certification", text: "All courses are certified CPD (CPPD) with verifiable outcomes." },
+              { title: "Recognized certification", text: "All knowledge are certified CPD (CPPD) with verifiable outcomes." },
               { title: "Practical & applied", text: "Industry-aligned curriculum built around real scenarios." },
               { title: "Unique authority", text: "PanAvest Supply Chain Compendium—only of its kind in the world, credited by NaCCA." },
             ].map((b) => (
@@ -99,7 +99,7 @@ export default function HomePage() {
       {/* FEATURED (smaller images than before) */}
       <section className="py-8">
         <div className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8">
-          <h2 className="text-2xl sm:text-3xl font-bold">Featured Courses</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold">Featured Knowledge</h2>
 
           <div className="mt-6 grid gap-6 md:grid-cols-2">
             {cards.map((c) => (
