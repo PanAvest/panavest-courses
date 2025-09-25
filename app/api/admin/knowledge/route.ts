@@ -1,40 +1,38 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import type { Database } from "@/lib/types";
 
-type Knowledge = {
-  id?: string;
-  slug: string;
-  title: string;
-  description?: string | null;
-  level?: string | null;
-  price?: number | null;
-  cpd_points?: number | null;
-  img?: string | null;
-  accredited?: string[] | null;
-  published?: boolean | null;
-};
+type CoursesRow = Database["public"]["Tables"]["courses"]["Row"];
+type CoursesInsert = Database["public"]["Tables"]["courses"]["Insert"];
 
-export async function GET(_req: NextRequest) {
-  if (!supabaseAdmin) return NextResponse.json({ error: "Server not configured" }, { status: 500 });
+export async function GET() {
   const { data, error } = await supabaseAdmin
     .from("courses")
     .select("id,slug,title,description,level,price,cpd_points,img,accredited,published")
     .order("title", { ascending: true });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data ?? []);
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+  return NextResponse.json((data ?? []) as CoursesRow[]);
 }
 
 export async function POST(req: Request) {
-  if (!supabaseAdmin) return NextResponse.json({ error: "Server not configured" }, { status: 500 });
-  const body = (await req.json()) as Knowledge;
+  const body = (await req.json()) as Partial<CoursesInsert>;
+
+  // Require at least slug and title
   if (!body.slug || !body.title) {
-    return NextResponse.json({ error: "slug and title are required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "slug and title are required" },
+      { status: 400 }
+    );
   }
 
-  const payload: Database["public"]["Tables"]["courses"]["Insert"] = {
-    slug: body.slug,
-    title: body.title,
+  // Build a typed insert payload; null where optional/unknown
+  const payload: CoursesInsert = {
+    id: body.id, // optional
+    slug: body.slug ?? null,
+    title: body.title ?? null,
     description: body.description ?? null,
     level: body.level ?? null,
     price: body.price ?? null,
@@ -42,13 +40,19 @@ export async function POST(req: Request) {
     img: body.img ?? null,
     accredited: body.accredited ?? null,
     published: body.published ?? true,
+    created_at: body.created_at ?? null,
   };
 
+  // Use generic + array overload for upsert to satisfy TS
   const { data, error } = await supabaseAdmin
     .from("courses")
-    .upsert(payload, { onConflict: "slug" })
+    .upsert<CoursesInsert>([payload], { onConflict: "slug" })
     .select();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json((data ?? [])[0] ?? null);
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  const first = Array.isArray(data) ? data[0] : null;
+  return NextResponse.json(first as CoursesRow | null);
 }
