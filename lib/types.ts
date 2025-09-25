@@ -1,3 +1,4 @@
+/* eslint @typescript-eslint/no-empty-object-type: off */
 export type Json =
   | string
   | number
