@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 
 type Knowledge = {
   id?: string;
@@ -15,8 +16,14 @@ type Knowledge = {
   published?: boolean | null;
 };
 
-type UserFlat = { id: string; email?: string; email_confirmed_at?: string | null; created_at?: string; };
+type UserFlat = {
+  id: string;
+  email?: string;
+  email_confirmed_at?: string | null;
+  created_at?: string;
+};
 
+type SocialLinks = { x?: string; instagram?: string; linkedin?: string; facebook?: string };
 type SiteSettings = {
   hero_title?: string | null;
   hero_subtitle?: string | null;
@@ -24,9 +31,20 @@ type SiteSettings = {
   accent_color?: string | null;
   bg_color?: string | null;
   text_color?: string | null;
-  social?: { x?: string; instagram?: string; linkedin?: string; facebook?: string } | null;
+  social?: SocialLinks | null;
   footer_copy?: string | null;
 };
+
+const colorKeys = ["primary_color","accent_color","bg_color","text_color"] as const;
+type ColorKey = typeof colorKeys[number];
+const colorLabels: Record<ColorKey,string> = {
+  primary_color: "Primary Color",
+  accent_color: "Accent Color",
+  bg_color: "Background Color",
+  text_color: "Text Color",
+};
+const socialKeys = ["x","instagram","linkedin","facebook"] as const;
+type SocialKey = typeof socialKeys[number];
 
 export default function AdminPage() {
   const [tab, setTab] = useState<"overview"|"knowledge"|"media"|"users"|"settings"|"deploy">("overview");
@@ -36,32 +54,43 @@ export default function AdminPage() {
   const [statUsers, setStatUsers] = useState(0);
   useEffect(() => {
     (async () => {
-      const k = await fetch("/api/admin/knowledge").then(r=>r.json());
-      setStatKnowledge(Array.isArray(k) ? k.length : 0);
-      const u = await fetch("/api/admin/users").then(r=>r.json());
-      const total = typeof u?.total === "number" ? u.total : (Array.isArray(u?.users)?u.users.length:0);
-      setStatUsers(total);
+      try {
+        const k = await fetch("/api/admin/knowledge").then(r=>r.json());
+        setStatKnowledge(Array.isArray(k) ? k.length : 0);
+        const u = await fetch("/api/admin/users").then(r=>r.json());
+        const total = typeof u?.total === "number" ? u.total : (Array.isArray(u?.users)?u.users.length:0);
+        setStatUsers(total);
+      } catch {}
     })();
   }, []);
 
   // Knowledge
-  const emptyK: Knowledge = { slug:"", title:"", description:"", level:"", price:null, cpd_points:null, img:"", accredited:[], published:true };
+  const emptyK: Knowledge = {
+    slug:"", title:"", description:"", level:"",
+    price:null, cpd_points:null, img:"", accredited:[], published:true
+  };
   const [list, setList] = useState<Knowledge[]>([]);
   const [form, setForm] = useState<Knowledge>(emptyK);
   const [saving, setSaving] = useState(false);
 
   async function refreshKnowledge() {
     const r = await fetch("/api/admin/knowledge", { cache:"no-store" });
-    const d = await r.json(); setList(Array.isArray(d)?d:[]);
+    const d: unknown = await r.json();
+    setList(Array.isArray(d) ? (d as Knowledge[]) : []);
   }
   useEffect(()=>{ if(tab==="knowledge") refreshKnowledge(); },[tab]);
 
   async function saveKnowledge() {
     setSaving(true);
     const payload: Knowledge = { ...form, accredited: (form.accredited ?? []).map(s=>String(s)) };
-    const r = await fetch("/api/admin/knowledge", { method:"POST", headers:{ "content-type":"application/json" }, body: JSON.stringify(payload) });
+    const r = await fetch("/api/admin/knowledge", {
+      method:"POST",
+      headers:{ "content-type":"application/json" },
+      body: JSON.stringify(payload)
+    });
     setSaving(false);
-    if (r.ok) { setForm(emptyK); await refreshKnowledge(); } else alert("Save failed");
+    if (r.ok) { setForm(emptyK); await refreshKnowledge(); }
+    else alert("Save failed");
   }
   async function delKnowledge(id?: string) {
     if (!id || !confirm("Delete this knowledge item?")) return;
@@ -75,24 +104,29 @@ export default function AdminPage() {
 
   async function handleUpload(file: File) {
     setUploading(true);
-    const fd = new FormData(); fd.append("file", file); fd.append("name", file.name);
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("name", file.name);
     const r = await fetch("/api/admin/upload", { method:"POST", body: fd });
     setUploading(false);
-    const d = await r.json();
-    if (r.ok) setUploadedUrl(d.publicUrl); else alert(d.error || "Upload failed");
+    const d: unknown = await r.json();
+    if (r.ok && typeof (d as any)?.publicUrl === "string") setUploadedUrl((d as any).publicUrl);
+    else alert((d as any)?.error || "Upload failed");
   }
 
   // Users
   const [users, setUsers] = useState<UserFlat[]>([]);
   async function refreshUsers() {
     const r = await fetch("/api/admin/users", { cache:"no-store" });
-    const d = await r.json();
+    const d: unknown = await r.json();
     const arr: UserFlat[] =
-      Array.isArray(d?.users)
-        ? d.users.map((u: unknown) => {
-            const o = (u ?? {}) as { id?: string; email?: string; email_confirmed_at?: string | null; created_at?: string };
-            return { id: o.id || "", email: o.email, email_confirmed_at: o.email_confirmed_at ?? null, created_at: o.created_at };
-          })
+      Array.isArray((d as any)?.users)
+        ? (d as any).users.map((u: any) => ({
+            id: String(u?.id ?? ""),
+            email: u?.email,
+            email_confirmed_at: u?.email_confirmed_at ?? null,
+            created_at: u?.created_at
+          }))
         : [];
     setUsers(arr);
   }
@@ -105,25 +139,38 @@ export default function AdminPage() {
   }
   async function generateLink(email?: string) {
     if (!email) return;
-    const r = await fetch("/api/admin/users", { method:"POST", headers:{ "content-type":"application/json" }, body: JSON.stringify({ action:"generate_confirmation_link", email }) });
-    const d = await r.json();
-    if (r.ok && d.link) { await navigator.clipboard.writeText(d.link); alert("Confirmation link copied."); }
-    else alert(d.error || "Could not generate link");
+    const r = await fetch("/api/admin/users", {
+      method:"POST",
+      headers:{ "content-type":"application/json" },
+      body: JSON.stringify({ action:"generate_confirmation_link", email })
+    });
+    const d: unknown = await r.json();
+    const link = (d as any)?.link;
+    if (r.ok && typeof link === "string") {
+      await navigator.clipboard.writeText(link);
+      alert("Confirmation link copied.");
+    } else {
+      alert((d as any)?.error || "Could not generate link");
+    }
   }
 
   // Settings
   const [settings, setSettings] = useState<SiteSettings | null>(null);
-  useEffect(()=>{ if(tab==="settings"){ fetch("/api/public/site-settings").then(r=>r.json()).then(setSettings); } },[tab]);
+  useEffect(()=>{ if(tab==="settings"){ fetch("/api/public/site-settings").then(r=>r.json()).then((s)=>setSettings(s)); } },[tab]);
   async function saveSettings() {
-    const r = await fetch("/api/admin/site-settings",{ method:"PUT", headers:{ "content-type":"application/json" }, body: JSON.stringify(settings||{}) });
+    const r = await fetch("/api/admin/site-settings",{
+      method:"PUT",
+      headers:{ "content-type":"application/json" },
+      body: JSON.stringify(settings||{})
+    });
     if (r.ok) alert("Settings saved."); else alert("Save failed");
   }
 
   // Deploy
   async function triggerDeploy() {
     const r = await fetch("/api/admin/deploy", { method:"POST" });
-    const d = await r.json();
-    alert(d.ok ? "Deploy triggered" : `Failed: ${d.text || d.error}`);
+    const d: unknown = await r.json();
+    alert((d as any)?.ok ? "Deploy triggered" : `Failed: ${(d as any)?.text || (d as any)?.error}`);
   }
 
   return (
@@ -185,14 +232,20 @@ export default function AdminPage() {
               </label>
               <label className="grid gap-1">
                 <span className="text-sm text-muted">Accredited (comma separated)</span>
-                <input value={(form.accredited ?? []).join(", ")} onChange={e=>setForm(f=>({...f,accredited:e.target.value.split(",").map(s=>s.trim()).filter(Boolean)}))} className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]" />
+                <input
+                  value={(form.accredited ?? []).join(", ")}
+                  onChange={e=>setForm(f=>({...f,accredited:e.target.value.split(",").map(s=>s.trim()).filter(Boolean)}))}
+                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                />
               </label>
               <label className="inline-flex items-center gap-2">
                 <input type="checkbox" checked={form.published ?? true} onChange={e=>setForm(f=>({...f,published:e.target.checked}))} />
                 <span className="text-sm">Published</span>
               </label>
               <div className="flex items-center gap-2">
-                <button onClick={saveKnowledge} disabled={saving} className="rounded-lg bg-brand text-white px-4 py-2 font-semibold hover:opacity-90 disabled:opacity-50">{saving?"Saving…":"Save"}</button>
+                <button onClick={saveKnowledge} disabled={saving} className="rounded-lg bg-brand text-white px-4 py-2 font-semibold hover:opacity-90 disabled:opacity-50">
+                  {saving?"Saving…":"Save"}
+                </button>
                 <button onClick={()=>setForm(emptyK)} className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]">Reset</button>
               </div>
             </div>
@@ -231,7 +284,9 @@ export default function AdminPage() {
             <div className="mt-4">
               <div className="text-sm">Public URL:</div>
               <code className="text-xs break-all">{uploadedUrl}</code>
-              <div className="mt-2"><img src={uploadedUrl} alt="Uploaded" className="max-h-48 rounded-lg border border-light" /></div>
+              <div className="mt-2 relative w-full max-w-xs h-48">
+                <Image src={uploadedUrl} alt="Uploaded" fill className="object-contain rounded-lg border border-light" sizes="(max-width: 768px) 100vw, 384px" />
+              </div>
             </div>
           )}
         </div>
@@ -266,38 +321,45 @@ export default function AdminPage() {
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <label className="grid gap-1">
                 <span className="text-sm text-muted">Hero Title</span>
-                <input value={settings.hero_title ?? ""} onChange={e=>setSettings(s=>({...s!,hero_title:e.target.value}))} className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]" />
+                <input value={settings.hero_title ?? ""} onChange={e=>setSettings(s=>({ ...(s||{}), hero_title:e.target.value }))} className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]" />
               </label>
               <label className="grid gap-1">
                 <span className="text-sm text-muted">Hero Subtitle</span>
-                <input value={settings.hero_subtitle ?? ""} onChange={e=>setSettings(s=>({...s!,hero_subtitle:e.target.value}))} className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]" />
+                <input value={settings.hero_subtitle ?? ""} onChange={e=>setSettings(s=>({ ...(s||{}), hero_subtitle:e.target.value }))} className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]" />
               </label>
 
-              {[
-                ["primary_color","Primary Color"],
-                ["accent_color","Accent Color"],
-                ["bg_color","Background Color"],
-                ["text_color","Text Color"],
-              ].map(([k,label])=>(
+              {colorKeys.map((k)=>(
                 <label key={k} className="grid gap-1">
-                  <span className="text-sm text-muted">{label}</span>
-                  <input value={(settings as any)[k] ?? ""} onChange={e=>setSettings(s=>({...s!, [k]: e.target.value}))} className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]" />
+                  <span className="text-sm text-muted">{colorLabels[k]}</span>
+                  <input
+                    value={settings?.[k] ?? ""}
+                    onChange={e=>setSettings(s=>({ ...(s||{}), [k]: e.target.value } as SiteSettings))}
+                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                  />
                 </label>
               ))}
 
               <fieldset className="md:col-span-2 grid gap-2">
                 <legend className="text-sm text-muted">Social Links</legend>
-                {["x","instagram","linkedin","facebook"].map(key=>(
+                {socialKeys.map((key: SocialKey)=>(
                   <label key={key} className="grid gap-1">
                     <span className="text-xs uppercase text-muted">{key}</span>
-                    <input value={settings.social?.[key as keyof NonNullable<SiteSettings["social"]>] ?? ""} onChange={e=>setSettings(s=>({...s!, social:{ ...(s?.social||{}), [key]: e.target.value }}))} className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]" />
+                    <input
+                      value={settings?.social?.[key] ?? ""}
+                      onChange={e=>setSettings(s=>({ ...(s||{}), social:{ ...(s?.social||{}), [key]: e.target.value } }))}
+                      className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                    />
                   </label>
                 ))}
               </fieldset>
 
               <label className="md:col-span-2 grid gap-1">
                 <span className="text-sm text-muted">Footer Copy</span>
-                <input value={settings.footer_copy ?? ""} onChange={e=>setSettings(s=>({...s!,footer_copy:e.target.value}))} className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]" />
+                <input
+                  value={settings?.footer_copy ?? ""}
+                  onChange={e=>setSettings(s=>({ ...(s||{}), footer_copy:e.target.value }))}
+                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                />
               </label>
 
               <div className="md:col-span-2">

@@ -17,9 +17,6 @@ type EnrolledCourse = {
   cpd_points: number | null;
   progress_pct: number; // 0..100
 };
-
-type AssessmentsDueRow = {
-  id: string;
   user_id: string;
   title: string;
   due_at: string;
