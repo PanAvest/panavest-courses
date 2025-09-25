@@ -1,4 +1,4 @@
-// Minimal Database type for Supabase JS generics
+// Minimal Database type for Supabase, ESLint-safe (no empty object types)
 export type Json =
   | string
   | number
@@ -52,8 +52,8 @@ export interface Database {
         };
       };
     };
-    Views: {};
-    Functions: {};
-    Enums: {};
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+    Enums: Record<string, never>;
   };
 }
