@@ -6,8 +6,20 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-// ===== Types you can align to your DB =====
+/** ===== Domain Types ===== */
 type UserSummary = { id: string; email: string; full_name?: string | null };
+
+type EnrollmentsSelect = {
+  progress_pct: number | null;
+  course_id: string;
+  courses: {
+    title: string;
+    slug: string;
+    img: string | null;
+    cpd_points: number | null;
+  } | null;
+};
+
 type EnrolledCourse = {
   course_id: string;
   title: string;
@@ -16,23 +28,36 @@ type EnrolledCourse = {
   cpd_points: number | null;
   progress_pct: number; // 0..100
 };
+
+type AssessmentsDueRow = {
+  id: string;
+  user_id: string;
+  title: string;
+  due_at: string;
+  status: "due" | "submitted" | "graded" | null;
+  course_slug: string;
+  course_title: string;
+};
+
 type AssessmentDue = {
   id: string;
   course_slug: string;
   course_title: string;
   title: string;
-  due_at: string; // ISO
+  due_at: string;
   status: "due" | "submitted" | "graded";
 };
+
 type CertificateRow = {
   id: string;
   course_title: string;
-  issued_at: string; // ISO
-  url: string; // public URL
+  issued_at: string;
+  url: string;
 };
+
 type Announcement = { id: string; title: string; body: string; created_at: string };
 
-// ===== Supabase client (browser only) =====
+/** ===== Supabase client (browser only) ===== */
 const supabase: SupabaseClient | null =
   typeof window !== "undefined"
     ? createClient(
@@ -50,7 +75,6 @@ export default function DashboardPage() {
   const [certs, setCerts] = useState<CertificateRow[]>([]);
   const [ann, setAnn] = useState<Announcement[]>([]);
 
-  // Derived stats
   const stats = useMemo(() => {
     const coursesInProgress = enrolled.length;
     const cpdEarned = Math.round(
@@ -60,7 +84,6 @@ export default function DashboardPage() {
     return { coursesInProgress, cpdEarned, certCount };
   }, [enrolled, certs]);
 
-  // Auth + data load
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -73,49 +96,46 @@ export default function DashboardPage() {
         return;
       }
 
-      // Basic profile (adjust to your profile table if you have one)
       const profile: UserSummary = {
         id: user.id,
         email: user.email ?? "",
         full_name: (user.user_metadata?.full_name as string | undefined) ?? null,
       };
 
-      // Enrollments + courses (expects courses.img and courses.cpd_points)
+      // Enrollments + joined courses
       const { data: enrData } = await supabase
         .from("enrollments")
-        .select(
-          "progress_pct, course_id, courses:courses!inner(title, slug, img, cpd_points)"
-        )
+        .select("progress_pct, course_id, courses:courses!inner(title, slug, img, cpd_points)")
         .eq("user_id", user.id)
         .order("updated_at", { ascending: false });
 
-      const enrolledRows: EnrolledCourse[] =
-        (enrData ?? []).map((r: any) => ({
-          course_id: r.course_id,
-          progress_pct: Number(r.progress_pct ?? 0),
-          title: r.courses?.title ?? "Course",
-          slug: r.courses?.slug ?? "",
-          img: r.courses?.img ?? null,
-          cpd_points: r.courses?.cpd_points ?? null,
-        })) || [];
+      const enrRows = (enrData ?? []) as EnrollmentsSelect[];
+      const enrolledRows: EnrolledCourse[] = enrRows.map((r) => ({
+        course_id: r.course_id,
+        progress_pct: Number(r.progress_pct ?? 0),
+        title: r.courses?.title ?? "Course",
+        slug: r.courses?.slug ?? "",
+        img: r.courses?.img ?? null,
+        cpd_points: r.courses?.cpd_points ?? null,
+      }));
 
-      // Upcoming assessments (join your tables accordingly)
+      // Upcoming assessments (view)
       const { data: dueData } = await supabase
         .from("assessments_due_view")
         .select("*")
         .eq("user_id", user.id)
-        .lte("due_at", new Date(Date.now() + 1000 * 60 * 60 * 24 * 14).toISOString()) // next 14 days
+        .lte("due_at", new Date(Date.now() + 1000 * 60 * 60 * 24 * 14).toISOString())
         .order("due_at", { ascending: true });
 
-      const upcoming: AssessmentDue[] =
-        (dueData ?? []).map((r: any) => ({
-          id: String(r.id),
-          course_slug: r.course_slug,
-          course_title: r.course_title,
-          title: r.title,
-          due_at: r.due_at,
-          status: (r.status as AssessmentDue["status"]) ?? "due",
-        })) || [];
+      const dueRows = (dueData ?? []) as AssessmentsDueRow[];
+      const upcoming: AssessmentDue[] = dueRows.map((r) => ({
+        id: String(r.id),
+        course_slug: r.course_slug,
+        course_title: r.course_title,
+        title: r.title,
+        due_at: r.due_at,
+        status: (r.status ?? "due") as AssessmentDue["status"],
+      }));
 
       // Certificates
       const { data: certData } = await supabase
@@ -124,15 +144,9 @@ export default function DashboardPage() {
         .eq("user_id", user.id)
         .order("issued_at", { ascending: false });
 
-      const certRows: CertificateRow[] =
-        (certData ?? []).map((r: any) => ({
-          id: String(r.id),
-          course_title: r.course_title,
-          issued_at: r.issued_at,
-          url: r.url,
-        })) || [];
+      const certRows = (certData ?? []) as CertificateRow[];
 
-      // Announcements (global)
+      // Announcements
       const { data: annData } = await supabase
         .from("announcements")
         .select("id, title, body, created_at")
@@ -144,7 +158,7 @@ export default function DashboardPage() {
       setEnrolled(enrolledRows);
       setAssessments(upcoming);
       setCerts(certRows);
-      setAnn(annData ?? []);
+      setAnn((annData ?? []) as Announcement[]);
       setLoading(false);
     })();
     return () => {
@@ -167,10 +181,7 @@ export default function DashboardPage() {
         <h1 className="text-2xl sm:text-3xl font-bold">
           Welcome{me?.full_name ? `, ${me.full_name}` : ""} 👋
         </h1>
-        <p className="text-muted mt-1">
-          Track your certified CPD (CPPD) progress, assessments and certificates.
-        </p>
-
+        <p className="text-muted mt-1">Track your certified CPD (CPPD) progress, assessments and certificates.</p>
         <div className="mt-6 grid gap-4 sm:grid-cols-3">
           <StatCard label="CPPD credits earned" value={stats.cpdEarned} suffix="pts" />
           <StatCard label="Courses in progress" value={stats.coursesInProgress} />
@@ -191,23 +202,14 @@ export default function DashboardPage() {
             {enrolled.map((c) => (
               <div key={c.course_id} className="rounded-2xl bg-white border border-light p-4 flex gap-4">
                 <div className="relative h-20 w-28 shrink-0 rounded-lg overflow-hidden ring-1 ring-[color:var(--color-light)] bg-white">
-                  <Image
-                    src={c.img || "/next.svg"}
-                    alt={c.title}
-                    fill
-                    className="object-contain p-2"
-                    sizes="112px"
-                  />
+                  <Image src={c.img || "/next.svg"} alt={c.title} fill className="object-contain p-2" sizes="112px" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <Link href={`/courses/${c.slug}`} className="font-semibold hover:text-brand line-clamp-1">
                     {c.title}
                   </Link>
                   <div className="mt-2 h-2 w-full rounded-full bg-[color:var(--color-light)]/60">
-                    <div
-                      className="h-2 rounded-full bg-brand"
-                      style={{ width: `${Math.min(100, Math.max(0, c.progress_pct))}%` }}
-                    />
+                    <div className="h-2 rounded-full bg-brand" style={{ width: `${Math.min(100, Math.max(0, c.progress_pct))}%` }} />
                   </div>
                   <div className="mt-1 text-xs text-muted">{Math.round(c.progress_pct)}% complete · {c.cpd_points ?? 0} CPPD pts</div>
                   <div className="mt-3">
@@ -280,13 +282,11 @@ export default function DashboardPage() {
                 className="rounded-2xl border border-light bg-white p-4 hover:shadow-sm transition"
               >
                 <div className="font-medium line-clamp-1">{c.course_title}</div>
-                <div className="text-xs text-muted mt-1">
-                  Issued {new Date(c.issued_at).toLocaleDateString()}
-                </div>
+                <div className="text-xs text-muted mt-1">Issued {new Date(c.issued_at).toLocaleDateString()}</div>
                 <div className="mt-3 inline-flex items-center gap-2 text-sm text-brand">
                   View certificate
                   <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden>
-                    <path d="M7 17l7-7m0 0H8m6 0v6" fill="none" stroke="currentColor" strokeWidth="2"/>
+                    <path d="M7 17l7-7m0 0H8m6 0v6" fill="none" stroke="currentColor" strokeWidth="2" />
                   </svg>
                 </div>
               </a>
@@ -298,13 +298,14 @@ export default function DashboardPage() {
   );
 }
 
-// ===== Small UI helpers =====
+/** ===== Small UI helpers ===== */
 function StatCard({ label, value, suffix }: { label: string; value: number; suffix?: string }) {
   return (
     <div className="rounded-2xl bg-white border border-light p-4">
       <div className="text-sm text-muted">{label}</div>
       <div className="mt-1 text-2xl font-bold">
-        {value}{suffix ? <span className="text-base font-semibold text-muted"> {suffix}</span> : null}
+        {value}
+        {suffix ? <span className="text-base font-semibold text-muted"> {suffix}</span> : null}
       </div>
     </div>
   );
