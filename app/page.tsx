@@ -13,7 +13,7 @@ export default function HomePage() {
     <>
       {/* HERO: bigger headline (2 lines), more content, removed "Sign Up" */}
       <section className="py-10 sm:py-16">
-        <div className="w-full px-4 md:px-6 grid gap-8 md:grid-cols-2 items-center">
+        <div className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 grid gap-8 md:grid-cols-2 items-center">
           <div className="animate-fade-up">
             <h1 className="font-bold leading-[1.02] text-[44px] sm:text-[68px]">
               Unlock your
@@ -57,7 +57,7 @@ export default function HomePage() {
 
       {/* WHAT WE DO (5 items with icons) */}
       <section className="py-10">
-        <div className="w-full px-4 md:px-6">
+        <div className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8">
           <h2 className="text-2xl sm:text-3xl font-bold">What we do</h2>
           <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             {[
@@ -79,7 +79,7 @@ export default function HomePage() {
 
       {/* WHY YOU NEED US */}
       <section className="py-6">
-        <div className="w-full px-4 md:px-6">
+        <div className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8">
           <h2 className="text-2xl sm:text-3xl font-bold">Why you need us</h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[
@@ -98,7 +98,7 @@ export default function HomePage() {
 
       {/* FEATURED (smaller images than before) */}
       <section className="py-8">
-        <div className="w-full px-4 md:px-6">
+        <div className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8">
           <h2 className="text-2xl sm:text-3xl font-bold">Featured Courses</h2>
 
           <div className="mt-6 grid gap-6 md:grid-cols-2">
@@ -136,7 +136,7 @@ export default function HomePage() {
 
       {/* TESTIMONIALS (3 in a row on desktop) */}
       <section className="py-12">
-        <div className="w-full px-4 md:px-6">
+        <div className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8">
           <h2 className="text-2xl sm:text-3xl font-bold">What learners say</h2>
           <div className="mt-6 grid gap-6 md:grid-cols-3">
             {[
