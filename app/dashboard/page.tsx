@@ -9,17 +9,6 @@ import { useRouter } from "next/navigation";
 /** ===== Domain Types ===== */
 type UserSummary = { id: string; email: string; full_name?: string | null };
 
-type EnrollmentsSelect = {
-  progress_pct: number | null;
-  course_id: string;
-  courses: {
-    title: string;
-    slug: string;
-    img: string | null;
-    cpd_points: number | null;
-  } | null;
-};
-
 type EnrolledCourse = {
   course_id: string;
   title: string;
@@ -102,22 +91,42 @@ export default function DashboardPage() {
         full_name: (user.user_metadata?.full_name as string | undefined) ?? null,
       };
 
-      // Enrollments + joined courses
+      // Enrollments + joined courses (handle object OR array for joined "courses")
       const { data: enrData } = await supabase
         .from("enrollments")
-        .select("progress_pct, course_id, courses:courses!inner(title, slug, img, cpd_points)")
+        .select(`
+          progress_pct,
+          course_id,
+          courses:courses!inner (
+            title,
+            slug,
+            img,
+            cpd_points
+          )
+        `)
         .eq("user_id", user.id)
         .order("updated_at", { ascending: false });
 
-      const enrRows = (enrData ?? []) as EnrollmentsSelect[];
-      const enrolledRows: EnrolledCourse[] = enrRows.map((r) => ({
-        course_id: r.course_id,
-        progress_pct: Number(r.progress_pct ?? 0),
-        title: r.courses?.title ?? "Course",
-        slug: r.courses?.slug ?? "",
-        img: r.courses?.img ?? null,
-        cpd_points: r.courses?.cpd_points ?? null,
-      }));
+      const enrolledRows: EnrolledCourse[] = (enrData ?? []).map((raw: unknown) => {
+        const r = (raw ?? {}) as Record<string, unknown>;
+        const progress =
+          typeof r.progress_pct === "number"
+            ? r.progress_pct
+            : Number(r.progress_pct ?? 0);
+
+        const course_id = String(r.course_id ?? "");
+
+        const picked = pickCourse(r.courses);
+
+        return {
+          course_id,
+          progress_pct: clamp0to100(Number.isFinite(progress) ? progress : 0),
+          title: picked.title ?? "Course",
+          slug: picked.slug ?? "",
+          img: picked.img ?? null,
+          cpd_points: picked.cpd_points ?? 0,
+        };
+      });
 
       // Upcoming assessments (view)
       const { data: dueData } = await supabase
@@ -127,15 +136,18 @@ export default function DashboardPage() {
         .lte("due_at", new Date(Date.now() + 1000 * 60 * 60 * 24 * 14).toISOString())
         .order("due_at", { ascending: true });
 
-      const dueRows = (dueData ?? []) as AssessmentsDueRow[];
-      const upcoming: AssessmentDue[] = dueRows.map((r) => ({
-        id: String(r.id),
-        course_slug: r.course_slug,
-        course_title: r.course_title,
-        title: r.title,
-        due_at: r.due_at,
-        status: (r.status ?? "due") as AssessmentDue["status"],
-      }));
+      const dueRows = (dueData ?? []) as unknown[];
+      const upcoming: AssessmentDue[] = dueRows.map((raw) => {
+        const r = raw as Record<string, unknown>;
+        return {
+          id: String(r.id ?? ""),
+          course_slug: String(r.course_slug ?? ""),
+          course_title: String(r.course_title ?? "Course"),
+          title: String(r.title ?? "Assessment"),
+          due_at: String(r.due_at ?? new Date().toISOString()),
+          status: (String(r.status ?? "due") as AssessmentDue["status"]),
+        };
+      });
 
       // Certificates
       const { data: certData } = await supabase
@@ -144,7 +156,15 @@ export default function DashboardPage() {
         .eq("user_id", user.id)
         .order("issued_at", { ascending: false });
 
-      const certRows = (certData ?? []) as CertificateRow[];
+      const certRows = (certData ?? []).map((raw: unknown) => {
+        const r = raw as Record<string, unknown>;
+        return {
+          id: String(r.id ?? ""),
+          course_title: String(r.course_title ?? "Course"),
+          issued_at: String(r.issued_at ?? new Date().toISOString()),
+          url: String(r.url ?? "#"),
+        } as CertificateRow;
+      });
 
       // Announcements
       const { data: annData } = await supabase
@@ -158,7 +178,15 @@ export default function DashboardPage() {
       setEnrolled(enrolledRows);
       setAssessments(upcoming);
       setCerts(certRows);
-      setAnn((annData ?? []) as Announcement[]);
+      setAnn(((annData ?? []) as unknown[]).map((raw) => {
+        const r = raw as Record<string, unknown>;
+        return {
+          id: String(r.id ?? ""),
+          title: String(r.title ?? ""),
+          body: String(r.body ?? ""),
+          created_at: String(r.created_at ?? new Date().toISOString()),
+        };
+      }));
       setLoading(false);
     })();
     return () => {
@@ -183,7 +211,7 @@ export default function DashboardPage() {
         </h1>
         <p className="text-muted mt-1">Track your certified CPD (CPPD) progress, assessments and certificates.</p>
         <div className="mt-6 grid gap-4 sm:grid-cols-3">
-          <StatCard label="CPPD credits earned" value={stats.cpdEarned} suffix="pts" />
+          <StatCard label="CPPD credits earned" value={Math.max(0, stats.cpdEarned)} suffix="pts" />
           <StatCard label="Courses in progress" value={stats.coursesInProgress} />
           <StatCard label="Certificates" value={stats.certCount} />
         </div>
@@ -209,13 +237,11 @@ export default function DashboardPage() {
                     {c.title}
                   </Link>
                   <div className="mt-2 h-2 w-full rounded-full bg-[color:var(--color-light)]/60">
-                    <div className="h-2 rounded-full bg-brand" style={{ width: `${Math.min(100, Math.max(0, c.progress_pct))}%` }} />
+                    <div className="h-2 rounded-full bg-brand" style={{ width: `${c.progress_pct}%` }} />
                   </div>
                   <div className="mt-1 text-xs text-muted">{Math.round(c.progress_pct)}% complete · {c.cpd_points ?? 0} CPPD pts</div>
                   <div className="mt-3">
-                    <Link href={`/courses/${c.slug}`} className="text-sm rounded-lg px-3 py-1.5 bg-brand text-white hover:opacity-90">
-                      Resume
-                    </Link>
+                    <Link href={`/courses/${c.slug}`} className="text-sm rounded-lg px-3 py-1.5 bg-brand text-white hover:opacity-90">Resume</Link>
                   </div>
                 </div>
               </div>
@@ -274,13 +300,7 @@ export default function DashboardPage() {
         ) : (
           <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {certs.map((c) => (
-              <a
-                key={c.id}
-                href={c.url}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-2xl border border-light bg-white p-4 hover:shadow-sm transition"
-              >
+              <a key={c.id} href={c.url} target="_blank" rel="noreferrer" className="rounded-2xl border border-light bg-white p-4 hover:shadow-sm transition">
                 <div className="font-medium line-clamp-1">{c.course_title}</div>
                 <div className="text-xs text-muted mt-1">Issued {new Date(c.issued_at).toLocaleDateString()}</div>
                 <div className="mt-3 inline-flex items-center gap-2 text-sm text-brand">
@@ -296,6 +316,37 @@ export default function DashboardPage() {
       </section>
     </div>
   );
+}
+
+/** ===== Helpers (no any) ===== */
+function clamp0to100(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  if (n < 0) return 0;
+  if (n > 100) return 100;
+  return n;
+}
+
+// Accepts unknown and returns normalized course fields
+function pickCourse(
+  coursesField: unknown
+): { title: string; slug: string; img: string | null; cpd_points: number | null } {
+  const normalize = (o: unknown) => {
+    if (o && typeof o === "object") {
+      const r = o as Record<string, unknown>;
+      const title = String(r.title ?? "Course");
+      const slug = String(r.slug ?? "");
+      const img = r.img === null || typeof r.img === "string" ? (r.img as string | null) : null;
+      const pts =
+        typeof r.cpd_points === "number" ? r.cpd_points : Number.isFinite(Number(r.cpd_points)) ? Number(r.cpd_points) : 0;
+      return { title, slug, img, cpd_points: pts };
+    }
+    return { title: "Course", slug: "", img: null, cpd_points: 0 };
+  };
+
+  if (Array.isArray(coursesField)) {
+    return coursesField.length ? normalize(coursesField[0]) : { title: "Course", slug: "", img: null, cpd_points: 0 };
+  }
+  return normalize(coursesField);
 }
 
 /** ===== Small UI helpers ===== */
