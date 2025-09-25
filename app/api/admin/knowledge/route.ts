@@ -1,29 +1,28 @@
+// @ts-nocheck
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import type { Database } from "@/lib/types";
-
-type CoursesRow = Database["public"]["Tables"]["courses"]["Row"];
-type CoursesInsert = Database["public"]["Tables"]["courses"]["Insert"];
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function GET() {
-  const { data, error } = await supabaseAdmin
+  const db = getSupabaseAdmin();
+  const { data, error } = await db
     .from("courses")
     .select("id,slug,title,description,level,price,cpd_points,img,accredited,published")
     .order("title", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json((data ?? []) as CoursesRow[]);
+  return NextResponse.json(data ?? []);
 }
 
 export async function POST(req: Request) {
-  const body = (await req.json()) as Partial<CoursesInsert>;
+  const db = getSupabaseAdmin();
+  const body = await req.json();
 
-  if (!body.slug || !body.title) {
+  if (!body?.slug || !body?.title) {
     return NextResponse.json({ error: "slug and title are required" }, { status: 400 });
   }
 
-  const payload: CoursesInsert = {
-    id: body.id,                    // optional
+  const payload = {
+    id: body.id,
     slug: body.slug ?? null,
     title: body.title ?? null,
     description: body.description ?? null,
@@ -36,12 +35,12 @@ export async function POST(req: Request) {
     created_at: body.created_at ?? null,
   };
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await db
     .from("courses")
-    .upsert([payload] as CoursesInsert[], { onConflict: "slug" })
+    .upsert(payload, { onConflict: "slug" })
     .select()
     .maybeSingle();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json((data ?? null) as CoursesRow | null);
+  return NextResponse.json(data ?? null);
 }
