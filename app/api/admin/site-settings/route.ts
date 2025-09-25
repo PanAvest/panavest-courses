@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { getSupabaseAdmin } from "@/lib/getSupabaseAdmin()";
 
 export async function PUT(req: Request) {
   const body = await req.json();
-  const { error } = await supabaseAdmin
+  const { error } = await getSupabaseAdmin()
     .from("site_settings")
     .update({
       hero_title: body.hero_title ?? null,
