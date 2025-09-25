@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSupabaseAdmin } from "@/lib/getSupabaseAdmin()";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function PUT(req: Request) {
   const body = await req.json();
