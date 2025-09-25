@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 type Knowledge = {
@@ -14,16 +14,18 @@ type Knowledge = {
   published?: boolean | null;
 };
 
-export async function GET() {
+export async function GET(_req: NextRequest) {
+  if (!supabaseAdmin) return NextResponse.json({ error: "Server not configured" }, { status: 500 });
   const { data, error } = await supabaseAdmin
     .from("courses")
     .select("id,slug,title,description,level,price,cpd_points,img,accredited,published")
     .order("title", { ascending: true });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data);
+  return NextResponse.json(data ?? []);
 }
 
 export async function POST(req: Request) {
+  if (!supabaseAdmin) return NextResponse.json({ error: "Server not configured" }, { status: 500 });
   const body = (await req.json()) as Knowledge;
   if (!body.slug || !body.title) {
     return NextResponse.json({ error: "slug and title are required" }, { status: 400 });
@@ -44,5 +46,5 @@ export async function POST(req: Request) {
     .upsert(payload, { onConflict: "slug" })
     .select();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data?.[0] ?? null);
+  return NextResponse.json((data ?? [])[0] ?? null);
 }
