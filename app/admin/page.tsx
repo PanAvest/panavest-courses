@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 
+/** ---------- Types ---------- */
 type Knowledge = {
   id?: string;
   slug: string;
@@ -16,12 +17,24 @@ type Knowledge = {
   published?: boolean | null;
 };
 
-type UserFlat = {
+type SupabaseUser = {
   id: string;
   email?: string;
   email_confirmed_at?: string | null;
   created_at?: string;
 };
+
+type UsersListResponse = {
+  users?: SupabaseUser[];
+  total?: number;
+  nextPage?: number;
+  lastPage?: number;
+};
+
+type UploadResponse = { path: string; publicUrl: string };
+type ErrorResponse = { error: string };
+type LinkResponse = { link?: string | null };
+type DeployResponse = { ok: boolean; text?: string; error?: string };
 
 type SocialLinks = { x?: string; instagram?: string; linkedin?: string; facebook?: string };
 type SiteSettings = {
@@ -46,6 +59,30 @@ const colorLabels: Record<ColorKey,string> = {
 const socialKeys = ["x","instagram","linkedin","facebook"] as const;
 type SocialKey = typeof socialKeys[number];
 
+/** ---------- Narrowing helpers (no any) ---------- */
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null;
+}
+function isSupabaseUser(v: unknown): v is SupabaseUser {
+  return isRecord(v) && typeof v.id === "string";
+}
+function isUsersListResponse(v: unknown): v is UsersListResponse {
+  return isRecord(v) && (!("users" in v) || Array.isArray(v.users));
+}
+function isUploadResponse(v: unknown): v is UploadResponse {
+  return isRecord(v) && typeof v.publicUrl === "string" && typeof v.path === "string";
+}
+function isErrorResponse(v: unknown): v is ErrorResponse {
+  return isRecord(v) && typeof v.error === "string";
+}
+function isLinkResponse(v: unknown): v is LinkResponse {
+  return isRecord(v) && (!("link" in v) || typeof v.link === "string" || v.link === null);
+}
+function isDeployResponse(v: unknown): v is DeployResponse {
+  return isRecord(v) && typeof v.ok === "boolean";
+}
+
+/** ---------- Component ---------- */
 export default function AdminPage() {
   const [tab, setTab] = useState<"overview"|"knowledge"|"media"|"users"|"settings"|"deploy">("overview");
 
@@ -55,12 +92,19 @@ export default function AdminPage() {
   useEffect(() => {
     (async () => {
       try {
-        const k = await fetch("/api/admin/knowledge").then(r=>r.json());
+        const kRes = await fetch("/api/admin/knowledge");
+        const k = (await kRes.json()) as unknown;
         setStatKnowledge(Array.isArray(k) ? k.length : 0);
-        const u = await fetch("/api/admin/users").then(r=>r.json());
-        const total = typeof u?.total === "number" ? u.total : (Array.isArray(u?.users)?u.users.length:0);
+
+        const uRes = await fetch("/api/admin/users");
+        const u = (await uRes.json()) as unknown;
+        const total =
+          (isUsersListResponse(u) && typeof u.total === "number" && u.total) ||
+          (isUsersListResponse(u) && Array.isArray(u.users) ? u.users.length : 0);
         setStatUsers(total);
-      } catch {}
+      } catch {
+        /* ignore */
+      }
     })();
   }, []);
 
@@ -75,14 +119,14 @@ export default function AdminPage() {
 
   async function refreshKnowledge() {
     const r = await fetch("/api/admin/knowledge", { cache:"no-store" });
-    const d: unknown = await r.json();
+    const d = (await r.json()) as unknown;
     setList(Array.isArray(d) ? (d as Knowledge[]) : []);
   }
-  useEffect(()=>{ if(tab==="knowledge") refreshKnowledge(); },[tab]);
+  useEffect(()=>{ if(tab==="knowledge") void refreshKnowledge(); },[tab]);
 
   async function saveKnowledge() {
     setSaving(true);
-    const payload: Knowledge = { ...form, accredited: (form.accredited ?? []).map(s=>String(s)) };
+    const payload: Knowledge = { ...form, accredited: (form.accredited ?? []).map(String) };
     const r = await fetch("/api/admin/knowledge", {
       method:"POST",
       headers:{ "content-type":"application/json" },
@@ -109,28 +153,21 @@ export default function AdminPage() {
     fd.append("name", file.name);
     const r = await fetch("/api/admin/upload", { method:"POST", body: fd });
     setUploading(false);
-    const d: unknown = await r.json();
-    if (r.ok && typeof (d as any)?.publicUrl === "string") setUploadedUrl((d as any).publicUrl);
-    else alert((d as any)?.error || "Upload failed");
+    const d = (await r.json()) as unknown;
+    if (r.ok && isUploadResponse(d)) setUploadedUrl(d.publicUrl);
+    else if (isErrorResponse(d)) alert(d.error);
+    else alert("Upload failed");
   }
 
   // Users
-  const [users, setUsers] = useState<UserFlat[]>([]);
+  const [users, setUsers] = useState<SupabaseUser[]>([]);
   async function refreshUsers() {
     const r = await fetch("/api/admin/users", { cache:"no-store" });
-    const d: unknown = await r.json();
-    const arr: UserFlat[] =
-      Array.isArray((d as any)?.users)
-        ? (d as any).users.map((u: any) => ({
-            id: String(u?.id ?? ""),
-            email: u?.email,
-            email_confirmed_at: u?.email_confirmed_at ?? null,
-            created_at: u?.created_at
-          }))
-        : [];
+    const d = (await r.json()) as unknown;
+    const arr = isUsersListResponse(d) && Array.isArray(d.users) ? d.users.filter(isSupabaseUser) : [];
     setUsers(arr);
   }
-  useEffect(()=>{ if(tab==="users") refreshUsers(); },[tab]);
+  useEffect(()=>{ if(tab==="users") void refreshUsers(); },[tab]);
 
   async function deleteUser(id: string) {
     if (!confirm("Delete this user?")) return;
@@ -144,19 +181,20 @@ export default function AdminPage() {
       headers:{ "content-type":"application/json" },
       body: JSON.stringify({ action:"generate_confirmation_link", email })
     });
-    const d: unknown = await r.json();
-    const link = (d as any)?.link;
-    if (r.ok && typeof link === "string") {
-      await navigator.clipboard.writeText(link);
+    const d = (await r.json()) as unknown;
+    if (r.ok && isLinkResponse(d) && typeof d.link === "string" && d.link.length) {
+      await navigator.clipboard.writeText(d.link);
       alert("Confirmation link copied.");
+    } else if (isErrorResponse(d)) {
+      alert(d.error);
     } else {
-      alert((d as any)?.error || "Could not generate link");
+      alert("Could not generate link");
     }
   }
 
   // Settings
   const [settings, setSettings] = useState<SiteSettings | null>(null);
-  useEffect(()=>{ if(tab==="settings"){ fetch("/api/public/site-settings").then(r=>r.json()).then((s)=>setSettings(s)); } },[tab]);
+  useEffect(()=>{ if(tab==="settings"){ fetch("/api/public/site-settings").then(r=>r.json()).then((s)=>setSettings((s ?? null) as SiteSettings | null)); } },[tab]);
   async function saveSettings() {
     const r = await fetch("/api/admin/site-settings",{
       method:"PUT",
@@ -169,8 +207,12 @@ export default function AdminPage() {
   // Deploy
   async function triggerDeploy() {
     const r = await fetch("/api/admin/deploy", { method:"POST" });
-    const d: unknown = await r.json();
-    alert((d as any)?.ok ? "Deploy triggered" : `Failed: ${(d as any)?.text || (d as any)?.error}`);
+    const d = (await r.json()) as unknown;
+    const msg =
+      (isDeployResponse(d) && d.ok) ? "Deploy triggered" :
+      (isDeployResponse(d) && !d.ok && d.text) ? `Failed: ${d.text}` :
+      (isErrorResponse(d)) ? `Failed: ${d.error}` : "Failed";
+    alert(msg);
   }
 
   return (

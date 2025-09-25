@@ -43,7 +43,6 @@ function pickCourse(c: CourseRow | CourseRow[] | null | undefined): CourseRow | 
 }
 
 export default function DashboardPage() {
-  const [userId, setUserId] = useState<string | null>(null);
   const [enrolled, setEnrolled] = useState<EnrolledCourse[]>([]);
   const [due, setDue] = useState<AssessmentJoined[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -55,7 +54,6 @@ export default function DashboardPage() {
         window.location.href = "/auth/sign-in";
         return;
       }
-      setUserId(user.id);
 
       // Enrollments (joined with courses)
       const { data: enrData, error: enrErr } = await supabase
