@@ -1,18 +1,13 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import ProgressBar from "@/components/ProgressBar";
 
 type Course = { id: string; slug: string; title: string; img: string | null };
-
-// NOTE: use order_index to match what Admin writes
 type Chapter = { id: string; title: string; order_index: number; intro_video_url: string | null };
-
-// Support both the “new” fields (intro_video_url, asset_url, body) and the older
-// ones (video_url, content) so the page works regardless of how slides were created.
 type Slide = {
   id: string;
   chapter_id: string;
@@ -21,7 +16,7 @@ type Slide = {
   intro_video_url: string | null;
   asset_url: string | null;
   body: string | null;
-  // legacy/alternate fields (kept optional)
+  // legacy fields kept optional
   video_url?: string | null;
   content?: string | null;
 };
@@ -31,13 +26,16 @@ export default function CourseDashboard() {
   const slug = params?.slug;
   const router = useRouter();
 
-  const [userId, setUserId] = useState<string>("");
+  const [userId, setUserId] = useState("");
   const [course, setCourse] = useState<Course | null>(null);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [slides, setSlides] = useState<Slide[]>([]);
   const [completed, setCompleted] = useState<string[]>([]);
   const [activeSlide, setActiveSlide] = useState<Slide | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // keep a snapshot of the current slide ids to avoid auto-resetting selection
+  const slideIdsRef = useRef<string[]>([]);
 
   // auth
   useEffect(() => {
@@ -55,16 +53,15 @@ export default function CourseDashboard() {
       setLoading(true);
 
       // course
-      const { data: c, error: cErr } = await supabase
+      const { data: c } = await supabase
         .from("courses")
         .select("id,slug,title,img")
         .eq("slug", String(slug))
         .maybeSingle();
-      if (cErr) console.error(cErr);
       if (!c) { router.push("/knowledge"); return; }
       setCourse(c);
 
-      // (soft) paywall – skip redirect if table/row is missing so you can test content
+      // soft paywall: only redirect if row exists and paid is false
       try {
         const { data: enr } = await supabase
           .from("enrollments")
@@ -75,34 +72,38 @@ export default function CourseDashboard() {
           router.push(`/knowledge/${c.slug}/enroll`);
           return;
         }
-      } catch {
-        // no enrollments table/row yet – continue so you can interact with content
-      }
+      } catch {/* ignore if table missing */}
 
-      // chapters ordered by order_index (matches Admin)
-      const { data: ch, error: chErr } = await supabase
+      // chapters by order_index (fallback to position if needed)
+      const { data: ch } = await supabase
         .from("course_chapters")
         .select("id,title,order_index,intro_video_url")
         .eq("course_id", c.id)
         .order("order_index", { ascending: true });
-      if (chErr) console.error(chErr);
+
       const chapterIds = (ch ?? []).map(x => x.id);
 
-      // slides (if no chapters, skip the query)
+      // slides
       let sl: Slide[] = [];
       if (chapterIds.length > 0) {
-        const { data: slData, error: slErr } = await supabase
+        const { data: slData } = await supabase
           .from("course_slides")
           .select("id,chapter_id,title,order_index,intro_video_url,asset_url,body,video_url,content")
           .in("chapter_id", chapterIds)
           .order("order_index", { ascending: true });
-        if (slErr) console.error(slErr);
         sl = slData ?? [];
       }
 
       setChapters(ch ?? []);
       setSlides(sl);
-      setActiveSlide(sl[0] ?? null);
+
+      // only auto-select on first load OR when the list of slide ids truly changes
+      const newIds = sl.map(s => s.id);
+      const prevIds = slideIdsRef.current;
+      slideIdsRef.current = newIds;
+      if (!activeSlide || prevIds.join(",") !== newIds.join(",")) {
+        setActiveSlide(sl[0] ?? null);
+      }
 
       // progress (best-effort)
       try {
@@ -112,14 +113,11 @@ export default function CourseDashboard() {
           .eq("user_id", userId)
           .eq("course_id", c.id);
         setCompleted((prog ?? []).map((p: { slide_id: string }) => p.slide_id));
-      } catch {
-        // table might not exist yet
-        setCompleted([]);
-      }
+      } catch {/* ignore if table missing */}
 
       setLoading(false);
     })();
-  }, [userId, slug, router]);
+  }, [userId, slug]); // note: no router or activeSlide here
 
   const totalSlides = slides.length;
   const done = completed.length;
@@ -135,9 +133,7 @@ export default function CourseDashboard() {
           { onConflict: "user_id,slide_id" }
         );
       setCompleted(prev => (prev.includes(slide.id) ? prev : [...prev, slide.id]));
-    } catch {
-      // if table doesn't exist yet, just no-op
-    }
+    } catch {/* ignore if table missing */}
   }
 
   const slidesByChapter = useMemo(() => {
@@ -167,7 +163,6 @@ export default function CourseDashboard() {
           </div>
         );
       }
-      // pdf/other
       return (
         <div className="mt-3 text-sm">
           <a className="underline" href={s.asset_url} target="_blank" rel="noreferrer">Open slide asset</a>
@@ -199,8 +194,10 @@ export default function CourseDashboard() {
                   return (
                     <li key={s.id}>
                       <button
-                        className={`w-full text-left text-xs px-2 py-1.5 rounded-md ${isActive ? "bg-[color:var(--color-light)]" : "hover:bg-[color:var(--color-light)]/70"}`}
+                        type="button"
+                        className={`pointer-events-auto cursor-pointer w-full text-left text-xs px-2 py-1.5 rounded-md ${isActive ? "bg-[color:var(--color-light)]" : "hover:bg-[color:var(--color-light)]/70"}`}
                         onClick={() => setActiveSlide(s)}
+                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setActiveSlide(s); }}
                       >
                         {isDone ? "✅ " : ""}{s.title}
                       </button>
@@ -226,8 +223,9 @@ export default function CourseDashboard() {
             )}
             <div className="mt-4 flex gap-3">
               <button
+                type="button"
                 onClick={() => markDone(activeSlide)}
-                className="rounded-lg bg-brand text-white px-4 py-2 font-semibold hover:opacity-90"
+                className="pointer-events-auto rounded-lg bg-brand text-white px-4 py-2 font-semibold hover:opacity-90"
               >
                 Mark as Done
               </button>
