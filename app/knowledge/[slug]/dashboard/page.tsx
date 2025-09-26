@@ -22,7 +22,6 @@ export default function CourseDashboard() {
   const [activeSlide, setActiveSlide] = useState<Slide | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // auth
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -31,7 +30,6 @@ export default function CourseDashboard() {
     })();
   }, [router]);
 
-  // load course + enrollment + content
   useEffect(() => {
     if (!userId || !slug) return;
     (async () => {
@@ -40,13 +38,12 @@ export default function CourseDashboard() {
       if (!c) { router.push("/knowledge"); return; }
       setCourse(c);
 
-      // check enrollment and paid
       const { data: enr } = await supabase
         .from("enrollments")
         .select("paid")
         .eq("user_id", userId).eq("course_id", c.id)
         .maybeSingle();
-      if (!enr?.paid) { router.push(\`/knowledge/\${c.slug}/enroll\`); return; }
+      if (!enr?.paid) { router.push(`/knowledge/${c.slug}/enroll`); return; }
 
       const { data: ch } = await supabase
         .from("course_chapters")
@@ -64,7 +61,6 @@ export default function CourseDashboard() {
       setSlides(sl ?? []);
       setActiveSlide((sl ?? [])[0] ?? null);
 
-      // load user progress
       const { data: prog } = await supabase
         .from("user_slide_progress")
         .select("slide_id")
@@ -82,10 +78,11 @@ export default function CourseDashboard() {
 
   async function markDone(slide: Slide | null) {
     if (!slide || !userId || !course) return;
-    await supabase.from("user_slide_progress").upsert({
-      user_id: userId, course_id: course.id, slide_id: slide.id
-    }, { onConflict: "user_id,slide_id" });
-    setCompleted(prev => prev.includes(slide.id) ? prev : [...prev, slide.id]);
+    await supabase.from("user_slide_progress").upsert(
+      { user_id: userId, course_id: course.id, slide_id: slide.id },
+      { onConflict: "user_id,slide_id" }
+    );
+    setCompleted(prev => (prev.includes(slide.id) ? prev : [...prev, slide.id]));
   }
 
   const slidesByChapter = useMemo(() => {
@@ -101,7 +98,6 @@ export default function CourseDashboard() {
 
   return (
     <div className="mx-auto max-w-screen-2xl px-4 md:px-6 py-8 grid gap-8 lg:grid-cols-[320px_1fr]">
-      {/* Sidebar */}
       <aside className="rounded-2xl bg-white border border-light p-4 h-max sticky top-4">
         <div className="text-xl font-semibold">{course.title}</div>
         <div className="mt-3 text-sm">Progress</div>
@@ -119,7 +115,7 @@ export default function CourseDashboard() {
                   return (
                     <li key={s.id}>
                       <button
-                        className={\`w-full text-left text-xs px-2 py-1.5 rounded-md \${isActive ? "bg-[color:var(--color-light)]" : "hover:bg-[color:var(--color-light)]/70"}\`}
+                        className={`w-full text-left text-xs px-2 py-1.5 rounded-md ${isActive ? "bg-[color:var(--color-light)]" : "hover:bg-[color:var(--color-light)]/70"}`}
                         onClick={() => setActiveSlide(s)}
                       >
                         {isDone ? "✅ " : ""}{s.title}
@@ -134,7 +130,6 @@ export default function CourseDashboard() {
         </div>
       </aside>
 
-      {/* Content */}
       <main className="rounded-2xl bg-white border border-light p-4">
         {activeSlide ? (
           <>

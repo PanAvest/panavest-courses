@@ -11,13 +11,17 @@ export default function EnrollPage() {
   const params = useParams<{ slug: string }>();
   const slug = params?.slug;
   const [course, setCourse] = useState<Course | null>(null);
-  const [method, setMethod] = useState<"momo"|"card">("momo");
+  const [method, setMethod] = useState<"momo" | "card">("momo");
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
 
   useEffect(() => {
     (async () => {
-      const { data: c } = await supabase.from("courses").select("id,slug,title,price,img").eq("slug", String(slug)).maybeSingle();
+      const { data: c } = await supabase
+        .from("courses")
+        .select("id,slug,title,price,img")
+        .eq("slug", String(slug))
+        .maybeSingle();
       setCourse(c);
       setLoading(false);
     })();
@@ -46,19 +50,21 @@ export default function EnrollPage() {
       method,
       provider: method === "momo" ? "MobileMoney" : "Card",
       status: "paid",
-      ref: \`MOCK-\${Date.now()}\`
+      ref: `MOCK-${Date.now()}`
     });
 
-    // Upsert enrollment
-    await supabase.from("enrollments").upsert({
-      user_id: user.id,
-      course_id: course.id,
-      paid: true,
-      progress_pct: 0
-    }, { onConflict: "user_id,course_id" });
+    await supabase.from("enrollments").upsert(
+      {
+        user_id: user.id,
+        course_id: course.id,
+        paid: true,
+        progress_pct: 0
+      },
+      { onConflict: "user_id,course_id" }
+    );
 
     setPaying(false);
-    router.push(\`/knowledge/\${course.slug}/dashboard\`);
+    router.push(`/knowledge/${course.slug}/dashboard`);
   }
 
   if (loading) return <div className="mx-auto max-w-screen-sm px-4 py-10">Loading…</div>;
@@ -74,11 +80,11 @@ export default function EnrollPage() {
         <div className="text-sm font-semibold">Payment Method</div>
         <div className="mt-2 grid gap-2">
           <label className="inline-flex items-center gap-2">
-            <input type="radio" name="method" checked={method==="momo"} onChange={()=>setMethod("momo")} />
+            <input type="radio" name="method" checked={method === "momo"} onChange={() => setMethod("momo")} />
             <span>Mobile Money (All Networks)</span>
           </label>
           <label className="inline-flex items-center gap-2">
-            <input type="radio" name="method" checked={method==="card"} onChange={()=>setMethod("card")} />
+            <input type="radio" name="method" checked={method === "card"} onChange={() => setMethod("card")} />
             <span>Debit/Credit Card</span>
           </label>
         </div>
