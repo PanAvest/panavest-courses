@@ -21,7 +21,6 @@ export async function POST(req: Request) {
     intro_video_url?: string | null; summary?: string | null;
   };
   const db = getSupabaseAdmin();
-  // @ts-expect-error: without generated types, upsert generic complains; we pass array which is valid at runtime.
   const { data, error } = await db.from("course_chapters").upsert([{
     id: body.id ?? undefined,
     course_id: body.course_id,
