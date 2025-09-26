@@ -21,7 +21,6 @@ export async function POST(req: Request) {
     video_url?: string | null; content?: string | null;
   };
   const db = getSupabaseAdmin();
-  // @ts-expect-error: see note in chapters route
   const { data, error } = await db.from("course_slides").upsert([{
     id: body.id ?? undefined,
     chapter_id: body.chapter_id,
