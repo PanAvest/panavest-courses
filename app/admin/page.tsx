@@ -112,7 +112,7 @@ function asSlides(x: unknown): Slide[] {
 export default function AdminPage() {
   const [tab, setTab] = useState<"knowledge"|"structure"|"media"|"users"|"deploy">("knowledge");
 
-  /* ---------- Knowledge (existing) ---------- */
+  /* ---------- Knowledge ---------- */
   const emptyK: Knowledge = {
     slug: "", title: "", description: "", level: "",
     price: null, cpd_points: null, img: "", accredited: [], published: true
@@ -141,10 +141,13 @@ export default function AdminPage() {
 
   /* ---------- Structure: chapters + slides ---------- */
   const emptyChapter: Chapter = { course_id: "", title: "", order_index: 0 };
-  const emptySlide: Slide = { chapter_id: "", title: "", order_index: 0, intro_video_url: "", asset_url: "", body: "" };
+  const emptySlide:  Slide   = { chapter_id: "", title: "", order_index: 0, intro_video_url: "", asset_url: "", body: "" };
 
   const [selectedCourseId, setSelectedCourseId] = useState<string>("");
-  const selectedCourse = useMemo(() => list.find(k => (k.id ?? "") === selectedCourseId), [list, selectedCourseId]);
+  const selectedCourse = useMemo(
+    () => list.find(k => (k.id ?? "") === selectedCourseId),
+    [list, selectedCourseId]
+  );
 
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [chForm, setChForm] = useState<Chapter>(emptyChapter);
@@ -167,7 +170,6 @@ export default function AdminPage() {
     setSlides(asSlides(d));
   }
 
-  // When you switch course, load its chapters and reset forms
   useEffect(() => {
     void refreshChapters(selectedCourseId);
     setChForm({ ...emptyChapter, course_id: selectedCourseId });
@@ -190,51 +192,58 @@ export default function AdminPage() {
       body: JSON.stringify(payload),
     });
     setSavingChapter(false);
-    if (r.ok) {
-      await refreshChapters(selectedCourseId);
-      // re-select the chapter (to show its slides)
-      const out = await r.json();
-      const updated = Array.isArray(out) ? asChapters(out)[0] : (asChapters([out])[0] ?? payload);
-      setChForm(updated);
-      setSlForm(f => ({ ...f, chapter_id: updated.id ?? "" }));
-      await refreshSlides(updated.id ?? "");
-    } else {
-      alert("Save chapter failed");
+    if (!r.ok) {
+      let msg = "";
+      try { const j = await r.json(); msg = j?.error || r.statusText; } catch { msg = await r.text(); }
+      alert(`Save chapter failed: ${msg}`);
+      return;
     }
+    await refreshChapters(selectedCourseId);
+    const out = await r.json();
+    const updated = Array.isArray(out) ? asChapters(out)[0] : (asChapters([out])[0] ?? payload);
+    setChForm(updated);
+    setSlForm(f => ({ ...f, chapter_id: updated.id ?? "" }));
+    await refreshSlides(updated.id ?? "");
   }
 
   async function saveSlide() {
     if (!slForm.chapter_id) { alert("Pick a chapter first"); return; }
     if (!slForm.title) { alert("Title is required"); return; }
     setSavingSlide(true);
-    const payload: Slide = {
-      id: slForm.id,
+
+    const payload = {
+      id: slForm.id || undefined,
       chapter_id: slForm.chapter_id,
       title: slForm.title,
-      order_index: Number.isFinite(slForm.order_index) ? slForm.order_index : 0,
+      order_index: Number.isFinite(slForm.order_index) ? Number(slForm.order_index) : 0,
       intro_video_url: slForm.intro_video_url || null,
       asset_url: slForm.asset_url || null,
       body: slForm.body || null,
     };
+
     const r = await fetch("/api/admin/slides", {
-      method: "POST", headers: { "content-type": "application/json" },
+      method: "POST",
+      headers: { "content-type": "application/json" },
       body: JSON.stringify(payload),
     });
+
     setSavingSlide(false);
-    if (r.ok) {
-      await refreshSlides(slForm.chapter_id);
-      // keep selection after save
-      const out = await r.json();
-      const updated = Array.isArray(out) ? asSlides(out)[0] : (asSlides([out])[0] ?? payload);
-      setSlForm(updated);
-    } else {
-      alert("Save slide failed");
+
+    if (!r.ok) {
+      let msg = "";
+      try { const j = await r.json(); msg = j?.error || r.statusText; } catch { msg = await r.text(); }
+      alert(`Save slide failed: ${msg}`);
+      return;
     }
+
+    const saved = await r.json();
+    setSlForm((prev) => ({ ...prev, ...saved, chapter_id: prev.chapter_id }));
+    await refreshSlides(slForm.chapter_id);
   }
 
-  // (Not wired yet) delete endpoints to avoid 404s
+  // stubs (delete endpoints can be added later)
   const deleteChapter = (_id?: string) => alert("Delete chapter not wired yet.");
-  const deleteSlide = (_id?: string) => alert("Delete slide not wired yet.");
+  const deleteSlide   = (_id?: string)   => alert("Delete slide not wired yet.");
 
   // Uploads → /api/admin/upload (returns { publicUrl })
   async function uploadToStorage(file: File): Promise<string | null> {
@@ -246,7 +255,6 @@ export default function AdminPage() {
     const url = d && typeof d === "object" ? (d as Record<string, unknown>)["publicUrl"] : null;
     return isString(url) ? url : null;
   }
-
   async function onPickVideo(file: File) {
     const url = await uploadToStorage(file);
     if (url) setSlForm(f => ({ ...f, intro_video_url: url }));
@@ -258,7 +266,7 @@ export default function AdminPage() {
     else alert("Asset upload failed");
   }
 
-  /* ---------- Media (existing minimal) ---------- */
+  /* ---------- Media ---------- */
   const [uploading, setUploading] = useState(false);
   const [uploadedUrl, setUploadedUrl] = useState<string>("");
 
@@ -274,7 +282,7 @@ export default function AdminPage() {
     if (isString(url)) setUploadedUrl(url); else alert("Upload failed");
   }
 
-  /* ---------- Users (existing) ---------- */
+  /* ---------- Users ---------- */
   const [users, setUsers] = useState<AdminUser[]>([]);
   async function refreshUsers() {
     const r = await fetch("/api/admin/users", { cache: "no-store" });
@@ -302,7 +310,7 @@ export default function AdminPage() {
     else { alert("Could not generate link"); }
   }
 
-  /* ---------- Deploy (existing) ---------- */
+  /* ---------- Deploy ---------- */
   async function triggerDeploy() {
     const r = await fetch("/api/admin/deploy", { method: "POST" });
     const d = await r.json();
@@ -398,8 +406,7 @@ export default function AdminPage() {
                   </div>
                   <div className="flex gap-2">
                     <button onClick={()=>setForm(k)} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)]">Edit</button>
-                    {/* Knowledge delete already exists as /api/admin/knowledge/[id] */}
-                    <a href={`/api/admin/knowledge/${k.id ?? ""}`} onClick={(e)=>e.preventDefault()} className="hidden" />
+                    {/* Knowledge delete exists as /api/admin/knowledge/[id] */}
                   </div>
                 </div>
               ))}
