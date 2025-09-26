@@ -38,6 +38,17 @@ type Slide = {
   body?: string | null;
 };
 
+function asAdminUser(x: unknown): AdminUser {
+  const r = (x && typeof x === "object") ? (x as Record<string, unknown>) : {};
+  return {
+    id: String(r["id"] ?? ""),
+    email: typeof r["email"] === "string" ? r["email"] : undefined,
+    email_confirmed_at: typeof r["email_confirmed_at"] === "string" ? r["email_confirmed_at"] : null,
+    created_at: typeof r["created_at"] === "string" ? r["created_at"] : null,
+  };
+}
+
+
 function toCsv(v: string[] | null | undefined) { return (v ?? []).join(", "); }
 function fromCsv(v: string) { return v.split(",").map(s => s.trim()).filter(Boolean); }
 
@@ -219,9 +230,7 @@ export default function AdminPage() {
     const r = await fetch("/api/admin/users", { cache: "no-store" });
     const d: unknown = await r.json();
     const usersField = (d && typeof d === "object") ? (d as Record<string, unknown>)["users"] : null;
-    setUsers(Array.isArray(usersField) ? usersField.map((u:any)=>({
-      id: String(u.id), email: u.email, email_confirmed_at: u.email_confirmed_at, created_at: u.created_at
-    })) : []);
+    setUsers(Array.isArray(usersField) ? usersField.map(asAdminUser) : []);
   }
   useEffect(() => { if (tab==="users") void refreshUsers(); }, [tab]);
 
