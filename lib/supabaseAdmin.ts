@@ -1,8 +1,8 @@
 import "server-only";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-/** Create a Supabase admin client (service role). Call only inside route handlers (server). */
-export function getSupabaseAdmin() {
+/** Create a Supabase admin client (service role). Call only on the server. */
+export function getSupabaseAdmin(): SupabaseClient {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   if (!url || !key) throw new Error("Missing Supabase URL or SERVICE_ROLE key");

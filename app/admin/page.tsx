@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type Knowledge = {
   id?: string;
@@ -14,30 +14,73 @@ type Knowledge = {
   img?: string | null;
   accredited?: string[] | null;
   published?: boolean | null;
+  created_at?: string | null;
 };
-
 type AdminUser = {
   id: string;
   email?: string;
   email_confirmed_at?: string | null;
   created_at?: string | null;
 };
+type Chapter = {
+  id?: string;
+  course_id: string;
+  title: string;
+  order_index: number;
+};
+type Slide = {
+  id?: string;
+  chapter_id: string;
+  title: string;
+  order_index: number;
+  intro_video_url?: string | null;
+  asset_url?: string | null;
+  body?: string | null;
+};
 
 function toCsv(v: string[] | null | undefined) { return (v ?? []).join(", "); }
 function fromCsv(v: string) { return v.split(",").map(s => s.trim()).filter(Boolean); }
 
-function asAdminUser(x: unknown): AdminUser {
+function asKnowledge(x: unknown): Knowledge {
   const r = (x && typeof x === "object") ? (x as Record<string, unknown>) : {};
   return {
-    id: String(r["id"] ?? ""),
-    email: typeof r["email"] === "string" ? r["email"] : undefined,
-    email_confirmed_at: typeof r["email_confirmed_at"] === "string" ? r["email_confirmed_at"] : null,
+    id: r["id"] ? String(r["id"]) : undefined,
+    slug: String(r["slug"] ?? ""),
+    title: String(r["title"] ?? ""),
+    description: (typeof r["description"] === "string" || r["description"] === null) ? r["description"] as string | null : null,
+    level: (typeof r["level"] === "string" || r["level"] === null) ? r["level"] as string | null : null,
+    price: typeof r["price"] === "number" ? r["price"] : null,
+    cpd_points: typeof r["cpd_points"] === "number" ? r["cpd_points"] : null,
+    img: (typeof r["img"] === "string" || r["img"] === null) ? r["img"] as string | null : null,
+    accredited: Array.isArray(r["accredited"]) ? (r["accredited"] as unknown[]).map(String) : [],
+    published: typeof r["published"] === "boolean" ? r["published"] : true,
     created_at: typeof r["created_at"] === "string" ? r["created_at"] : null,
+  };
+}
+function asChapter(x: unknown): Chapter {
+  const r = (x && typeof x === "object") ? (x as Record<string, unknown>) : {};
+  return {
+    id: r["id"] ? String(r["id"]) : undefined,
+    course_id: String(r["course_id"] ?? ""),
+    title: String(r["title"] ?? ""),
+    order_index: Number(r["order_index"] ?? 0),
+  };
+}
+function asSlide(x: unknown): Slide {
+  const r = (x && typeof x === "object") ? (x as Record<string, unknown>) : {};
+  return {
+    id: r["id"] ? String(r["id"]) : undefined,
+    chapter_id: String(r["chapter_id"] ?? ""),
+    title: String(r["title"] ?? ""),
+    order_index: Number(r["order_index"] ?? 0),
+    intro_video_url: typeof r["intro_video_url"] === "string" ? r["intro_video_url"] : null,
+    asset_url: typeof r["asset_url"] === "string" ? r["asset_url"] : null,
+    body: typeof r["body"] === "string" ? r["body"] : null,
   };
 }
 
 export default function AdminPage() {
-  const [tab, setTab] = useState<"knowledge"|"media"|"users"|"deploy">("knowledge");
+  const [tab, setTab] = useState<"knowledge"|"structure"|"media"|"users"|"deploy">("knowledge");
 
   // Knowledge
   const emptyK: Knowledge = {
@@ -51,10 +94,9 @@ export default function AdminPage() {
   async function refreshKnowledge() {
     const r = await fetch("/api/admin/knowledge", { cache: "no-store" });
     const d: unknown = await r.json();
-    const arr = Array.isArray(d) ? d as Knowledge[] : [];
-    setList(arr);
+    setList(Array.isArray(d) ? d.map(asKnowledge) : []);
   }
-  useEffect(() => { refreshKnowledge(); }, []);
+  useEffect(() => { void refreshKnowledge(); }, []);
 
   async function saveKnowledge() {
     setSaving(true);
@@ -73,10 +115,92 @@ export default function AdminPage() {
     if (r.ok) await refreshKnowledge(); else alert("Delete failed");
   }
 
-  // Media
+  // Structure (chapters + slides)
+  const [selectedCourseId, setSelectedCourseId] = useState<string>("");
+  const selectedCourse = useMemo(() => list.find(k => k.id === selectedCourseId), [list, selectedCourseId]);
+
+  const emptyChapter: Chapter = { course_id: "", title: "", order_index: 0 };
+  const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [chForm, setChForm] = useState<Chapter>(emptyChapter);
+  const [savingChapter, setSavingChapter] = useState(false);
+
+  async function refreshChapters(courseId: string) {
+    if (!courseId) { setChapters([]); return; }
+    const r = await fetch(`/api/admin/chapters?course_id=${encodeURIComponent(courseId)}`, { cache: "no-store" });
+    const d: unknown = await r.json();
+    setChapters(Array.isArray(d) ? d.map(asChapter) : []);
+  }
+  useEffect(() => { void refreshChapters(selectedCourseId); }, [selectedCourseId]);
+
+  async function saveChapter() {
+    if (!selectedCourseId) return alert("Pick a knowledge item first.");
+    setSavingChapter(true);
+    const payload: Chapter = {
+      id: chForm.id,
+      course_id: selectedCourseId,
+      title: chForm.title,
+      order_index: Number(chForm.order_index || 0),
+    };
+    const r = await fetch("/api/admin/chapters", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    setSavingChapter(false);
+    if (r.ok) { setChForm({ ...emptyChapter, course_id: selectedCourseId }); await refreshChapters(selectedCourseId); }
+    else alert("Save chapter failed");
+  }
+  async function deleteChapter(id?: string) {
+    if (!id) return;
+    if (!confirm("Delete this chapter?")) return;
+    const r = await fetch(`/api/admin/chapters?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (r.ok) { await refreshChapters(selectedCourseId); if (slForm.chapter_id === id) setSlForm(emptySlide); }
+    else alert("Delete chapter failed");
+  }
+
+  const emptySlide: Slide = { chapter_id: "", title: "", order_index: 0, intro_video_url: "", asset_url: "", body: "" };
+  const [slides, setSlides] = useState<Slide[]>([]);
+  const [slForm, setSlForm] = useState<Slide>(emptySlide);
+  const [savingSlide, setSavingSlide] = useState(false);
+
+  async function refreshSlides(chapterId: string) {
+    if (!chapterId) { setSlides([]); return; }
+    const r = await fetch(`/api/admin/slides?chapter_id=${encodeURIComponent(chapterId)}`, { cache: "no-store" });
+    const d: unknown = await r.json();
+    setSlides(Array.isArray(d) ? d.map(asSlide) : []);
+  }
+  useEffect(() => { void refreshSlides(slForm.chapter_id); }, [slForm.chapter_id]);
+
+  async function saveSlide() {
+    if (!slForm.chapter_id) return alert("Pick a chapter first.");
+    setSavingSlide(true);
+    const payload: Slide = {
+      id: slForm.id,
+      chapter_id: slForm.chapter_id,
+      title: slForm.title,
+      order_index: Number(slForm.order_index || 0),
+      intro_video_url: slForm.intro_video_url ?? "",
+      asset_url: slForm.asset_url ?? "",
+      body: slForm.body ?? "",
+    };
+    const r = await fetch("/api/admin/slides", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    setSavingSlide(false);
+    if (r.ok) { setSlForm({ ...emptySlide, chapter_id: slForm.chapter_id }); await refreshSlides(slForm.chapter_id); }
+    else alert("Save slide failed");
+  }
+  async function deleteSlide(id?: string) {
+    if (!id) return;
+    if (!confirm("Delete this slide?")) return;
+    const r = await fetch(`/api/admin/slides?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (r.ok) await refreshSlides(slForm.chapter_id);
+    else alert("Delete slide failed");
+  }
+
+  // Media upload
   const [uploading, setUploading] = useState(false);
   const [uploadedUrl, setUploadedUrl] = useState<string>("");
-
   async function handleUpload(file: File) {
     setUploading(true);
     const fd = new FormData();
@@ -95,8 +219,9 @@ export default function AdminPage() {
     const r = await fetch("/api/admin/users", { cache: "no-store" });
     const d: unknown = await r.json();
     const usersField = (d && typeof d === "object") ? (d as Record<string, unknown>)["users"] : null;
-    const arr = Array.isArray(usersField) ? usersField : [];
-    setUsers(arr.map(asAdminUser));
+    setUsers(Array.isArray(usersField) ? usersField.map((u:any)=>({
+      id: String(u.id), email: u.email, email_confirmed_at: u.email_confirmed_at, created_at: u.created_at
+    })) : []);
   }
   useEffect(() => { if (tab==="users") void refreshUsers(); }, [tab]);
 
@@ -133,16 +258,17 @@ export default function AdminPage() {
   return (
     <div className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 py-10">
       <h1 className="text-3xl font-bold">Master Admin Dashboard</h1>
-      <p className="text-muted mt-1">Manage knowledge, media, users, and deployments.</p>
+      <p className="text-muted mt-1">Manage knowledge, structure (chapters & slides), media, users, and deployments.</p>
 
-      <div className="mt-6 flex gap-2">
-        {(["knowledge","media","users","deploy"] as const).map(t => (
+      <div className="mt-6 flex flex-wrap gap-2">
+        {(["knowledge","structure","media","users","deploy"] as const).map(t => (
           <button key={t} onClick={()=>setTab(t)} className={`px-3 py-2 rounded-lg ring-1 ring-[color:var(--color-light)] ${tab===t?"bg-brand text-white":"bg-white"}`}>
             {t[0].toUpperCase()+t.slice(1)}
           </button>
         ))}
       </div>
 
+      {/* Knowledge */}
       {tab==="knowledge" && (
         <div className="mt-8 grid gap-6 md:grid-cols-2">
           <div className="rounded-2xl bg-white border border-light p-5">
@@ -225,15 +351,171 @@ export default function AdminPage() {
         </div>
       )}
 
+      {/* Structure */}
+      {tab==="structure" && (
+        <div className="mt-8 grid gap-6 lg:grid-cols-3">
+          <div className="rounded-2xl bg-white border border-light p-5 lg:col-span-1">
+            <h2 className="font-semibold">Select Knowledge</h2>
+            <select
+              className="mt-3 h-10 w-full rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+              value={selectedCourseId}
+              onChange={(e)=>{ setSelectedCourseId(e.target.value); setChapters([]); setChForm({ ...emptyChapter, course_id: e.target.value }); setSlForm({ ...emptySlide, chapter_id: "" }); }}
+            >
+              <option value="">— Choose —</option>
+              {list.map(k => (<option key={k.id ?? k.slug} value={k.id}>{k.title}</option>))}
+            </select>
+
+            <h3 className="mt-5 font-semibold">Chapters</h3>
+            <div className="mt-2 grid gap-2">
+              {chapters.map(ch => (
+                <button
+                  key={ch.id ?? ch.title}
+                  onClick={()=>{ setChForm(ch); setSlForm(s => ({ ...s, chapter_id: ch.id ?? "" })); void refreshSlides(ch.id ?? ""); }}
+                  className={`text-left rounded-lg px-3 py-2 ring-1 ring-[color:var(--color-light)] ${slForm.chapter_id===(ch.id??"") ? "bg-[color:var(--color-light)]/40" : "bg-white"}`}
+                >
+                  <div className="font-medium">{ch.title}</div>
+                  <div className="text-xs text-muted">Order: {ch.order_index}</div>
+                </button>
+              ))}
+              {selectedCourse && chapters.length===0 && <div className="text-xs text-muted">No chapters yet.</div>}
+            </div>
+          </div>
+
+          <div className="rounded-2xl bg-white border border-light p-5">
+            <h2 className="font-semibold">Edit / Create Chapter</h2>
+            <div className="mt-3 grid gap-3">
+              <label className="grid gap-1">
+                <span className="text-sm text-muted">Title</span>
+                <input
+                  value={chForm.title}
+                  onChange={e=>setChForm(f=>({ ...f, title: e.target.value }))}
+                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                />
+              </label>
+              <label className="grid gap-1">
+                <span className="text-sm text-muted">Order</span>
+                <input
+                  type="number"
+                  value={chForm.order_index}
+                  onChange={e=>setChForm(f=>({ ...f, order_index: Number(e.target.value || 0) }))}
+                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                />
+              </label>
+              <div className="flex gap-2">
+                <button onClick={saveChapter} disabled={savingChapter || !selectedCourseId} className="rounded-lg bg-brand text-white px-4 py-2 font-semibold hover:opacity-90 disabled:opacity-50">
+                  {savingChapter ? "Saving…" : "Save Chapter"}
+                </button>
+                <button onClick={()=>setChForm({ ...emptyChapter, course_id: selectedCourseId })} className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]">Reset</button>
+                <button onClick={()=>deleteChapter(chForm.id)} disabled={!chForm.id} className="rounded-lg px-4 py-2 bg-red-600 text-white disabled:opacity-50">Delete</button>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl bg-white border border-light p-5">
+            <h2 className="font-semibold">Slides (for selected chapter)</h2>
+
+            <div className="mt-3 grid gap-2">
+              {slides.map(s => (
+                <button
+                  key={s.id ?? s.title}
+                  onClick={()=>setSlForm(s)}
+                  className={`text-left rounded-lg px-3 py-2 ring-1 ring-[color:var(--color-light)] ${slForm.id===(s.id??"") ? "bg-[color:var(--color-light)]/40" : "bg-white"}`}
+                >
+                  <div className="font-medium">{s.title}</div>
+                  <div className="text-xs text-muted">Order: {s.order_index}</div>
+                </button>
+              ))}
+              {slForm.chapter_id && slides.length===0 && <div className="text-xs text-muted">No slides in this chapter yet.</div>}
+            </div>
+
+            <div className="mt-4 grid gap-3">
+              <label className="grid gap-1">
+                <span className="text-sm text-muted">Title</span>
+                <input
+                  value={slForm.title}
+                  onChange={e=>setSlForm(f=>({ ...f, title: e.target.value }))}
+                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                />
+              </label>
+              <label className="grid gap-1">
+                <span className="text-sm text-muted">Order</span>
+                <input
+                  type="number"
+                  value={slForm.order_index}
+                  onChange={e=>setSlForm(f=>({ ...f, order_index: Number(e.target.value || 0) }))}
+                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                />
+              </label>
+              <label className="grid gap-1">
+                <span className="text-sm text-muted">Intro video URL</span>
+                <input
+                  value={slForm.intro_video_url ?? ""}
+                  onChange={e=>setSlForm(f=>({ ...f, intro_video_url: e.target.value }))}
+                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                />
+              </label>
+              <label className="grid gap-1">
+                <span className="text-sm text-muted">Asset URL (slides, files)</span>
+                <input
+                  value={slForm.asset_url ?? ""}
+                  onChange={e=>setSlForm(f=>({ ...f, asset_url: e.target.value }))}
+                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                />
+              </label>
+              <label className="grid gap-1">
+                <span className="text-sm text-muted">Body / Notes (optional)</span>
+                <textarea
+                  value={slForm.body ?? ""}
+                  onChange={e=>setSlForm(f=>({ ...f, body: e.target.value }))}
+                  className="min-h-[90px] rounded-lg bg-white px-3 py-2 ring-1 ring-[color:var(--color-light)]"
+                />
+              </label>
+
+              <div className="flex gap-2">
+                <button onClick={saveSlide} disabled={savingSlide || !slForm.chapter_id} className="rounded-lg bg-brand text-white px-4 py-2 font-semibold hover:opacity-90 disabled:opacity-50">
+                  {savingSlide ? "Saving…" : "Save Slide"}
+                </button>
+                <button onClick={()=>setSlForm({ ...emptySlide, chapter_id: slForm.chapter_id })} className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]">Reset</button>
+                <button onClick={()=>deleteSlide(slForm.id)} disabled={!slForm.id} className="rounded-lg px-4 py-2 bg-red-600 text-white disabled:opacity-50">Delete</button>
+              </div>
+
+              {(slForm.intro_video_url || slForm.asset_url) && (
+                <div className="mt-3 grid gap-3">
+                  {slForm.intro_video_url && (
+                    <div className="text-sm">
+                      <div className="mb-1 text-muted">Video preview (if embeddable):</div>
+                      <video src={slForm.intro_video_url} controls className="w-full rounded-lg ring-1 ring-[color:var(--color-light)]" />
+                    </div>
+                  )}
+                  {slForm.asset_url && slForm.asset_url.startsWith("http") && (
+                    <div className="text-sm">
+                      <div className="mb-1 text-muted">Asset preview (image):</div>
+                      <Image
+                        src={slForm.asset_url}
+                        alt="Asset preview"
+                        width={640}
+                        height={360}
+                        className="rounded-lg ring-1 ring-[color:var(--color-light)]"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Media */}
       {tab==="media" && (
         <div className="mt-8 rounded-2xl bg-white border border-light p-5">
           <h2 className="font-semibold">Upload Image to Storage</h2>
-          <p className="text-sm text-muted mt-1">Uploads to Supabase Storage (public). Copy the URL into the knowledge “Image URL”.</p>
+          <p className="text-sm text-muted mt-1">Uploads to Supabase Storage (public). Copy the URL into the knowledge “Image URL” or slide “Asset URL”.</p>
           <div className="mt-4 flex items-center gap-3">
             <input type="file" accept="image/*" onChange={e=>e.target.files && handleUpload(e.target.files[0])} />
             <span>{uploading ? "Uploading…" : ""}</span>
           </div>
-          {uploadedUrl && uploadedUrl.startsWith("http") && (
+          {(uploadedUrl && uploadedUrl.startsWith("http")) && (
             <div className="mt-4">
               <div className="text-sm mb-2">Preview:</div>
               <Image src={uploadedUrl} alt="Uploaded" width={320} height={180} className="rounded-lg ring-1 ring-[color:var(--color-light)]" />
@@ -244,6 +526,7 @@ export default function AdminPage() {
         </div>
       )}
 
+      {/* Users */}
       {tab==="users" && (
         <div className="mt-8 rounded-2xl bg-white border border-light p-5">
           <h2 className="font-semibold">Users</h2>
@@ -266,11 +549,12 @@ export default function AdminPage() {
         </div>
       )}
 
+      {/* Deploy */}
       {tab==="deploy" && (
         <div className="mt-8 rounded-2xl bg-white border border-light p-5">
           <h2 className="font-semibold">Deployment</h2>
           <p className="text-sm text-muted">Trigger a Vercel rebuild (requires VERCEL_DEPLOY_HOOK_URL).</p>
-          <button onClick={triggerDeploy} className="mt-3 rounded-lg bg-brand text-white px-4 py-2 font-semibold hover:opacity-90">Trigger Deploy</button>
+          <button onClick={()=>void triggerDeploy()} className="mt-3 rounded-lg bg-brand text-white px-4 py-2 font-semibold hover:opacity-90">Trigger Deploy</button>
         </div>
       )}
     </div>

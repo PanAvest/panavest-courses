@@ -2,7 +2,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 let client: SupabaseClient | null = null;
 
-/** Get (or create) a singleton Supabase client using the public anon key (safe for browser). */
+/** Get (or create) a singleton Supabase client using the public anon key. */
 export function getSupabaseClient(): SupabaseClient {
   if (!client) {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -13,6 +13,6 @@ export function getSupabaseClient(): SupabaseClient {
   return client;
 }
 
-/** Satisfies imports like: import { supabase } from "@/lib/supabaseClient" */
+/** Named export to satisfy `import { supabase } from "@/lib/supabaseClient"`. */
 export const supabase = getSupabaseClient();
 export default getSupabaseClient;
