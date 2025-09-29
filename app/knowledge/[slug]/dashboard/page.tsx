@@ -16,9 +16,8 @@ type Slide = {
   intro_video_url: string | null;
   asset_url: string | null;
   body: string | null;
-  // legacy fields kept optional
-  video_url?: string | null;
-  content?: string | null;
+  video_url?: string | null; // legacy
+  content?: string | null;   // legacy
 };
 
 export default function CourseDashboard() {
@@ -34,11 +33,11 @@ export default function CourseDashboard() {
   const [completed, setCompleted] = useState<string[]>([]);
   const [activeSlide, setActiveSlide] = useState<Slide | null>(null);
   const [loading, setLoading] = useState(true);
-  const [notice, setNotice] = useState<string>(""); // lightweight feedback
-  const [mobileNavOpen, setMobileNavOpen] = useState(false); // mobile sidebar
+  const [notice, setNotice] = useState<string>("");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
-  // keep a snapshot of the current slide ids to avoid auto-resetting selection
-  const slideIdsRef = useRef<string[]>([]);
+  // set "first slide" only once on initial load
+  const initializedRef = useRef(false);
 
   // auth
   useEffect(() => {
@@ -65,7 +64,7 @@ export default function CourseDashboard() {
       if (!c) { router.push("/knowledge"); return; }
       setCourse(c);
 
-      // soft paywall: only redirect if row exists and paid is false
+      // soft paywall
       try {
         const { data: enr } = await supabase
           .from("enrollments")
@@ -76,9 +75,9 @@ export default function CourseDashboard() {
           router.push(`/knowledge/${c.slug}/enroll`);
           return;
         }
-      } catch {/* ignore if table missing */}
+      } catch {}
 
-      // chapters by order_index
+      // chapters (ordered)
       const { data: ch } = await supabase
         .from("course_chapters")
         .select("id,title,order_index,intro_video_url")
@@ -87,7 +86,7 @@ export default function CourseDashboard() {
 
       const chapterIds = (ch ?? []).map(x => x.id);
 
-      // slides ordered within chapters (we’ll flatten to a single linear order)
+      // slides (ordered within each chapter)
       let sl: Slide[] = [];
       if (chapterIds.length > 0) {
         const { data: slData } = await supabase
@@ -98,18 +97,25 @@ export default function CourseDashboard() {
         sl = slData ?? [];
       }
 
-      setChapters(ch ?? []);
-      setSlides(sl);
+      // compute a global linear order **now** and set first slide ONCE
+      const chOrder: Record<string, number> = {};
+      (ch ?? []).forEach(chp => { chOrder[chp.id] = chp.order_index ?? 0; });
+      const slSorted = [...sl].sort((a, b) => {
+        const ca = chOrder[a.chapter_id] ?? 0;
+        const cb = chOrder[b.chapter_id] ?? 0;
+        if (ca !== cb) return ca - cb;
+        return (a.order_index ?? 0) - (b.order_index ?? 0);
+      });
 
-      // only auto-select on first load OR when the list of slide ids truly changes
-      const newIds = sl.map(s => s.id);
-      const prevIds = slideIdsRef.current;
-      slideIdsRef.current = newIds;
-      if (!activeSlide || prevIds.join(",") !== newIds.join(",")) {
-        setActiveSlide(sl[0] ?? null);
+      setChapters(ch ?? []);
+      setSlides(slSorted);
+
+      if (!initializedRef.current) {
+        setActiveSlide(slSorted[0] ?? null); // <-- always first slide on initial load
+        initializedRef.current = true;
       }
 
-      // progress (best-effort)
+      // progress
       try {
         const { data: prog } = await supabase
           .from("user_slide_progress")
@@ -117,34 +123,22 @@ export default function CourseDashboard() {
           .eq("user_id", userId)
           .eq("course_id", c.id);
         setCompleted((prog ?? []).map((p: { slide_id: string }) => p.slide_id));
-      } catch {/* ignore if table missing */}
+      } catch {}
 
       setLoading(false);
     })();
-  }, [userId, slug]); // note: no router or activeSlide here
+  }, [userId, slug, router]);
 
-  // Build a single linear ordering for all slides: chapter.order_index then slide.order_index
-  const orderedSlides = useMemo(() => {
-    const chOrder: Record<string, number> = {};
-    chapters.forEach(ch => { chOrder[ch.id] = ch.order_index ?? 0; });
-    const sorted = [...slides].sort((a, b) => {
-      const ca = chOrder[a.chapter_id] ?? 0;
-      const cb = chOrder[b.chapter_id] ?? 0;
-      if (ca !== cb) return ca - cb;
-      return (a.order_index ?? 0) - (b.order_index ?? 0);
-    });
-    return sorted;
-  }, [chapters, slides]);
-
+  // ordered lists derived from state (already sorted on fetch, but kept for clarity)
+  const orderedSlides = useMemo(() => slides, [slides]);
   const orderedIds = useMemo(() => orderedSlides.map(s => s.id), [orderedSlides]);
 
-  // Determine the highest slide index the user may access:
-  // you can open up to the first incomplete slide (inclusive).
+  // locking logic
   const firstIncompleteIndex = useMemo(() => {
     for (let i = 0; i < orderedIds.length; i++) {
       if (!completed.includes(orderedIds[i])) return i;
     }
-    return orderedIds.length - 1; // all done: allow all
+    return orderedIds.length - 1;
   }, [orderedIds, completed]);
 
   const canAccessById = useCallback((slideId: string) => {
@@ -168,12 +162,12 @@ export default function CourseDashboard() {
         );
       setCompleted(prev => (prev.includes(slide.id) ? prev : [...prev, slide.id]));
       setNotice("Marked as done ✓");
-      // auto-advance to next slide if exists
+
+      // auto-advance to next slide (if allowed)
       const idx = orderedIds.indexOf(slide.id);
       if (idx > -1 && idx + 1 < orderedIds.length) {
         const next = orderedSlides[idx + 1];
         setActiveSlide(next);
-        // On mobile, keep the content in view
         window.scrollTo({ top: 0, behavior: "smooth" });
       }
       setTimeout(() => setNotice(""), 1500);
@@ -192,16 +186,10 @@ export default function CourseDashboard() {
   function renderMedia(s: Slide) {
     const video = s.video_url ?? s.intro_video_url ?? null;
     if (video) {
-      // make video fully responsive & never overlay text
       return (
         <div className="mt-3 w-full">
           <div className="w-full overflow-hidden rounded-lg">
-            <video
-              className="block w-full h-auto"
-              controls
-              preload="metadata"
-              src={video}
-            />
+            <video className="block w-full h-auto" controls preload="metadata" src={video} />
           </div>
         </div>
       );
@@ -253,7 +241,7 @@ export default function CourseDashboard() {
 
   return (
     <div className="mx-auto max-w-screen-2xl px-4 md:px-6 py-6">
-      {/* Header row: course + user email + mobile toggle */}
+      {/* Header */}
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="text-xl md:text-2xl font-semibold">{course.title}</div>
         <div className="flex items-center gap-2 text-xs md:text-sm text-muted">
@@ -325,7 +313,6 @@ export default function CourseDashboard() {
             <>
               <div className="flex items-start justify-between gap-3">
                 <div className="text-base md:text-lg font-semibold">{activeSlide.title}</div>
-                {/* Prev/Next controls with locking */}
                 <div className="flex gap-2">
                   <button
                     type="button"
@@ -365,11 +352,7 @@ export default function CourseDashboard() {
               </div>
 
               {!!notice && (
-                <div
-                  role="status"
-                  aria-live="polite"
-                  className="mt-3 text-xs md:text-sm text-[#0a1156]"
-                >
+                <div role="status" aria-live="polite" className="mt-3 text-xs md:text-sm text-[#0a1156]">
                   {notice}
                 </div>
               )}
