@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import logo from "@/public/logo.png"; // high-res, static import
 
@@ -18,6 +18,7 @@ const supabase: SupabaseClient | null =
 export default function Header() {
   const [open, setOpen] = useState(false);
   const [isAuthed, setIsAuthed] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     if (!supabase) return;
@@ -40,12 +41,24 @@ export default function Header() {
     };
   }, []);
 
+  const handleSignOut = useCallback(async () => {
+    if (!supabase || signingOut) return;
+    try {
+      setSigningOut(true);
+      await supabase.auth.signOut();
+      setIsAuthed(false);
+      // Hard redirect to clear any cached server state/layouts
+      window.location.assign("/");
+    } catch {
+      setSigningOut(false);
+    }
+  }, [signingOut]);
+
   return (
     <header className="w-full bg-[color:var(--color-bg)]">
       {/* Full width row (no centered max-w), small side padding */}
       <div className="w-full px-3 sm:px-4 md:px-6 h-16 md:h-20 flex items-center justify-between">
         <Link href="/" className="flex items-center" aria-label="Panavest home">
-          {/* Logo fills row height without changing header height */}
           <Image
             src={logo}
             alt="Panavest"
@@ -57,20 +70,30 @@ export default function Header() {
           <span className="sr-only">Panavest</span>
         </Link>
 
-        {/* Desktop nav (unchanged layout) */}
+        {/* Desktop nav */}
         <nav className="hidden sm:flex items-center gap-6">
           <Link href="/courses" className="text-sm text-muted hover:text-ink">Knowledge</Link>
           <Link href="/about" className="text-sm text-muted hover:text-ink">About</Link>
           <Link href="/leaderboard" className="text-sm text-muted hover:text-ink">Leaderboard</Link>
 
-          {/* CTA flips to Dashboard when authenticated */}
           {isAuthed ? (
-            <Link
-              href="/dashboard"
-              className="text-sm rounded-lg px-4 py-2 bg-brand text-white font-medium hover:opacity-90"
-            >
-              Dashboard
-            </Link>
+            <>
+              <Link
+                href="/dashboard"
+                className="text-sm rounded-lg px-4 py-2 bg-brand text-white font-medium hover:opacity-90"
+              >
+                Dashboard
+              </Link>
+              <button
+                type="button"
+                onClick={handleSignOut}
+                disabled={signingOut}
+                className="text-sm rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)] bg-white hover:bg-[color:var(--color-light)]/30 disabled:opacity-60"
+                aria-label="Sign out"
+              >
+                {signingOut ? "Signing out…" : "Sign Out"}
+              </button>
+            </>
           ) : (
             <Link
               href="/auth/sign-in"
@@ -94,7 +117,7 @@ export default function Header() {
         </button>
       </div>
 
-      {/* Mobile menu (unchanged layout) */}
+      {/* Mobile menu */}
       {open && (
         <div className="sm:hidden border-t border-light bg-[color:var(--color-bg)]">
           <div className="px-4 py-3 flex flex-col gap-3">
@@ -103,13 +126,27 @@ export default function Header() {
             <Link href="/leaderboard" onClick={() => setOpen(false)} className="text-ink">Leaderboard</Link>
 
             {isAuthed ? (
-              <Link
-                href="/dashboard"
-                onClick={() => setOpen(false)}
-                className="mt-1 rounded-lg px-4 py-2 bg-brand text-white font-medium text-center"
-              >
-                Dashboard
-              </Link>
+              <>
+                <Link
+                  href="/dashboard"
+                  onClick={() => setOpen(false)}
+                  className="mt-1 rounded-lg px-4 py-2 bg-brand text-white font-medium text-center"
+                >
+                  Dashboard
+                </Link>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setOpen(false);
+                    await handleSignOut();
+                  }}
+                  disabled={signingOut}
+                  className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)] bg-white text-ink font-medium text-center disabled:opacity-60"
+                  aria-label="Sign out"
+                >
+                  {signingOut ? "Signing out…" : "Sign Out"}
+                </button>
+              </>
             ) : (
               <Link
                 href="/auth/sign-in"
