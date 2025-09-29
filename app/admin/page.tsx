@@ -43,21 +43,122 @@ type Slide = {
   created_at?: string;
 };
 
+type QuizSettings = {
+  chapter_id: string;
+  time_limit_seconds: number | null;
+  num_questions: number | null;
+};
+
+type QuizQuestion = {
+  id?: string;
+  chapter_id: string;
+  question: string;
+  options: string[];
+  correct_index: number;
+  created_at?: string;
+};
+
 /* -------------- Small helpers -------------- */
 function toCsv(v: string[] | null | undefined) { return (v ?? []).join(", "); }
 function fromCsv(v: string) { return v.split(",").map(s => s.trim()).filter(Boolean); }
 function isString(x: unknown): x is string { return typeof x === "string"; }
+
+function asAdminUser(x: unknown): AdminUser {
+  const r = (x && typeof x === "object") ? (x as Record<string, unknown>) : {};
+  return {
+    id: String(r["id"] ?? ""),
+    email: isString(r["email"]) ? r["email"] : undefined,
+    email_confirmed_at: isString(r["email_confirmed_at"]) ? r["email_confirmed_at"] : null,
+    created_at: isString(r["created_at"]) ? r["created_at"] : null,
+  };
+}
+
+function asKnowledgeArray(x: unknown): Knowledge[] {
+  if (!Array.isArray(x)) return [];
+  return x.map((k) => {
+    const r = (k && typeof k === "object") ? (k as Record<string, unknown>) : {};
+    return {
+      id: isString(r["id"]) ? r["id"] : undefined,
+      slug: String(r["slug"] ?? ""),
+      title: String(r["title"] ?? ""),
+      description: isString(r["description"]) ? r["description"] : null,
+      level: isString(r["level"]) ? r["level"] : null,
+      price: typeof r["price"] === "number" ? r["price"] : null,
+      cpd_points: typeof r["cpd_points"] === "number" ? r["cpd_points"] : null,
+      img: isString(r["img"]) ? r["img"] : null,
+      accredited: Array.isArray(r["accredited"]) ? (r["accredited"] as string[]) : null,
+      published: typeof r["published"] === "boolean" ? r["published"] : null,
+    };
+  });
+}
+
+function asChapters(x: unknown): Chapter[] {
+  if (!Array.isArray(x)) return [];
+  return x.map((c) => {
+    const r = (c && typeof c === "object") ? (c as Record<string, unknown>) : {};
+    return {
+      id: isString(r["id"]) ? r["id"] : undefined,
+      course_id: String(r["course_id"] ?? ""),
+      title: String(r["title"] ?? ""),
+      order_index: Number(r["order_index"] ?? 0),
+      created_at: isString(r["created_at"]) ? r["created_at"] : undefined,
+    };
+  });
+}
+
+function asSlides(x: unknown): Slide[] {
+  if (!Array.isArray(x)) return [];
+  return x.map((s) => {
+    const r = (s && typeof s === "object") ? (s as Record<string, unknown>) : {};
+    return {
+      id: isString(r["id"]) ? r["id"] : undefined,
+      chapter_id: String(r["chapter_id"] ?? ""),
+      title: String(r["title"] ?? ""),
+      order_index: Number(r["order_index"] ?? 0),
+      intro_video_url: isString(r["intro_video_url"]) ? r["intro_video_url"] : null,
+      asset_url: isString(r["asset_url"]) ? r["asset_url"] : null,
+      body: isString(r["body"]) ? r["body"] : null,
+      created_at: isString(r["created_at"]) ? r["created_at"] : undefined,
+    };
+  });
+}
+
+function asQuizSettings(x: unknown, chapterId: string): QuizSettings {
+  const r = (x && typeof x === "object") ? (x as Record<string, unknown>) : {};
+  return {
+    chapter_id: chapterId,
+    time_limit_seconds: typeof r["time_limit_seconds"] === "number" ? r["time_limit_seconds"] : null,
+    num_questions: typeof r["num_questions"] === "number" ? r["num_questions"] : null,
+  };
+}
+
+function asQuizQuestions(x: unknown): QuizQuestion[] {
+  if (!Array.isArray(x)) return [];
+  return x.map((q) => {
+    const r = (q && typeof q === "object") ? (q as Record<string, unknown>) : {};
+    const opts = Array.isArray(r["options"]) ? (r["options"] as unknown[]).map(String) : [];
+    return {
+      id: isString(r["id"]) ? r["id"] : undefined,
+      chapter_id: String(r["chapter_id"] ?? ""),
+      question: String(r["question"] ?? ""),
+      options: opts,
+      correct_index: Number(r["correct_index"] ?? 0),
+      created_at: isString(r["created_at"]) ? r["created_at"] : undefined,
+    };
+  });
+}
 
 /* ---------------- Component ---------------- */
 export default function AdminPage() {
   const [tab, setTab] = useState<"knowledge"|"structure"|"media"|"users"|"deploy">("knowledge");
 
   /* ---------- Knowledge ---------- */
-  const [list, setList] = useState<Knowledge[]>([]);
-  const [form, setForm] = useState<Knowledge>({
+  const emptyK: Knowledge = {
     slug: "", title: "", description: "", level: "",
     price: null, cpd_points: null, img: "", accredited: [], published: true
-  });
+  };
+  const [list, setList] = useState<Knowledge[]>([]);
+  const [form, setForm] = useState<Knowledge>(emptyK);
   const [saving, setSaving] = useState(false);
 
   async function refreshKnowledge() {
@@ -75,18 +176,13 @@ export default function AdminPage() {
       body: JSON.stringify(payload)
     });
     setSaving(false);
-    if (r.ok) {
-      setForm({
-        slug: "", title: "", description: "", level: "",
-        price: null, cpd_points: null, img: "", accredited: [], published: true
-      });
-      await refreshKnowledge();
-    } else {
-      alert("Save failed");
-    }
+    if (r.ok) { setForm(emptyK); await refreshKnowledge(); } else { alert("Save failed"); }
   }
 
-  /* ---------- Structure: chapters + slides + quizzes ---------- */
+  /* ---------- Structure: chapters + slides + quiz ---------- */
+  const emptyChapter: Chapter = { course_id: "", title: "", order_index: 0 };
+  const emptySlide:  Slide   = { chapter_id: "", title: "", order_index: 0, intro_video_url: "", asset_url: "", body: "" };
+
   const [selectedCourseId, setSelectedCourseId] = useState<string>("");
   const selectedCourse = useMemo(
     () => list.find(k => (k.id ?? "") === selectedCourseId),
@@ -94,12 +190,18 @@ export default function AdminPage() {
   );
 
   const [chapters, setChapters] = useState<Chapter[]>([]);
-  const [chForm, setChForm] = useState<Chapter>({ course_id: "", title: "", order_index: 0 });
+  const [chForm, setChForm] = useState<Chapter>(emptyChapter);
   const [savingChapter, setSavingChapter] = useState(false);
 
   const [slides, setSlides] = useState<Slide[]>([]);
-  const [slForm, setSlForm] = useState<Slide>({ chapter_id: "", title: "", order_index: 0, intro_video_url: "", asset_url: "", body: "" });
+  const [slForm, setSlForm] = useState<Slide>(emptySlide);
   const [savingSlide, setSavingSlide] = useState(false);
+
+  // Quiz state (per selected chapter)
+  const [quizSettings, setQuizSettings] = useState<QuizSettings>({ chapter_id: "", time_limit_seconds: null, num_questions: null });
+  const [quizSaving, setQuizSaving] = useState(false);
+  const [questions, setQuestions] = useState<QuizQuestion[]>([]);
+  const [qForm, setQForm] = useState<QuizQuestion>({ chapter_id: "", question: "", options: [], correct_index: 0 });
 
   async function refreshChapters(courseId: string) {
     if (!courseId) { setChapters([]); return; }
@@ -113,13 +215,37 @@ export default function AdminPage() {
     const d = await r.json();
     setSlides(asSlides(d));
   }
+  async function refreshQuiz(chapterId: string) {
+    if (!chapterId) {
+      setQuizSettings({ chapter_id: "", time_limit_seconds: null, num_questions: null });
+      setQuestions([]);
+      setQForm({ chapter_id: "", question: "", options: [], correct_index: 0 });
+      return;
+    }
+    // settings
+    {
+      const r = await fetch(`/api/admin/quiz-settings?chapter_id=${encodeURIComponent(chapterId)}`, { cache: "no-store" });
+      const d = r.ok ? await r.json() : {};
+      setQuizSettings(asQuizSettings(d ?? {}, chapterId));
+    }
+    // questions
+    {
+      const r = await fetch(`/api/admin/quiz-questions?chapter_id=${encodeURIComponent(chapterId)}`, { cache: "no-store" });
+      const d = r.ok ? await r.json() : [];
+      setQuestions(asQuizQuestions(d));
+    }
+    setQForm(f => ({ ...f, chapter_id: chapterId }));
+  }
 
   useEffect(() => {
     void refreshChapters(selectedCourseId);
-    // avoid eslint deps warnings by not referencing external consts
-    setChForm({ course_id: selectedCourseId, title: "", order_index: 0 });
-    setSlForm({ chapter_id: "", title: "", order_index: 0, intro_video_url: "", asset_url: "", body: "" });
+    setChForm({ ...emptyChapter, course_id: selectedCourseId });
+    setSlForm({ ...emptySlide, chapter_id: "" });
     setSlides([]);
+    // reset quiz when switching course
+    setQuizSettings({ chapter_id: "", time_limit_seconds: null, num_questions: null });
+    setQuestions([]);
+    setQForm({ chapter_id: "", question: "", options: [], correct_index: 0 });
   }, [selectedCourseId]);
 
   async function saveChapter() {
@@ -139,7 +265,7 @@ export default function AdminPage() {
     setSavingChapter(false);
     if (!r.ok) {
       let msg = "";
-      try { const j = await r.json(); msg = (j as any)?.error || r.statusText; } catch { msg = await r.text(); }
+      try { const j = await r.json(); msg = (j as { error?: string })?.error || r.statusText; } catch { msg = await r.text(); }
       alert(`Save chapter failed: ${msg}`);
       return;
     }
@@ -147,8 +273,10 @@ export default function AdminPage() {
     const out = await r.json();
     const updated = Array.isArray(out) ? asChapters(out)[0] : (asChapters([out])[0] ?? payload);
     setChForm(updated);
-    setSlForm(f => ({ ...f, chapter_id: updated.id ?? "" }));
-    await refreshSlides(updated.id ?? "");
+    const newChapterId = updated.id ?? "";
+    setSlForm(f => ({ ...f, chapter_id: newChapterId }));
+    await refreshSlides(newChapterId);
+    await refreshQuiz(newChapterId);
   }
 
   async function saveSlide() {
@@ -176,7 +304,7 @@ export default function AdminPage() {
 
     if (!r.ok) {
       let msg = "";
-      try { const j = await r.json(); msg = (j as any)?.error || r.statusText; } catch { msg = await r.text(); }
+      try { const j = await r.json(); msg = (j as { error?: string })?.error || r.statusText; } catch { msg = await r.text(); }
       alert(`Save slide failed: ${msg}`);
       return;
     }
@@ -187,8 +315,8 @@ export default function AdminPage() {
   }
 
   // stubs (delete endpoints can be added later)
-  const deleteChapter = (_id?: string) => alert("Delete chapter not wired yet.");
-  const deleteSlide   = (_id?: string)   => alert("Delete slide not wired yet.");
+  const deleteChapter = () => alert("Delete chapter not wired yet.");
+  const deleteSlide   = () => alert("Delete slide not wired yet.");
 
   // Uploads → /api/admin/upload (returns { publicUrl })
   async function uploadToStorage(file: File): Promise<string | null> {
@@ -197,7 +325,7 @@ export default function AdminPage() {
     fd.append("name", file.name);
     const r = await fetch("/api/admin/upload", { method: "POST", body: fd });
     const d = await r.json();
-    const url = d && typeof d === "object" ? (d as Record<string, unknown>)["publicUrl"] : null;
+    const url = (d && typeof d === "object") ? (d as Record<string, unknown>)["publicUrl"] : null;
     return isString(url) ? url : null;
   }
   async function onPickVideo(file: File) {
@@ -209,6 +337,78 @@ export default function AdminPage() {
     const url = await uploadToStorage(file);
     if (url) setSlForm(f => ({ ...f, asset_url: url }));
     else alert("Asset upload failed");
+  }
+
+  /* ---------- Quiz: save settings & questions ---------- */
+  async function saveQuizSettings() {
+    if (!quizSettings.chapter_id) { alert("Pick a chapter first"); return; }
+    setQuizSaving(true);
+    const payload = {
+      chapter_id: quizSettings.chapter_id,
+      time_limit_seconds: quizSettings.time_limit_seconds,
+      num_questions: quizSettings.num_questions,
+    };
+    const r = await fetch("/api/admin/quiz-settings", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    setQuizSaving(false);
+    if (!r.ok) {
+      let msg = "";
+      try { const j = await r.json(); msg = (j as { error?: string })?.error || r.statusText; } catch { msg = await r.text(); }
+      alert(`Save quiz settings failed: ${msg}`);
+      return;
+    }
+    const saved = await r.json();
+    setQuizSettings(asQuizSettings(saved, payload.chapter_id));
+    alert("Quiz settings saved");
+  }
+
+  async function saveQuestion() {
+    if (!qForm.chapter_id) { alert("Pick a chapter first"); return; }
+    if (!qForm.question.trim()) { alert("Question text is required"); return; }
+    if (qForm.options.length < 2) { alert("At least 2 options required"); return; }
+    if (qForm.correct_index < 0 || qForm.correct_index >= qForm.options.length) {
+      alert("Correct index out of range"); return;
+    }
+
+    const payload = {
+      id: qForm.id,
+      chapter_id: qForm.chapter_id,
+      question: qForm.question,
+      options: qForm.options,
+      correct_index: Number(qForm.correct_index),
+    };
+
+    const r = await fetch("/api/admin/quiz-questions", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!r.ok) {
+      let msg = "";
+      try { const j = await r.json(); msg = (j as { error?: string })?.error || r.statusText; } catch { msg = await r.text(); }
+      alert(`Save question failed: ${msg}`);
+      return;
+    }
+
+    await refreshQuiz(qForm.chapter_id);
+    setQForm({ chapter_id: qForm.chapter_id, question: "", options: [], correct_index: 0, id: undefined });
+  }
+
+  async function deleteQuestion(id?: string) {
+    if (!id) return;
+    if (!confirm("Delete this question?")) return;
+    const r = await fetch(`/api/admin/quiz-questions?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (!r.ok) {
+      let msg = "";
+      try { const j = await r.json(); msg = (j as { error?: string })?.error || r.statusText; } catch { msg = await r.text(); }
+      alert(`Delete failed: ${msg}`);
+      return;
+    }
+    await refreshQuiz(quizSettings.chapter_id);
   }
 
   /* ---------- Media ---------- */
@@ -223,7 +423,7 @@ export default function AdminPage() {
     const r = await fetch("/api/admin/upload", { method: "POST", body: fd });
     setUploading(false);
     const d = await r.json();
-    const url = d && typeof d === "object" ? (d as Record<string, unknown>)["publicUrl"] : null;
+    const url = (d && typeof d === "object") ? (d as Record<string, unknown>)["publicUrl"] : null;
     if (isString(url)) setUploadedUrl(url); else alert("Upload failed");
   }
 
@@ -232,7 +432,7 @@ export default function AdminPage() {
   async function refreshUsers() {
     const r = await fetch("/api/admin/users", { cache: "no-store" });
     const d = await r.json();
-    const usersField = d && typeof d === "object" ? (d as Record<string, unknown>)["users"] : null;
+    const usersField = (d && typeof d === "object") ? (d as Record<string, unknown>)["users"] : null;
     const arr = Array.isArray(usersField) ? usersField : [];
     setUsers(arr.map(asAdminUser));
   }
@@ -250,7 +450,7 @@ export default function AdminPage() {
       body: JSON.stringify({ action: "generate_confirmation_link", email })
     });
     const d = await r.json();
-    const link = d && typeof d === "object" ? (d as Record<string, unknown>)["link"] : null;
+    const link = (d && typeof d === "object") ? (d as Record<string, unknown>)["link"] : null;
     if (isString(link)) { await navigator.clipboard.writeText(link); alert("Confirmation link copied"); }
     else { alert("Could not generate link"); }
   }
@@ -259,8 +459,8 @@ export default function AdminPage() {
   async function triggerDeploy() {
     const r = await fetch("/api/admin/deploy", { method: "POST" });
     const d = await r.json();
-    const ok   = d && typeof d === "object" ? (d as Record<string, unknown>)["ok"]   : null;
-    const text = d && typeof d === "object" ? (d as Record<string, unknown>)["text"] : null;
+    const ok   = (d && typeof d === "object") ? (d as Record<string, unknown>)["ok"]   : null;
+    const text = (d && typeof d === "object") ? (d as Record<string, unknown>)["text"] : null;
     alert(ok ? "Deploy triggered" : `Failed: ${String(text ?? "Unknown error")}`);
   }
 
@@ -294,51 +494,50 @@ export default function AdminPage() {
                   <span className="text-sm text-muted">{label}</span>
                   <input
                     value={(form as Record<string, unknown>)[k] as string ?? ""}
-                    onChange={e=>setForm(f=>({ ...f, [k]: e.target.value }))}
+                    onChange={(e)=>setForm(f=>({ ...f, [k]: (e.target as HTMLInputElement).value }))}
                     className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
                   />
                 </label>
               ))}
               <label className="grid gap-1">
                 <span className="text-sm text-muted">Price (GH₵)</span>
-                <input type="number"
+                <input
+                  type="number"
                   value={form.price ?? ""}
-                  onChange={e=>setForm(f=>({ ...f, price: e.target.value===""?null:Number(e.target.value) }))}
+                  onChange={(e)=>setForm(f=>({ ...f, price: (e.target as HTMLInputElement).value===""?null:Number((e.target as HTMLInputElement).value) }))}
                   className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]" />
               </label>
               <label className="grid gap-1">
                 <span className="text-sm text-muted">CPPD Points</span>
-                <input type="number"
+                <input
+                  type="number"
                   value={form.cpd_points ?? ""}
-                  onChange={e=>setForm(f=>({ ...f, cpd_points: e.target.value===""?null:Number(e.target.value) }))}
+                  onChange={(e)=>setForm(f=>({ ...f, cpd_points: (e.target as HTMLInputElement).value===""?null:Number((e.target as HTMLInputElement).value) }))}
                   className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]" />
               </label>
               <label className="grid gap-1">
                 <span className="text-sm text-muted">Image URL</span>
                 <input
                   value={form.img ?? ""}
-                  onChange={e=>setForm(f=>({ ...f, img: e.target.value }))}
+                  onChange={(e)=>setForm(f=>({ ...f, img: (e.target as HTMLInputElement).value }))}
                   className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]" />
               </label>
               <label className="grid gap-1">
                 <span className="text-sm text-muted">Accredited (comma separated)</span>
                 <input
                   value={toCsv(form.accredited ?? [])}
-                  onChange={e=>setForm(f=>({ ...f, accredited: fromCsv(e.target.value) }))}
+                  onChange={(e)=>setForm(f=>({ ...f, accredited: fromCsv((e.target as HTMLInputElement).value) }))}
                   className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]" />
               </label>
               <label className="inline-flex items-center gap-2">
-                <input type="checkbox" checked={form.published ?? true} onChange={e=>setForm(f=>({ ...f, published: e.target.checked }))} />
+                <input type="checkbox" checked={form.published ?? true} onChange={(e)=>setForm(f=>({ ...f, published: (e.target as HTMLInputElement).checked }))} />
                 <span className="text-sm">Published</span>
               </label>
               <div className="flex items-center gap-2">
                 <button onClick={saveKnowledge} disabled={saving} className="rounded-lg bg-brand text-white px-4 py-2 font-semibold hover:opacity-90 disabled:opacity-50">
                   {saving ? "Saving…" : "Save"}
                 </button>
-                <button onClick={()=>setForm({
-                  slug: "", title: "", description: "", level: "",
-                  price: null, cpd_points: null, img: "", accredited: [], published: true
-                })} className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]">Reset</button>
+                <button onClick={()=>setForm(emptyK)} className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]">Reset</button>
               </div>
             </div>
           </div>
@@ -373,7 +572,7 @@ export default function AdminPage() {
             <select
               className="mt-3 h-10 w-full rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
               value={selectedCourseId}
-              onChange={(e)=>{ setSelectedCourseId(e.target.value); }}
+              onChange={(e)=>{ setSelectedCourseId((e.target as HTMLSelectElement).value); }}
             >
               <option value="">— Choose —</option>
               {list.map(k => (<option key={k.id ?? k.slug} value={k.id}>{k.title}</option>))}
@@ -384,7 +583,12 @@ export default function AdminPage() {
               {chapters.map(ch => (
                 <button
                   key={ch.id ?? ch.title}
-                  onClick={()=>{ setChForm(ch); setSlForm(s => ({ ...s, chapter_id: ch.id ?? "" })); void refreshSlides(ch.id ?? ""); }}
+                  onClick={()=>{
+                    setChForm(ch);
+                    setSlForm(s => ({ ...s, chapter_id: ch.id ?? "" }));
+                    void refreshSlides(ch.id ?? "");
+                    void refreshQuiz(ch.id ?? "");
+                  }}
                   className={`text-left rounded-lg px-3 py-2 ring-1 ring-[color:var(--color-light)] ${slForm.chapter_id===(ch.id??"") ? "bg-[color:var(--color-light)]/40" : "bg-white"}`}
                 >
                   <div className="font-medium">{ch.title}</div>
@@ -395,7 +599,7 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* Middle: chapter form + QUIZ SETTINGS */}
+          {/* Middle: chapter form */}
           <div className="rounded-2xl bg-white border border-light p-5">
             <h2 className="font-semibold">Edit / Create Chapter</h2>
             <div className="mt-3 grid gap-3">
@@ -403,7 +607,7 @@ export default function AdminPage() {
                 <span className="text-sm text-muted">Title</span>
                 <input
                   value={chForm.title}
-                  onChange={e=>setChForm(f=>({ ...f, title: e.target.value }))}
+                  onChange={(e)=>setChForm(f=>({ ...f, title: (e.target as HTMLInputElement).value }))}
                   className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
                 />
               </label>
@@ -412,7 +616,7 @@ export default function AdminPage() {
                 <input
                   type="number"
                   value={chForm.order_index}
-                  onChange={e=>setChForm(f=>({ ...f, order_index: Number(e.target.value || 0) }))}
+                  onChange={(e)=>setChForm(f=>({ ...f, order_index: Number((e.target as HTMLInputElement).value || 0) }))}
                   className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
                 />
               </label>
@@ -420,16 +624,13 @@ export default function AdminPage() {
                 <button onClick={saveChapter} disabled={savingChapter || !selectedCourseId || !chForm.title} className="rounded-lg bg-brand text-white px-4 py-2 font-semibold hover:opacity-90 disabled:opacity-50">
                   {savingChapter ? "Saving…" : "Save Chapter"}
                 </button>
-                <button onClick={()=>setChForm({ course_id: selectedCourseId, title: "", order_index: 0 })} className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]">Reset</button>
-                <button onClick={()=>deleteChapter(chForm.id)} disabled className="rounded-lg px-4 py-2 bg-red-600 text-white disabled:opacity-50" title="Delete endpoint not wired yet">Delete</button>
+                <button onClick={()=>setChForm({ ...emptyChapter, course_id: selectedCourseId })} className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]">Reset</button>
+                <button onClick={deleteChapter} disabled className="rounded-lg px-4 py-2 bg-red-600 text-white disabled:opacity-50" title="Delete endpoint not wired yet">Delete</button>
               </div>
-
-              {/* QUIZ SETTINGS PANEL */}
-              <QuizSettingsPanel chapterId={chForm.id ?? ""} />
             </div>
           </div>
 
-          {/* Right: slides list + form + QUIZ QUESTIONS */}
+          {/* Right: slides list + form + quiz */}
           <div className="rounded-2xl bg-white border border-light p-5">
             <h2 className="font-semibold">Slides (for selected chapter)</h2>
 
@@ -452,7 +653,7 @@ export default function AdminPage() {
                 <span className="text-sm text-muted">Title</span>
                 <input
                   value={slForm.title}
-                  onChange={e=>setSlForm(f=>({ ...f, title: e.target.value }))}
+                  onChange={(e)=>setSlForm(f=>({ ...f, title: (e.target as HTMLInputElement).value }))}
                   className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
                 />
               </label>
@@ -461,7 +662,7 @@ export default function AdminPage() {
                 <input
                   type="number"
                   value={slForm.order_index}
-                  onChange={e=>setSlForm(f=>({ ...f, order_index: Number(e.target.value || 0) }))}
+                  onChange={(e)=>setSlForm(f=>({ ...f, order_index: Number((e.target as HTMLInputElement).value || 0) }))}
                   className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
                 />
               </label>
@@ -471,15 +672,15 @@ export default function AdminPage() {
                 <span className="text-sm text-muted">Intro video URL (optional)</span>
                 <input
                   value={slForm.intro_video_url ?? ""}
-                  onChange={e=>setSlForm(f=>({ ...f, intro_video_url: e.target.value }))}
+                  onChange={(e)=>setSlForm(f=>({ ...f, intro_video_url: (e.target as HTMLInputElement).value }))}
                   className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
                 />
               </label>
               <label className="grid gap-1">
-                <span className="text-sm text-muted">Asset URL (slides/files, optional)</span>
+                <span className="text-sm text-muted">Asset URL (image/pdf/slide, optional)</span>
                 <input
                   value={slForm.asset_url ?? ""}
-                  onChange={e=>setSlForm(f=>({ ...f, asset_url: e.target.value }))}
+                  onChange={(e)=>setSlForm(f=>({ ...f, asset_url: (e.target as HTMLInputElement).value }))}
                   className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
                 />
               </label>
@@ -488,11 +689,11 @@ export default function AdminPage() {
               <div className="grid gap-2">
                 <label className="grid gap-1">
                   <span className="text-sm text-muted">Upload intro video (optional)</span>
-                  <input type="file" accept="video/*" onChange={e=>{ const f=e.target.files?.[0]; if (f) void onPickVideo(f); }} />
+                  <input type="file" accept="video/*" onChange={(e)=>{ const f=(e.target as HTMLInputElement).files?.[0]; if (f) void onPickVideo(f); }} />
                 </label>
                 <label className="grid gap-1">
                   <span className="text-sm text-muted">Upload asset (image/pdf/slide, optional)</span>
-                  <input type="file" accept="image/*,application/pdf" onChange={e=>{ const f=e.target.files?.[0]; if (f) void onPickAsset(f); }} />
+                  <input type="file" accept="image/*,application/pdf" onChange={(e)=>{ const f=(e.target as HTMLInputElement).files?.[0]; if (f) void onPickAsset(f); }} />
                 </label>
               </div>
 
@@ -500,7 +701,7 @@ export default function AdminPage() {
                 <span className="text-sm text-muted">Body / Notes (optional)</span>
                 <textarea
                   value={slForm.body ?? ""}
-                  onChange={e=>setSlForm(f=>({ ...f, body: e.target.value }))}
+                  onChange={(e)=>setSlForm(f=>({ ...f, body: (e.target as HTMLTextAreaElement).value }))}
                   className="min-h-[90px] rounded-lg bg-white px-3 py-2 ring-1 ring-[color:var(--color-light)]"
                 />
               </label>
@@ -509,36 +710,110 @@ export default function AdminPage() {
                 <button onClick={saveSlide} disabled={savingSlide || !slForm.chapter_id || !slForm.title} className="rounded-lg bg-brand text-white px-4 py-2 font-semibold hover:opacity-90 disabled:opacity-50">
                   {savingSlide ? "Saving…" : "Save Slide"}
                 </button>
-                <button onClick={()=>setSlForm({ chapter_id: slForm.chapter_id, title: "", order_index: 0, intro_video_url: "", asset_url: "", body: "" })} className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]">Reset</button>
-                <button onClick={()=>deleteSlide(slForm.id)} disabled className="rounded-lg px-4 py-2 bg-red-600 text-white disabled:opacity-50" title="Delete endpoint not wired yet">Delete</button>
+                <button onClick={()=>setSlForm({ ...emptySlide, chapter_id: slForm.chapter_id })} className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]">Reset</button>
+                <button onClick={deleteSlide} disabled className="rounded-lg px-4 py-2 bg-red-600 text-white disabled:opacity-50" title="Delete endpoint not wired yet">Delete</button>
               </div>
-
-              {(slForm.intro_video_url || slForm.asset_url) && (
-                <div className="mt-3 grid gap-3">
-                  {slForm.intro_video_url && (
-                    <div className="text-sm">
-                      <div className="mb-1 text-muted">Video preview (if embeddable):</div>
-                      <video src={slForm.intro_video_url} controls className="w-full rounded-lg ring-1 ring-[color:var(--color-light)]" />
-                    </div>
-                  )}
-                  {slForm.asset_url && slForm.asset_url.startsWith("http") && (
-                    <div className="text-sm">
-                      <div className="mb-1 text-muted">Asset preview (image):</div>
-                      <Image
-                        src={slForm.asset_url}
-                        alt="Asset preview"
-                        width={640}
-                        height={360}
-                        className="rounded-lg ring-1 ring-[color:var(--color-light)]"
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
 
-            {/* QUIZ QUESTIONS PANEL */}
-            <ChapterQuizPanel chapterId={slForm.chapter_id} />
+            {/* -------- Quiz editor -------- */}
+            <div className="mt-8 pt-6 border-t border-light">
+              <h2 className="font-semibold">Quiz (end of chapter)</h2>
+              {slForm.chapter_id ? (
+                <>
+                  {/* Settings */}
+                  <div className="mt-3 grid gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <label className="grid gap-1">
+                        <span className="text-sm text-muted">Time limit (seconds)</span>
+                        <input
+                          type="number"
+                          value={quizSettings.time_limit_seconds ?? ""}
+                          onChange={(e)=>setQuizSettings(s=>({ ...s, chapter_id: slForm.chapter_id, time_limit_seconds: (e.target as HTMLInputElement).value===""?null:Number((e.target as HTMLInputElement).value) }))}
+                          className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                        />
+                      </label>
+                      <label className="grid gap-1">
+                        <span className="text-sm text-muted"># of randomized questions</span>
+                        <input
+                          type="number"
+                          value={quizSettings.num_questions ?? ""}
+                          onChange={(e)=>setQuizSettings(s=>({ ...s, chapter_id: slForm.chapter_id, num_questions: (e.target as HTMLInputElement).value===""?null:Number((e.target as HTMLInputElement).value) }))}
+                          className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                        />
+                      </label>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={saveQuizSettings} disabled={quizSaving || !slForm.chapter_id} className="rounded-lg bg-brand text-white px-4 py-2 font-semibold hover:opacity-90 disabled:opacity-50">
+                        {quizSaving ? "Saving…" : "Save Settings"}
+                      </button>
+                      <button onClick={()=>void refreshQuiz(slForm.chapter_id)} className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]">
+                        Refresh
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Questions list */}
+                  <div className="mt-6">
+                    <div className="text-sm font-semibold mb-2">Questions</div>
+                    <div className="grid gap-2">
+                      {questions.map((q, i) => (
+                        <div key={q.id ?? i} className="rounded-lg p-3 ring-1 ring-[color:var(--color-light)]">
+                          <div className="text-sm font-medium">{q.question}</div>
+                          <ol className="text-xs text-muted mt-1 list-decimal ms-5">
+                            {q.options.map((opt, idx) => (
+                              <li key={idx} className={idx===q.correct_index ? "text-ink" : ""}>
+                                {opt}{idx===q.correct_index ? "  ← correct" : ""}
+                              </li>
+                            ))}
+                          </ol>
+                          <div className="mt-2 flex gap-2">
+                            <button onClick={()=>setQForm(q)} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-sm">Edit</button>
+                            <button onClick={()=>void deleteQuestion(q.id)} className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm">Delete</button>
+                          </div>
+                        </div>
+                      ))}
+                      {questions.length===0 && <div className="text-xs text-muted">No questions yet.</div>}
+                    </div>
+                  </div>
+
+                  {/* Question form */}
+                  <div className="mt-6 grid gap-3">
+                    <div className="text-sm font-semibold">Add / Edit Question</div>
+                    <label className="grid gap-1">
+                      <span className="text-sm text-muted">Question</span>
+                      <input
+                        value={qForm.question}
+                        onChange={(e)=>setQForm(f=>({ ...f, chapter_id: slForm.chapter_id, question: (e.target as HTMLInputElement).value }))}
+                        className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                      />
+                    </label>
+                    <label className="grid gap-1">
+                      <span className="text-sm text-muted">Options (comma separated)</span>
+                      <input
+                        value={toCsv(qForm.options)}
+                        onChange={(e)=>setQForm(f=>({ ...f, chapter_id: slForm.chapter_id, options: fromCsv((e.target as HTMLInputElement).value) }))}
+                        className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                      />
+                    </label>
+                    <label className="grid gap-1">
+                      <span className="text-sm text-muted">Correct index (0-based)</span>
+                      <input
+                        type="number"
+                        value={qForm.correct_index}
+                        onChange={(e)=>setQForm(f=>({ ...f, chapter_id: slForm.chapter_id, correct_index: Number((e.target as HTMLInputElement).value || 0) }))}
+                        className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                      />
+                    </label>
+                    <div className="flex gap-2">
+                      <button onClick={saveQuestion} className="rounded-lg bg-brand text-white px-4 py-2 font-semibold hover:opacity-90">Save Question</button>
+                      <button onClick={()=>setQForm({ chapter_id: slForm.chapter_id, question: "", options: [], correct_index: 0, id: undefined })} className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]">Reset</button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="text-xs text-muted mt-2">Pick a chapter to edit its quiz.</div>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -549,7 +824,7 @@ export default function AdminPage() {
           <h2 className="font-semibold">Upload Image to Storage</h2>
           <p className="text-sm text-muted mt-1">Uploads to Supabase Storage (public). Copy the URL wherever needed.</p>
           <div className="mt-4 flex items-center gap-3">
-            <input type="file" accept="image/*" onChange={e=>e.target.files && handleUpload(e.target.files[0])} />
+            <input type="file" accept="image/*" onChange={(e)=>{ const f=(e.target as HTMLInputElement).files?.[0]; if (f) { void handleUpload(f); } }} />
             <span>{uploading ? "Uploading…" : ""}</span>
           </div>
           {uploadedUrl && uploadedUrl.startsWith("http") && (
@@ -576,8 +851,8 @@ export default function AdminPage() {
                   <div className="text-muted">Created: {u.created_at ?? "—"} · Confirmed: {u.email_confirmed_at ? "yes" : "no"}</div>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={()=>generateLink(u.email)} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)]" disabled={!u.email}>Confirm Link</button>
-                  <button onClick={()=>deleteUser(u.id)} className="px-3 py-1.5 rounded-lg bg-red-600 text-white">Delete</button>
+                  <button onClick={()=>void generateLink(u.email)} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)]" disabled={!u.email}>Confirm Link</button>
+                  <button onClick={()=>void deleteUser(u.id)} className="px-3 py-1.5 rounded-lg bg-red-600 text-white">Delete</button>
                 </div>
               </div>
             ))}
@@ -593,256 +868,6 @@ export default function AdminPage() {
           <p className="text-sm text-muted">Trigger a Vercel rebuild (requires VERCEL_DEPLOY_HOOK_URL).</p>
           <button onClick={triggerDeploy} className="mt-3 rounded-lg bg-brand text-white px-4 py-2 font-semibold hover:opacity-90">Trigger Deploy</button>
         </div>
-      )}
-    </div>
-  );
-}
-
-/* ---------------- Type-guards & mapping (kept outside component to avoid re-creation) ---------------- */
-function asAdminUser(x: unknown): AdminUser {
-  const r = (x && typeof x === "object") ? (x as Record<string, unknown>) : {};
-  return {
-    id: String(r["id"] ?? ""),
-    email: isString(r["email"]) ? r["email"] : undefined,
-    email_confirmed_at: isString(r["email_confirmed_at"]) ? r["email_confirmed_at"] : null,
-    created_at: isString(r["created_at"]) ? r["created_at"] : null,
-  };
-}
-function asKnowledgeArray(x: unknown): Knowledge[] {
-  if (!Array.isArray(x)) return [];
-  return x.map((k) => {
-    const r = (k && typeof k === "object") ? (k as Record<string, unknown>) : {};
-    return {
-      id: isString(r["id"]) ? r["id"] : undefined,
-      slug: String(r["slug"] ?? ""),
-      title: String(r["title"] ?? ""),
-      description: isString(r["description"]) ? r["description"] : null,
-      level: isString(r["level"]) ? r["level"] : null,
-      price: typeof r["price"] === "number" ? r["price"] : null,
-      cpd_points: typeof r["cpd_points"] === "number" ? r["cpd_points"] : null,
-      img: isString(r["img"]) ? r["img"] : null,
-      accredited: Array.isArray(r["accredited"]) ? (r["accredited"] as string[]) : null,
-      published: typeof r["published"] === "boolean" ? r["published"] : null,
-    };
-  });
-}
-function asChapters(x: unknown): Chapter[] {
-  if (!Array.isArray(x)) return [];
-  return x.map((c) => {
-    const r = (c && typeof c === "object") ? (c as Record<string, unknown>) : {};
-    return {
-      id: isString(r["id"]) ? r["id"] : undefined,
-      course_id: String(r["course_id"] ?? ""),
-      title: String(r["title"] ?? ""),
-      order_index: Number(r["order_index"] ?? 0),
-      created_at: isString(r["created_at"]) ? r["created_at"] : undefined,
-    };
-  });
-}
-function asSlides(x: unknown): Slide[] {
-  if (!Array.isArray(x)) return [];
-  return x.map((s) => {
-    const r = (s && typeof s === "object") ? (s as Record<string, unknown>) : {};
-    return {
-      id: isString(r["id"]) ? r["id"] : undefined,
-      chapter_id: String(r["chapter_id"] ?? ""),
-      title: String(r["title"] ?? ""),
-      order_index: Number(r["order_index"] ?? 0),
-      intro_video_url: isString(r["intro_video_url"]) ? r["intro_video_url"] : null,
-      asset_url: isString(r["asset_url"]) ? r["asset_url"] : null,
-      body: isString(r["body"]) ? r["body"] : null,
-      created_at: isString(r["created_at"]) ? r["created_at"] : undefined,
-    };
-  });
-}
-
-/* ===================== QUIZ PANELS (self-contained, call your admin APIs) ===================== */
-
-function QuizSettingsPanel({ chapterId }: { chapterId: string }) {
-  const [timeLimit, setTimeLimit] = useState<number | "">("");
-  const [numQuestions, setNumQuestions] = useState<number | "">("");
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (!chapterId) { setTimeLimit(""); setNumQuestions(""); return; }
-    (async () => {
-      const r = await fetch(`/api/admin/quiz-settings?chapter_id=${encodeURIComponent(chapterId)}`, { cache: "no-store" });
-      const d = await r.json();
-      const row = Array.isArray(d) ? d[0] : d;
-      setTimeLimit(typeof row?.time_limit_seconds === "number" ? row.time_limit_seconds : "");
-      setNumQuestions(typeof row?.num_questions === "number" ? row.num_questions : "");
-    })();
-  }, [chapterId]);
-
-  async function save() {
-    if (!chapterId) return;
-    setSaving(true);
-    const payload = {
-      chapter_id: chapterId,
-      time_limit_seconds: timeLimit === "" ? null : Number(timeLimit),
-      num_questions: numQuestions === "" ? null : Number(numQuestions),
-    };
-    const r = await fetch("/api/admin/quiz-settings", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    setSaving(false);
-    if (!r.ok) alert("Save failed"); else alert("Quiz settings saved");
-  }
-
-  return (
-    <div className="mt-6 rounded-xl p-4 ring-1 ring-[color:var(--color-light)] bg-white">
-      <div className="font-semibold">Chapter Quiz Settings</div>
-      {!chapterId && <div className="mt-2 text-xs text-muted">Select a chapter to edit quiz settings.</div>}
-      {chapterId && (
-        <div className="mt-3 grid gap-3">
-          <label className="grid gap-1">
-            <span className="text-sm text-muted">Time limit (seconds)</span>
-            <input
-              type="number"
-              value={timeLimit}
-              onChange={e => setTimeLimit(e.target.value === "" ? "" : Number(e.target.value))}
-              className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
-            />
-          </label>
-          <label className="grid gap-1">
-            <span className="text-sm text-muted">Number of questions (optional)</span>
-            <input
-              type="number"
-              value={numQuestions}
-              onChange={e => setNumQuestions(e.target.value === "" ? "" : Number(e.target.value))}
-              className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
-            />
-          </label>
-          <div className="flex gap-2">
-            <button onClick={save} disabled={saving || !chapterId} className="rounded-lg bg-brand text-white px-4 py-2 font-semibold hover:opacity-90 disabled:opacity-50">
-              {saving ? "Saving…" : "Save Quiz Settings"}
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ChapterQuizPanel({ chapterId }: { chapterId: string }) {
-  const [list, setList] = useState<Array<{id?:string;question:string;options:string[];correct_index:number}>>([]);
-  const [form, setForm] = useState<{id?:string;question:string;optionsCSV:string;correct_index:number}>({
-    id: undefined, question: "", optionsCSV: "", correct_index: 1
-  });
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (!chapterId) { setList([]); setForm({ id: undefined, question: "", optionsCSV: "", correct_index: 1 }); return; }
-    (async () => {
-      setLoading(true);
-      const r = await fetch(`/api/admin/quiz-questions?chapter_id=${encodeURIComponent(chapterId)}`, { cache: "no-store" });
-      const d = await r.json();
-      setLoading(false);
-      const arr = Array.isArray(d) ? d : [];
-      setList(arr.map((q: any) => ({
-        id: q.id, question: String(q.question ?? ""),
-        options: Array.isArray(q.options) ? q.options.map(String) : [],
-        correct_index: Number(q.correct_index ?? 0)
-      })));
-      setForm({ id: undefined, question: "", optionsCSV: "", correct_index: 1 });
-    })();
-  }, [chapterId]);
-
-  async function save() {
-    if (!chapterId) return;
-    if (!form.question) return alert("Question is required");
-    const opts = form.optionsCSV.split(",").map(s => s.trim()).filter(Boolean);
-    if (opts.length < 2) return alert("Provide at least two options (comma separated).");
-
-    setSaving(true);
-    const r = await fetch("/api/admin/quiz-questions", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        id: form.id,
-        chapter_id: chapterId,
-        question: form.question,
-        options: opts,
-        correct_index: Math.max(0, Math.min(opts.length - 1, Number(form.correct_index) - 1)), // 1-based -> 0-based
-      }),
-    });
-    setSaving(false);
-    if (!r.ok) {
-      alert("Save failed");
-      return;
-    }
-    // reload
-    const rr = await fetch(`/api/admin/quiz-questions?chapter_id=${encodeURIComponent(chapterId)}`, { cache: "no-store" });
-    const d = await rr.json();
-    const arr = Array.isArray(d) ? d : [];
-    setList(arr.map((q: any) => ({
-      id: q.id, question: String(q.question ?? ""),
-      options: Array.isArray(q.options) ? q.options.map(String) : [],
-      correct_index: Number(q.correct_index ?? 0)
-    })));
-    setForm({ id: undefined, question: "", optionsCSV: "", correct_index: 1 });
-  }
-
-  return (
-    <div className="mt-6">
-      <h3 className="font-semibold mt-6">Chapter Quiz</h3>
-      {!chapterId && <div className="text-xs text-muted mt-1">Select a chapter to manage its quiz.</div>}
-
-      {chapterId && (
-        <>
-          <div className="mt-2 grid gap-2">
-            {loading && <div className="text-xs text-muted">Loading…</div>}
-            {!loading && list.map((q, i) => (
-              <button
-                key={q.id ?? i}
-                onClick={()=>setForm({ id:q.id, question:q.question, optionsCSV:q.options.join(", "), correct_index:(q.correct_index+1) })}
-                className="text-left rounded-lg px-3 py-2 ring-1 ring-[color:var(--color-light)] bg-white"
-              >
-                <div className="font-medium text-sm">{i+1}. {q.question}</div>
-                <div className="text-xs text-muted">Options: {q.options.join(" • ")} — Correct: {q.correct_index+1}</div>
-              </button>
-            ))}
-            {!loading && list.length===0 && <div className="text-xs text-muted">No questions yet.</div>}
-          </div>
-
-          <div className="mt-4 grid gap-3">
-            <label className="grid gap-1">
-              <span className="text-sm text-muted">Question</span>
-              <input
-                value={form.question}
-                onChange={e=>setForm(f=>({ ...f, question: e.target.value }))}
-                className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
-              />
-            </label>
-            <label className="grid gap-1">
-              <span className="text-sm text-muted">Options (comma separated)</span>
-              <input
-                value={form.optionsCSV}
-                onChange={e=>setForm(f=>({ ...f, optionsCSV: e.target.value }))}
-                className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
-              />
-            </label>
-            <label className="grid gap-1">
-              <span className="text-sm text-muted">Correct option (1-based)</span>
-              <input
-                type="number"
-                value={form.correct_index}
-                onChange={e=>setForm(f=>({ ...f, correct_index: Number(e.target.value || 1) }))}
-                className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
-              />
-            </label>
-
-            <div className="flex gap-2">
-              <button onClick={save} disabled={saving || !chapterId} className="rounded-lg bg-brand text-white px-4 py-2 font-semibold hover:opacity-90 disabled:opacity-50">
-                {saving ? "Saving…" : (form.id ? "Update Question" : "Add Question")}
-              </button>
-              <button onClick={()=>setForm({ id: undefined, question:"", optionsCSV:"", correct_index: 1 })} className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]">Reset</button>
-            </div>
-          </div>
-        </>
       )}
     </div>
   );
