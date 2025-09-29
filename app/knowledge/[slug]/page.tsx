@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -21,18 +21,20 @@ type CtaState = "loading" | "signed_out" | "paid" | "unpaid";
 
 export default function KnowledgePage() {
   const params = useParams<{ slug: string }>();
-  const slug = params?.slug ? String(params.slug) : "";
+  const slug = useMemo(() => (params?.slug ? String(params.slug) : ""), [params]);
 
   const [course, setCourse] = useState<Course | null>(null);
-  const [courseLoading, setCourseLoading] = useState(true);
+  const [isFetchingCourse, setIsFetchingCourse] = useState(true);
   const [cta, setCta] = useState<CtaState>("loading");
 
-  // Load course details
+  /** Load course once the slug is available */
   useEffect(() => {
     let mounted = true;
+    if (!slug) return; // wait until slug is present
+
     (async () => {
-      setCourseLoading(true);
-      const { data } = await supabase
+      setIsFetchingCourse(true);
+      const { data /*, error*/ } = await supabase
         .from("courses")
         .select("id,slug,title,description,level,price,cpd_points,img")
         .eq("slug", slug)
@@ -40,18 +42,20 @@ export default function KnowledgePage() {
 
       if (!mounted) return;
       setCourse(data ?? null);
-      setCourseLoading(false);
+      setIsFetchingCourse(false);
     })();
+
     return () => {
       mounted = false;
     };
   }, [slug]);
 
-  // Decide CTA based on auth + enrollment
+  /** Decide CTA based on auth + enrollment; also react to auth changes */
   useEffect(() => {
     let mounted = true;
-    (async () => {
-      if (!course) return;
+    if (!course) return;
+
+    const computeCta = async () => {
       setCta("loading");
 
       const { data: { user } } = await supabase.auth.getUser();
@@ -71,19 +75,42 @@ export default function KnowledgePage() {
 
       if (!mounted) return;
       setCta(enr?.paid ? "paid" : "unpaid");
-    })();
+    };
 
-    return () => { mounted = false; };
+    computeCta();
+
+    // live update when user logs in/out
+    const { data: sub } = supabase.auth.onAuthStateChange(() => {
+      computeCta();
+    });
+
+    return () => {
+      mounted = false;
+      sub.subscription?.unsubscribe();
+    };
   }, [course]);
 
-  if (courseLoading) {
-    return <main className="w-full px-4 md:px-6 py-10">Loading…</main>;
-  }
-  if (!course) {
-    return <main className="w-full px-4 md:px-6 py-10">Not found.</main>;
-  }
+  /* ---------- UI helpers ---------- */
 
-  // CTA buttons
+  const PriceBadge = ({ price }: { price: number | null }) => (
+    <span className="px-2 py-1 rounded-lg bg-white ring-1 ring-[color:var(--color-light)]">
+      GH₵ {(price ?? 0).toFixed(2)}
+    </span>
+  );
+
+  const Skeleton = () => (
+    <div className="animate-pulse">
+      <div className="h-8 w-64 bg-[color:var(--color-light)] rounded-lg" />
+      <div className="mt-3 h-4 w-96 bg-[color:var(--color-light)] rounded" />
+      <div className="mt-2 h-4 w-72 bg-[color:var(--color-light)] rounded" />
+      <div className="mt-6 flex gap-2">
+        <div className="h-9 w-28 bg-[color:var(--color-light)] rounded-lg" />
+        <div className="h-9 w-24 bg-[color:var(--color-light)] rounded-lg" />
+      </div>
+    </div>
+  );
+
+  /* ---------- CTA buttons ---------- */
   const renderCTA = () => {
     if (cta === "loading") {
       return (
@@ -97,7 +124,7 @@ export default function KnowledgePage() {
     }
 
     if (cta === "signed_out") {
-      const redirect = encodeURIComponent(`/knowledge/${course.slug}`);
+      const redirect = encodeURIComponent(`/knowledge/${course!.slug}`);
       return (
         <div className="flex flex-wrap gap-3">
           <Link
@@ -119,7 +146,7 @@ export default function KnowledgePage() {
     if (cta === "paid") {
       return (
         <Link
-          href={`/knowledge/${course.slug}/dashboard`}
+          href={`/knowledge/${course!.slug}/dashboard`}
           className="rounded-lg bg-brand text-white px-5 py-3 font-semibold hover:opacity-90"
         >
           Resume
@@ -130,7 +157,7 @@ export default function KnowledgePage() {
     // unpaid
     return (
       <Link
-        href={`/knowledge/${course.slug}/enroll`}
+        href={`/knowledge/${course!.slug}/enroll`}
         className="rounded-lg bg-brand text-white px-5 py-3 font-semibold hover:opacity-90"
       >
         Enroll to Begin
@@ -138,11 +165,46 @@ export default function KnowledgePage() {
     );
   };
 
+  /* ---------- Render ---------- */
+
+  if (isFetchingCourse) {
+    return (
+      <main className="w-full px-4 md:px-6 py-10">
+        <div className="mx-auto max-w-screen-lg grid gap-8 md:grid-cols-5">
+          <div className="md:col-span-3"><Skeleton /></div>
+          <div className="md:col-span-2">
+            <div className="rounded-2xl overflow-hidden bg-white border border-light aspect-[4/3]" />
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (!course) {
+    return (
+      <main className="w-full px-4 md:px-6 py-10">
+        <div className="mx-auto max-w-screen-sm">
+          <div className="rounded-xl border border-light bg-white p-6">
+            <div className="text-lg font-semibold">Course not found</div>
+            <p className="mt-2 text-sm text-muted">
+              The course you’re looking for doesn’t exist or has been moved.
+            </p>
+            <Link href="/" className="mt-4 inline-block rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)] bg-white hover:bg-[color:var(--color-light)]/30">
+              Back to home
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   return (
-    <main className="w-full px-4 md:px-6 py-10">
+    <main className="w-full px-4 md:px-6 py-8 md:py-10">
       <div className="mx-auto max-w-screen-lg grid gap-8 md:grid-cols-5">
+        {/* Left column: text & CTA */}
         <div className="md:col-span-3">
           <h1 className="text-3xl sm:text-4xl font-bold">{course.title}</h1>
+
           <p className="mt-3 text-[15px] text-muted">
             {course.description ?? "No description yet."}
           </p>
@@ -158,14 +220,10 @@ export default function KnowledgePage() {
                 {course.cpd_points} CPPD
               </span>
             )}
-            {typeof course.price === "number" && (
-              <span className="px-2 py-1 rounded-lg bg-white ring-1 ring-[color:var(--color-light)]">
-                GH₵ {course.price.toFixed(2)}
-              </span>
-            )}
+            <PriceBadge price={course.price} />
           </div>
 
-          <div className="mt-6 flex gap-3">
+          <div className="mt-6 flex flex-wrap gap-3 items-center">
             {renderCTA()}
             <Link
               href="/"
@@ -176,6 +234,7 @@ export default function KnowledgePage() {
           </div>
         </div>
 
+        {/* Right column: image */}
         <div className="md:col-span-2">
           <div className="rounded-2xl overflow-hidden bg-white border border-light">
             {course.img ? (
@@ -184,10 +243,10 @@ export default function KnowledgePage() {
                 alt={course.title}
                 width={1200}
                 height={900}
+                priority={false}
                 className="w-full h-auto"
                 sizes="(max-width: 768px) 100vw, 40vw"
-                priority={false}
-                unoptimized={course.img.startsWith("http")}
+                unoptimized={Boolean(course.img && course.img.startsWith("http"))}
               />
             ) : (
               <div className="aspect-[4/3] w-full bg-[color:var(--color-light)]" />
