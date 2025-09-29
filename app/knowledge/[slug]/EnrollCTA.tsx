@@ -4,11 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
-type Props = {
-  courseId: string;
-  slug: string;
-  className?: string;
-};
+type Props = { courseId: string; slug: string; className?: string };
 
 type State =
   | { kind: "loading" }
@@ -23,32 +19,33 @@ export default function EnrollCTA({ courseId, slug, className }: Props) {
     let mounted = true;
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
+
       if (!mounted) return;
+      if (!user) { setState({ kind: "signed_out" }); return; }
 
-      if (!user) {
-        setState({ kind: "signed_out" });
-        return;
-      }
-
-      const { data: enr } = await supabase
+      const { data: enr, error } = await supabase
         .from("enrollments")
         .select("paid")
         .eq("user_id", user.id)
         .eq("course_id", courseId)
         .maybeSingle();
 
-      if (enr?.paid) setState({ kind: "paid" });
-      else setState({ kind: "unpaid" });
-    })();
+      if (error) {
+        // If no row yet, treat as unpaid (user needs to enroll)
+        setState({ kind: "unpaid" });
+        return;
+      }
 
+      setState(enr?.paid ? { kind: "paid" } : { kind: "unpaid" });
+    })();
     return () => { mounted = false; };
   }, [courseId]);
 
   if (state.kind === "loading") {
     return (
       <button
-        className={`rounded-lg bg-brand text-white px-5 py-3 font-semibold opacity-70 cursor-wait ${className ?? ""}`}
         disabled
+        className={`rounded-lg bg-brand text-white px-5 py-3 font-semibold opacity-70 cursor-wait ${className ?? ""}`}
       >
         Checking…
       </button>

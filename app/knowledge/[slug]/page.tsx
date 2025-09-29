@@ -16,10 +16,7 @@ export default async function KnowledgePage(
     .eq("slug", slug)
     .maybeSingle();
 
-  if (error) {
-    console.error("knowledge page query error:", error.message);
-    notFound();
-  }
+  if (error) notFound();
   if (!data) notFound();
 
   return (
