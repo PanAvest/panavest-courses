@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
@@ -37,6 +37,22 @@ type AssessmentJoined = {
   course_title: string;
 };
 
+type QuizAttempt = {
+  course_id: string;
+  chapter_id: string;
+  total_count: number;
+  correct_count: number;
+  score_pct: number;
+  completed_at: string; // ISO string
+};
+
+type ChapterInfo = {
+  id: string;
+  title: string;
+  order_index: number;
+  course_id: string;
+};
+
 function pickCourse(c: CourseRow | CourseRow[] | null | undefined): CourseRow | null {
   if (!c) return null;
   return Array.isArray(c) ? (c[0] ?? null) : c;
@@ -45,6 +61,8 @@ function pickCourse(c: CourseRow | CourseRow[] | null | undefined): CourseRow | 
 export default function DashboardPage() {
   const [enrolled, setEnrolled] = useState<EnrolledCourse[]>([]);
   const [due, setDue] = useState<AssessmentJoined[]>([]);
+  const [quiz, setQuiz] = useState<QuizAttempt[]>([]);
+  const [chaptersById, setChaptersById] = useState<Record<string, ChapterInfo>>({});
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
@@ -56,14 +74,14 @@ export default function DashboardPage() {
       }
 
       // Enrollments (joined with courses)
-      const { data: enrData, error: enrErr } = await supabase
+      const { data: enrData } = await supabase
         .from("enrollments")
         .select("course_id, progress_pct, courses!inner(title,slug,img,cpd_points)")
         .eq("user_id", user.id)
         .order("updated_at", { ascending: false });
 
-      if (!enrErr) {
-        const rows = (enrData ?? []) as EnrollmentRow[];
+      if (enrData) {
+        const rows = enrData as EnrollmentRow[];
         const mapped: EnrolledCourse[] = rows.map((r) => {
           const c = pickCourse(r.courses) || {
             id: "",
@@ -85,8 +103,7 @@ export default function DashboardPage() {
         setEnrolled(mapped);
       }
 
-      // Upcoming assessments (via a view if available)
-      // Cast table name to string to satisfy TS even if not in generated types.
+      // Upcoming assessments (optional view)
       const { data: dueRows } = await supabase
         .from("assessments_due_view" as unknown as string)
         .select("id,title,due_at,status,course_slug,course_title")
@@ -94,9 +111,54 @@ export default function DashboardPage() {
         .limit(5);
 
       setDue(((dueRows ?? []) as AssessmentJoined[]));
+
+      // Quiz attempts (unique per user/course/chapter by schema)
+      const { data: quizRows } = await supabase
+        .from("user_chapter_quiz")
+        .select("course_id, chapter_id, total_count, correct_count, score_pct, completed_at")
+        .eq("user_id", user.id);
+
+      const attempts = (quizRows ?? []) as QuizAttempt[];
+      setQuiz(attempts);
+
+      // Fetch chapter metadata for any chapter_ids we saw
+      const chapterIds = Array.from(new Set(attempts.map(a => a.chapter_id)));
+      if (chapterIds.length > 0) {
+        const { data: chRows } = await supabase
+          .from("course_chapters")
+          .select("id,title,order_index,course_id")
+          .in("id", chapterIds);
+
+        const map: Record<string, ChapterInfo> = {};
+        (chRows ?? []).forEach((c) => {
+          const row = c as unknown as ChapterInfo;
+          map[row.id] = {
+            id: row.id,
+            title: row.title,
+            order_index: Number(row.order_index ?? 0),
+            course_id: row.course_id,
+          };
+        });
+        setChaptersById(map);
+      }
+
       setLoading(false);
     })();
   }, []);
+
+  // Group quiz results by course and sort chapters by order_index
+  const quizByCourse = useMemo(() => {
+    const grouped: Record<string, { attempt: QuizAttempt; chapter: ChapterInfo }[]> = {};
+    for (const a of quiz) {
+      const ch = chaptersById[a.chapter_id];
+      if (!ch) continue;
+      (grouped[a.course_id] ||= []).push({ attempt: a, chapter: ch });
+    }
+    for (const k of Object.keys(grouped)) {
+      grouped[k].sort((l, r) => (l.chapter.order_index ?? 0) - (r.chapter.order_index ?? 0));
+    }
+    return grouped;
+  }, [quiz, chaptersById]);
 
   return (
     <div className="mx-auto max-w-screen-lg px-4 md:px-6 py-8">
@@ -144,6 +206,56 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+          </section>
+
+          {/* Quiz results */}
+          <section className="mt-10">
+            <h2 className="text-xl font-semibold">Your quiz results</h2>
+            {Object.keys(quizByCourse).length === 0 ? (
+              <p className="mt-3 text-muted">No quiz attempts yet.</p>
+            ) : (
+              <div className="mt-4 grid gap-4">
+                {Object.entries(quizByCourse).map(([courseId, rows]) => {
+                  const meta = enrolled.find((e) => e.course_id === courseId);
+                  return (
+                    <div key={courseId} className="rounded-xl border border-light bg-white p-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="font-semibold">
+                          {meta?.title ?? "Course"} {meta?.slug ? <span className="text-muted">· /{meta.slug}</span> : null}
+                        </div>
+                        {meta?.slug && (
+                          <Link href={`/courses/${meta.slug}`} className="text-sm rounded-lg px-3 py-1.5 bg-brand text-white">
+                            Go to course
+                          </Link>
+                        )}
+                      </div>
+
+                      <ul className="mt-3 grid gap-2">
+                        {rows.map(({ attempt, chapter }) => (
+                          <li
+                            key={`${attempt.course_id}-${attempt.chapter_id}`}
+                            className="flex flex-wrap items-center justify-between gap-2 rounded-lg ring-1 ring-[color:var(--color-light)] px-3 py-2"
+                          >
+                            <div className="min-w-0">
+                              <div className="font-medium line-clamp-1">{chapter.title}</div>
+                              <div className="text-xs text-muted">
+                                {attempt.correct_count}/{attempt.total_count} correct ·{" "}
+                                {new Date(attempt.completed_at).toLocaleString()}
+                              </div>
+                            </div>
+                            <div className="shrink-0">
+                              <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-[color:var(--color-light)]">
+                                {attempt.score_pct}%
+                              </span>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </section>
