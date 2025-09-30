@@ -248,6 +248,15 @@ export default function EbookDetailPage({
 }
 
 function RelatedBooks({ currentId }: { currentId: string }) {
+  // Minimal shape we actually render in the related grid
+  type RelatedRow = {
+    id: string;
+    slug: string;
+    title: string;
+    cover_url: string | null;
+    price_cents: number;
+  };
+
   const [books, setBooks] = useState<Ebook[]>([]);
 
   useEffect(() => {
@@ -265,8 +274,10 @@ function RelatedBooks({ currentId }: { currentId: string }) {
         return;
       }
 
-      // Map partial rows -> full Ebook shape to satisfy the type
-      const mapped: Ebook[] = (data || []).map((b: any) => ({
+      const rows = (data ?? []) as RelatedRow[];
+
+      // Map RelatedRow -> full Ebook to satisfy state type
+      const mapped: Ebook[] = rows.map((b) => ({
         id: b.id,
         slug: b.slug,
         title: b.title,
