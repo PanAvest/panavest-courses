@@ -21,9 +21,9 @@ export default function HomePage() {
               potential
             </h1>
             <p className="mt-4 text-[16px] sm:text-[18px] text-muted max-w-2xl">
-              Certified CPD (CPPD) knowledge and practical learning pathways for
-              modern professionals. Learn with PanAvest through industry-aligned
-              modules, assessments, and verifiable certificates.
+              Certified CPD (CPPD) knowledge and practical learning pathways or 
+              modern professionals. Advance with PanAvest through industry-aligned 
+              modules,interactive assessments, and verifiable certificates.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
