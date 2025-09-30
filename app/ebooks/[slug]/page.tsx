@@ -148,7 +148,7 @@ export default function EbookDetailPage({
     );
   }
 
-  const showLocked = own.kind === "not_owner" || own.kind === "signed_out";
+ 
 
   return (
     <main className="mx-auto max-w-screen-lg px-4 sm:px-6 lg:px-8 py-10 grid gap-8 md:grid-cols-2">
