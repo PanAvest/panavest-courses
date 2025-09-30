@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 
 type Ebook = {
   id: string;
@@ -12,16 +12,9 @@ type Ebook = {
   title: string;
   description: string | null;
   cover_url: string | null;
-  kpf_url: string | null;      // the Kindle Package file (provided/hosted by you)
-  sample_url: string | null;   // optional: a PNG/PDF for web preview
+  kpf_url: string | null;
+  sample_url: string | null;
   price_cents: number;
-};
-
-type Purchase = {
-  id: string;
-  user_id: string;
-  ebook_id: string;
-  created_at: string;
 };
 
 const supabase: SupabaseClient | null =
@@ -32,12 +25,11 @@ const supabase: SupabaseClient | null =
       )
     : null;
 
-export default function EbookDetailPage({
-  params,
-}: {
-  params: { slug: string };
-}) {
+export default function EbookDetailPage() {
   const router = useRouter();
+  const params = useParams<{ slug: string }>();
+  const slug = (params?.slug ?? "") as string;
+
   const [book, setBook] = useState<Ebook | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthed, setIsAuthed] = useState(false);
@@ -49,14 +41,14 @@ export default function EbookDetailPage({
       book
         ? (book.price_cents / 100).toLocaleString(undefined, {
             style: "currency",
-            currency: "GH",
+            currency: "USD",
           })
         : "",
     [book]
   );
 
   useEffect(() => {
-    if (!supabase) return;
+    if (!supabase || !slug) return;
     let mounted = true;
 
     const init = async () => {
@@ -71,7 +63,7 @@ export default function EbookDetailPage({
         .select(
           "id, slug, title, description, cover_url, kpf_url, sample_url, price_cents"
         )
-        .eq("slug", params.slug)
+        .eq("slug", slug)
         .eq("published", true)
         .single();
       if (error) console.error(error);
@@ -101,7 +93,7 @@ export default function EbookDetailPage({
     return () => {
       mounted = false;
     };
-  }, [params.slug]);
+  }, [slug]);
 
   const handleBuy = useCallback(async () => {
     if (!supabase) return;
@@ -116,8 +108,7 @@ export default function EbookDetailPage({
       setBuying(true);
       const userId = sess.session.user.id;
 
-      // In a real app you'd call your payment provider first.
-      // For now we just record the purchase.
+      // TODO: replace with real checkout; for now, record purchase
       const { error } = await supabase
         .from("purchases")
         .insert({ user_id: userId, ebook_id: book.id });
@@ -129,9 +120,6 @@ export default function EbookDetailPage({
       }
       setPurchased(true);
       setBuying(false);
-
-      // Optional: send them to dashboard library
-      // router.push("/dashboard?tab=library");
     } catch (e) {
       console.error(e);
       setBuying(false);
@@ -154,7 +142,6 @@ export default function EbookDetailPage({
             <div className="grid gap-6 md:grid-cols-2">
               <div className="rounded-2xl bg-white border border-light overflow-hidden">
                 {book.sample_url ? (
-                  // Web preview (sample image or pdf fallback link)
                   <div className="bg-white">
                     {book.sample_url.endsWith(".pdf") ? (
                       <div className="p-4">
@@ -191,9 +178,8 @@ export default function EbookDetailPage({
                   <div className="h-64 bg-[color:var(--color-light)]/40" />
                 )}
 
-                {/* KPF note */}
                 <div className="px-4 py-3 text-xs text-muted border-t border-light">
-                  Format: <span className="font-medium">KPF</span>. You can upload the file to a Kindle device/app via Amazon’s Send-to-Kindle.
+                  Format: <span className="font-medium">KPF</span>. Upload to Kindle via Amazon Send-to-Kindle.
                 </div>
               </div>
 
@@ -238,7 +224,6 @@ export default function EbookDetailPage({
               </div>
             </div>
 
-            {/* Related grid (like courses) */}
             <RelatedBooks currentId={book.id} />
           </>
         )}
@@ -248,7 +233,7 @@ export default function EbookDetailPage({
 }
 
 function RelatedBooks({ currentId }: { currentId: string }) {
-  // Minimal shape we actually render in the related grid
+  // minimal shape we render
   type RelatedRow = {
     id: string;
     slug: string;
@@ -276,7 +261,6 @@ function RelatedBooks({ currentId }: { currentId: string }) {
 
       const rows = (data ?? []) as RelatedRow[];
 
-      // Map RelatedRow -> full Ebook to satisfy state type
       const mapped: Ebook[] = rows.map((b) => ({
         id: b.id,
         slug: b.slug,
@@ -323,7 +307,7 @@ function RelatedBooks({ currentId }: { currentId: string }) {
               <div className="mt-2 text-sm font-semibold">
                 {(b.price_cents / 100).toLocaleString(undefined, {
                   style: "currency",
-                  currency: "GH",
+                  currency: "USD",
                 })}
               </div>
             </div>
