@@ -41,7 +41,7 @@ export default function EbookDetailPage() {
       book
         ? (book.price_cents / 100).toLocaleString(undefined, {
             style: "currency",
-            currency: "USD",
+            currency: "GH",
           })
         : "",
     [book]
@@ -307,7 +307,7 @@ function RelatedBooks({ currentId }: { currentId: string }) {
               <div className="mt-2 text-sm font-semibold">
                 {(b.price_cents / 100).toLocaleString(undefined, {
                   style: "currency",
-                  currency: "USD",
+                  currency: "GH",
                 })}
               </div>
             </div>
