@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 
 /* ---------------- Types ---------------- */
 type Knowledge = {
@@ -58,10 +58,29 @@ type QuizQuestion = {
   created_at?: string;
 };
 
+/* ---------- E-Books Admin Types ---------- */
+type Ebook = {
+  id?: string;
+  slug: string;
+  title: string;
+  description?: string | null;
+  cover_url?: string | null;
+  sample_url?: string | null;   // image or pdf for web preview
+  kpf_url?: string | null;      // downloadable KPF
+  price_cents: number;          // stored in cents
+  published: boolean;
+  created_at?: string | null;
+};
+
 /* -------------- Small helpers -------------- */
 function toCsv(v: string[] | null | undefined) { return (v ?? []).join(", "); }
 function fromCsv(v: string) { return v.split(",").map(s => s.trim()).filter(Boolean); }
 function isString(x: unknown): x is string { return typeof x === "string"; }
+function asNumber(n: unknown, fallback = 0): number {
+  if (typeof n === "number" && Number.isFinite(n)) return n;
+  const num = Number(n);
+  return Number.isFinite(num) ? num : fallback;
+}
 
 function asAdminUser(x: unknown): AdminUser {
   const r = (x && typeof x === "object") ? (x as Record<string, unknown>) : {};
@@ -150,7 +169,7 @@ function asQuizQuestions(x: unknown): QuizQuestion[] {
 
 /* ---------------- Component ---------------- */
 export default function AdminPage() {
-  const [tab, setTab] = useState<"knowledge"|"structure"|"media"|"users"|"deploy">("knowledge");
+  const [tab, setTab] = useState<"knowledge"|"ebooks"|"structure"|"media"|"users"|"deploy">("knowledge");
 
   /* ---------- Knowledge ---------- */
   const emptyK: Knowledge = {
@@ -161,12 +180,12 @@ export default function AdminPage() {
   const [form, setForm] = useState<Knowledge>(emptyK);
   const [saving, setSaving] = useState(false);
 
-  async function refreshKnowledge() {
+  const refreshKnowledge = useCallback(async () => {
     const r = await fetch("/api/admin/knowledge", { cache: "no-store" });
     const d = await r.json();
     setList(asKnowledgeArray(d));
-  }
-  useEffect(() => { void refreshKnowledge(); }, []);
+  }, []);
+  useEffect(() => { void refreshKnowledge(); }, [refreshKnowledge]);
 
   async function saveKnowledge() {
     setSaving(true);
@@ -314,10 +333,6 @@ export default function AdminPage() {
     await refreshSlides(slForm.chapter_id);
   }
 
-  // stubs (delete endpoints can be added later)
-  const deleteChapter = () => alert("Delete chapter not wired yet.");
-  const deleteSlide   = () => alert("Delete slide not wired yet.");
-
   // Uploads → /api/admin/upload (returns { publicUrl })
   async function uploadToStorage(file: File): Promise<string | null> {
     const fd = new FormData();
@@ -429,14 +444,14 @@ export default function AdminPage() {
 
   /* ---------- Users ---------- */
   const [users, setUsers] = useState<AdminUser[]>([]);
-  async function refreshUsers() {
+  const refreshUsers = useCallback(async () => {
     const r = await fetch("/api/admin/users", { cache: "no-store" });
     const d = await r.json();
     const usersField = (d && typeof d === "object") ? (d as Record<string, unknown>)["users"] : null;
     const arr = Array.isArray(usersField) ? usersField : [];
     setUsers(arr.map(asAdminUser));
-  }
-  useEffect(() => { if (tab==="users") void refreshUsers(); }, [tab]);
+  }, []);
+  useEffect(() => { if (tab==="users") void refreshUsers(); }, [tab, refreshUsers]);
 
   async function deleteUser(id: string) {
     if (!confirm("Delete this user?")) return;
@@ -464,15 +479,122 @@ export default function AdminPage() {
     alert(ok ? "Deploy triggered" : `Failed: ${String(text ?? "Unknown error")}`);
   }
 
+  /* ================== E-BOOKS ADMIN ================== */
+
+  const emptyEbook: Ebook = {
+    slug: "",
+    title: "",
+    description: "",
+    cover_url: "",
+    sample_url: "",
+    kpf_url: "",
+    price_cents: 0,
+    published: true,
+  };
+
+  const [ebooks, setEbooks] = useState<Ebook[]>([]);
+  const [ebookForm, setEbookForm] = useState<Ebook>(emptyEbook);
+  const [savingEbook, setSavingEbook] = useState(false);
+  const [loadingEbooks, setLoadingEbooks] = useState(false);
+
+  const refreshEbooks = useCallback(async () => {
+    setLoadingEbooks(true);
+    const r = await fetch("/api/admin/ebooks", { cache: "no-store" });
+    const d = await r.json();
+    const arr = Array.isArray(d) ? d : [];
+    const rows: Ebook[] = arr.map((e) => {
+      const r = (e && typeof e === "object") ? (e as Record<string, unknown>) : {};
+      return {
+        id: isString(r["id"]) ? r["id"] : undefined,
+        slug: String(r["slug"] ?? ""),
+        title: String(r["title"] ?? ""),
+        description: isString(r["description"]) ? r["description"] : "",
+        cover_url: isString(r["cover_url"]) ? r["cover_url"] : "",
+        sample_url: isString(r["sample_url"]) ? r["sample_url"] : "",
+        kpf_url: isString(r["kpf_url"]) ? r["kpf_url"] : "",
+        price_cents: asNumber(r["price_cents"], 0),
+        published: Boolean(r["published"] ?? true),
+        created_at: isString(r["created_at"]) ? r["created_at"] : null,
+      };
+    });
+    setEbooks(rows);
+    setLoadingEbooks(false);
+  }, []);
+  useEffect(() => { if (tab==="ebooks") void refreshEbooks(); }, [tab, refreshEbooks]);
+
+  async function saveEbook() {
+    if (!ebookForm.slug.trim() || !ebookForm.title.trim()) {
+      alert("Slug and Title are required");
+      return;
+    }
+    setSavingEbook(true);
+    const payload: Ebook = {
+      ...ebookForm,
+      price_cents: asNumber(ebookForm.price_cents, 0),
+      // normalize empty strings to nulls for URLs
+      cover_url: ebookForm.cover_url?.trim() ? ebookForm.cover_url : null,
+      sample_url: ebookForm.sample_url?.trim() ? ebookForm.sample_url : null,
+      kpf_url: ebookForm.kpf_url?.trim() ? ebookForm.kpf_url : null,
+    };
+    const r = await fetch("/api/admin/ebooks", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    setSavingEbook(false);
+    if (!r.ok) {
+      let msg = "";
+      try { const j = await r.json(); msg = (j as { error?: string })?.error || r.statusText; } catch { msg = await r.text(); }
+      alert(`Save e-book failed: ${msg}`);
+      return;
+    }
+    setEbookForm(emptyEbook);
+    await refreshEbooks();
+  }
+
+  async function deleteEbook(id?: string) {
+    if (!id) return;
+    if (!confirm("Delete this e-book?")) return;
+    const r = await fetch(`/api/admin/ebooks/${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (!r.ok) {
+      let msg = "";
+      try { const j = await r.json(); msg = (j as { error?: string })?.error || r.statusText; } catch { msg = await r.text(); }
+      alert(`Delete failed: ${msg}`);
+      return;
+    }
+    if (ebookForm.id === id) setEbookForm(emptyEbook);
+    await refreshEbooks();
+  }
+
+  async function onPickCover(file: File) {
+    const url = await uploadToStorage(file);
+    if (url) setEbookForm(f => ({ ...f, cover_url: url }));
+    else alert("Cover upload failed");
+  }
+  async function onPickSample(file: File) {
+    const url = await uploadToStorage(file);
+    if (url) setEbookForm(f => ({ ...f, sample_url: url }));
+    else alert("Sample upload failed");
+  }
+  async function onPickKpf(file: File) {
+    const url = await uploadToStorage(file);
+    if (url) setEbookForm(f => ({ ...f, kpf_url: url }));
+    else alert("KPF upload failed");
+  }
+
   /* ---------------- Render ---------------- */
   return (
     <div className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 py-10">
       <h1 className="text-3xl font-bold">Master Admin Dashboard</h1>
-      <p className="text-muted mt-1">Manage knowledge, structure, media, users, and deployments.</p>
+      <p className="text-muted mt-1">Manage knowledge, e-books, structure, media, users, and deployments.</p>
 
-      <div className="mt-6 flex gap-2">
-        {(["knowledge","structure","media","users","deploy"] as const).map(t => (
-          <button key={t} onClick={()=>setTab(t)} className={`px-3 py-2 rounded-lg ring-1 ring-[color:var(--color-light)] ${tab===t?"bg-brand text-white":"bg-white"}`}>
+      <div className="mt-6 flex gap-2 flex-wrap">
+        {(["knowledge","ebooks","structure","media","users","deploy"] as const).map(t => (
+          <button
+            key={t}
+            onClick={()=>setTab(t)}
+            className={`px-3 py-2 rounded-lg ring-1 ring-[color:var(--color-light)] ${tab===t?"bg-brand text-white":"bg-white"}`}
+          >
             {t[0].toUpperCase()+t.slice(1)}
           </button>
         ))}
@@ -553,11 +675,151 @@ export default function AdminPage() {
                   </div>
                   <div className="flex gap-2">
                     <button onClick={()=>setForm(k)} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)]">Edit</button>
-                    {/* Knowledge delete exists as /api/admin/knowledge/[id] */}
+                    {/* Knowledge delete available at /api/admin/knowledge/[id] if you choose */}
                   </div>
                 </div>
               ))}
               {list.length===0 && <div className="text-muted text-sm">No items yet.</div>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================== E-Books ================== */}
+      {tab==="ebooks" && (
+        <div className="mt-8 grid gap-6 md:grid-cols-2">
+          {/* Form */}
+          <div className="rounded-2xl bg-white border border-light p-5">
+            <h2 className="font-semibold">Edit / Create E-Book</h2>
+            <div className="mt-4 grid gap-3">
+              {/* Slug / Title */}
+              <label className="grid gap-1">
+                <span className="text-sm text-muted">Slug</span>
+                <input
+                  value={ebookForm.slug}
+                  onChange={(e)=>setEbookForm(f=>({ ...f, slug: (e.target as HTMLInputElement).value }))}
+                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                />
+              </label>
+              <label className="grid gap-1">
+                <span className="text-sm text-muted">Title</span>
+                <input
+                  value={ebookForm.title}
+                  onChange={(e)=>setEbookForm(f=>({ ...f, title: (e.target as HTMLInputElement).value }))}
+                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                />
+              </label>
+
+              {/* Description */}
+              <label className="grid gap-1">
+                <span className="text-sm text-muted">Description</span>
+                <textarea
+                  value={ebookForm.description ?? ""}
+                  onChange={(e)=>setEbookForm(f=>({ ...f, description: (e.target as HTMLTextAreaElement).value }))}
+                  className="min-h-[100px] rounded-lg bg-white px-3 py-2 ring-1 ring-[color:var(--color-light)]"
+                />
+              </label>
+
+              {/* Price (USD) */}
+              <label className="grid gap-1">
+                <span className="text-sm text-muted">Price (USD)</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={(ebookForm.price_cents/100).toString()}
+                  onChange={(e)=> {
+                    const dollars = (e.target as HTMLInputElement).value;
+                    const cents = Math.round(Number(dollars || 0) * 100);
+                    setEbookForm(f=>({ ...f, price_cents: Number.isFinite(cents) ? cents : 0 }));
+                  }}
+                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                />
+              </label>
+
+              {/* URLs */}
+              <label className="grid gap-1">
+                <span className="text-sm text-muted">Cover URL</span>
+                <input
+                  value={ebookForm.cover_url ?? ""}
+                  onChange={(e)=>setEbookForm(f=>({ ...f, cover_url: (e.target as HTMLInputElement).value }))}
+                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                />
+              </label>
+              <label className="grid gap-1">
+                <span className="text-sm text-muted">Sample URL (image or PDF)</span>
+                <input
+                  value={ebookForm.sample_url ?? ""}
+                  onChange={(e)=>setEbookForm(f=>({ ...f, sample_url: (e.target as HTMLInputElement).value }))}
+                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                />
+              </label>
+              <label className="grid gap-1">
+                <span className="text-sm text-muted">KPF URL</span>
+                <input
+                  value={ebookForm.kpf_url ?? ""}
+                  onChange={(e)=>setEbookForm(f=>({ ...f, kpf_url: (e.target as HTMLInputElement).value }))}
+                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                />
+              </label>
+
+              {/* Upload helpers */}
+              <div className="grid gap-2">
+                <label className="grid gap-1">
+                  <span className="text-sm text-muted">Upload Cover</span>
+                  <input type="file" accept="image/*" onChange={(e)=>{ const f=(e.target as HTMLInputElement).files?.[0]; if (f) void onPickCover(f); }} />
+                </label>
+                <label className="grid gap-1">
+                  <span className="text-sm text-muted">Upload Sample (image/pdf)</span>
+                  <input type="file" accept="image/*,application/pdf" onChange={(e)=>{ const f=(e.target as HTMLInputElement).files?.[0]; if (f) void onPickSample(f); }} />
+                </label>
+                <label className="grid gap-1">
+                  <span className="text-sm text-muted">Upload KPF</span>
+                  <input type="file" accept=".kpf,application/octet-stream" onChange={(e)=>{ const f=(e.target as HTMLInputElement).files?.[0]; if (f) void onPickKpf(f); }} />
+                </label>
+              </div>
+
+              {/* Published */}
+              <label className="inline-flex items-center gap-2">
+                <input type="checkbox" checked={ebookForm.published} onChange={(e)=>setEbookForm(f=>({ ...f, published: (e.target as HTMLInputElement).checked }))} />
+                <span className="text-sm">Published</span>
+              </label>
+
+              <div className="flex items-center gap-2">
+                <button onClick={saveEbook} disabled={savingEbook} className="rounded-lg bg-brand text-white px-4 py-2 font-semibold hover:opacity-90 disabled:opacity-50">
+                  {savingEbook ? "Saving…" : "Save E-Book"}
+                </button>
+                <button onClick={()=>setEbookForm(emptyEbook)} className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]">Reset</button>
+              </div>
+            </div>
+          </div>
+
+          {/* List */}
+          <div className="rounded-2xl bg-white border border-light p-5">
+            <h2 className="font-semibold">E-Books List</h2>
+            <button onClick={refreshEbooks} className="mt-2 px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)]">
+              {loadingEbooks ? "Refreshing…" : "Refresh"}
+            </button>
+            <div className="mt-3 grid gap-3">
+              {ebooks.map(e => (
+                <div key={e.id ?? e.slug} className="flex items-start justify-between gap-3 rounded-lg p-3 ring-1 ring-[color:var(--color-light)]">
+                  <div className="flex items-start gap-3">
+                    {e.cover_url ? (
+                      <Image src={e.cover_url} alt={e.title} width={56} height={56} className="rounded-md ring-1 ring-[color:var(--color-light)] object-cover" />
+                    ) : (
+                      <div className="h-14 w-14 rounded-md bg-[color:var(--color-light)]/40" />
+                    )}
+                    <div className="text-sm">
+                      <div className="font-semibold">{e.title}</div>
+                      <div className="text-muted">/{e.slug} · {(e.price_cents/100).toLocaleString(undefined,{style:"currency",currency:"USD"})} · {e.published ? "Published" : "Draft"}</div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={()=>setEbookForm(e)} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)]">Edit</button>
+                    <button onClick={()=>void deleteEbook(e.id)} className="px-3 py-1.5 rounded-lg bg-red-600 text-white">Delete</button>
+                  </div>
+                </div>
+              ))}
+              {ebooks.length===0 && <div className="text-muted text-sm">No e-books yet.</div>}
             </div>
           </div>
         </div>
@@ -625,7 +887,7 @@ export default function AdminPage() {
                   {savingChapter ? "Saving…" : "Save Chapter"}
                 </button>
                 <button onClick={()=>setChForm({ ...emptyChapter, course_id: selectedCourseId })} className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]">Reset</button>
-                <button onClick={deleteChapter} disabled className="rounded-lg px-4 py-2 bg-red-600 text-white disabled:opacity-50" title="Delete endpoint not wired yet">Delete</button>
+                <button onClick={()=>alert("Delete chapter not wired yet.")} disabled className="rounded-lg px-4 py-2 bg-red-600 text-white disabled:opacity-50" title="Delete endpoint not wired yet">Delete</button>
               </div>
             </div>
           </div>
@@ -711,7 +973,7 @@ export default function AdminPage() {
                   {savingSlide ? "Saving…" : "Save Slide"}
                 </button>
                 <button onClick={()=>setSlForm({ ...emptySlide, chapter_id: slForm.chapter_id })} className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]">Reset</button>
-                <button onClick={deleteSlide} disabled className="rounded-lg px-4 py-2 bg-red-600 text-white disabled:opacity-50" title="Delete endpoint not wired yet">Delete</button>
+                <button onClick={()=>alert("Delete slide not wired yet.")} disabled className="rounded-lg px-4 py-2 bg-red-600 text-white disabled:opacity-50" title="Delete endpoint not wired yet">Delete</button>
               </div>
             </div>
 
@@ -830,7 +1092,7 @@ export default function AdminPage() {
           {uploadedUrl && uploadedUrl.startsWith("http") && (
             <div className="mt-4">
               <div className="text-sm mb-2">Preview:</div>
-              <Image src={uploadedUrl} alt="Uploaded" width={320} height={180} className="rounded-lg ring-1 ring-[color:var(--color-light)]" />
+              <Image src={uploadedUrl} alt="Uploaded" width={320} height={180} className="rounded-lg ring-1 ring-[color:var(--color-light)] object-cover" />
               <div className="text-sm mt-2">URL:</div>
               <code className="text-xs break-all">{uploadedUrl}</code>
             </div>
