@@ -99,7 +99,7 @@ export default function Header() {
         <nav className="hidden sm:flex items-center gap-6">
           <Link href="/courses" className="text-sm text-muted hover:text-ink">Knowledge</Link>
           <Link href="/about" className="text-sm text-muted hover:text-ink">About</Link>
-          <Link href="/leaderboard" className="text-sm text-muted hover:text-ink">Leaderboard</Link>
+          <Link href="/leaderboard" className="text-sm text-muted hover:text-ink">E-Books</Link>
 
           {/* Divider */}
           <span className="h-6 w-px bg-[color:var(--color-light)]/80" aria-hidden />
