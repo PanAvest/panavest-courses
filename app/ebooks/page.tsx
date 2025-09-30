@@ -12,6 +12,8 @@ type Ebook = {
   cover_url: string | null;
   price_cents: number;
   description: string | null;
+  published?: boolean;
+  created_at?: string;
 };
 
 const supabase: SupabaseClient | null =
@@ -32,13 +34,11 @@ export default function EbooksPage() {
     (async () => {
       const { data, error } = await supabase
         .from("ebooks")
-        .select("id, slug, title, cover_url, price_cents, description")
+        .select("id, slug, title, cover_url, price_cents, description, published, created_at")
         .eq("published", true)
         .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error(error);
-      }
+      if (error) console.error(error);
       if (mounted) {
         setBooks((data as Ebook[]) || []);
         setLoading(false);
@@ -54,7 +54,8 @@ export default function EbooksPage() {
       <div className="mx-auto max-w-screen-xl">
         <h1 className="text-3xl font-bold">E-Books</h1>
         <p className="mt-2 max-w-2xl text-muted">
-          Explore professional e-books aligned with our knowledge paths. Signed-in users can purchase and save books to their dashboard.
+          Explore professional e-books aligned with our knowledge paths. Signed-in users can purchase
+          and save books to their dashboard.
         </p>
 
         <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -71,7 +72,7 @@ export default function EbooksPage() {
             books.map((b) => (
               <Link
                 key={b.id}
-                href={}
+                href={`/ebooks/${b.slug}`}
                 className="group rounded-2xl bg-white border border-light hover:shadow-sm transition overflow-hidden"
               >
                 <div className="bg-white border-b border-light">
