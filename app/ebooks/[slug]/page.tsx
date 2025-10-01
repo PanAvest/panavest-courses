@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import * as pdfjs from "pdfjs-dist"; // local, typed import
+import * as pdfjs from "pdfjs-dist"; // local, typed import via types/pdfjs-dist.d.ts
 
 type Ebook = {
   id: string;
@@ -32,10 +32,9 @@ type PdfPage = {
     viewport: { width: number; height: number };
   }) => { promise: Promise<void> };
 };
+type PdfDoc = { numPages: number; getPage(n: number): Promise<PdfPage> };
 
-export default function EbookDetailPage({
-  params
-}: { params: Promise<{ slug: string }> }) {
+export default function EbookDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const router = useRouter();
   const [ebook, setEbook] = useState<Ebook | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -43,28 +42,24 @@ export default function EbookDetailPage({
   const [own, setOwn] = useState<OwnershipState>({ kind: "loading" });
   const [buying, setBuying] = useState(false);
 
-  // Reader state
+  // Reader state (no watermark)
   const [pdfReady, setPdfReady] = useState(false);
   const [showReader, setShowReader] = useState(false);
   const [rendering, setRendering] = useState(false);
   const [renderError, setRenderError] = useState<string | null>(null);
-  const [maskActive, setMaskActive] = useState(false);
-  const [watermark, setWatermark] = useState("SECURE COPY");
+  const [zoom, setZoom] = useState<number>(1); // 1 = fit width baseline
 
   const readerWrapRef = useRef<HTMLDivElement | null>(null);
   const pdfContainerRef = useRef<HTMLDivElement | null>(null);
+  const pdfDocRef = useRef<PdfDoc | null>(null);
 
-  // Hardening (block print/copy/etc.)
+  // Hardening (keep no-print/copy; but no watermarks)
   useEffect(() => {
     const preventAll = (e: Event) => { e.preventDefault(); e.stopPropagation(); };
     const onKey = (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
       if ((e.ctrlKey || e.metaKey) && ["p","s","u","c","x","a"].includes(k)) preventAll(e);
-      if (e.metaKey && e.shiftKey && ["3","4","5"].includes(k)) preventAll(e);
     };
-    const onVis = () => setMaskActive(document.hidden);
-    const onBlur = () => setMaskActive(true);
-    const onFocus = () => setMaskActive(false);
     const CAPTURE: AddEventListenerOptions = { capture: true };
     document.addEventListener("contextmenu", preventAll, CAPTURE);
     document.addEventListener("copy", preventAll, CAPTURE);
@@ -72,9 +67,6 @@ export default function EbookDetailPage({
     document.addEventListener("paste", preventAll, CAPTURE);
     document.addEventListener("keydown", onKey, CAPTURE);
     window.addEventListener("beforeprint", preventAll, CAPTURE);
-    document.addEventListener("visibilitychange", onVis, CAPTURE);
-    window.addEventListener("blur", onBlur, CAPTURE);
-    window.addEventListener("focus", onFocus, CAPTURE);
     return () => {
       document.removeEventListener("contextmenu", preventAll, CAPTURE);
       document.removeEventListener("copy", preventAll, CAPTURE);
@@ -82,16 +74,14 @@ export default function EbookDetailPage({
       document.removeEventListener("paste", preventAll, CAPTURE);
       document.removeEventListener("keydown", onKey, CAPTURE);
       window.removeEventListener("beforeprint", preventAll, CAPTURE);
-      document.removeEventListener("visibilitychange", onVis, CAPTURE);
-      window.removeEventListener("blur", onBlur, CAPTURE);
-      window.removeEventListener("focus", onFocus, CAPTURE);
     };
   }, []);
 
-  // Setup module worker from /public (same origin, no nosniff)
+  // Setup module worker from /public (same origin)
   useEffect(() => {
     try {
       const worker = new Worker("/vendor/pdf.worker.min.mjs", { type: "module" });
+      // @ts-ignore runtime prop
       pdfjs.GlobalWorkerOptions.workerPort = worker;
       setPdfReady(true);
     } catch {
@@ -115,12 +105,11 @@ export default function EbookDetailPage({
     })();
   }, [slug]);
 
-  // Auth/ownership + watermark
+  // Auth/ownership
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setOwn({ kind: "signed_out" }); setWatermark("SECURE COPY"); return; }
-      setWatermark(`${user.email ?? user.id} • ${new Date().toISOString()}`);
+      if (!user) { setOwn({ kind: "signed_out" }); return; }
       if (!ebook?.id) { setOwn({ kind: "loading" }); return; }
       const { data, error } = await supabase
         .from("ebook_purchases").select("status")
@@ -130,10 +119,7 @@ export default function EbookDetailPage({
     })();
   }, [ebook?.id]);
 
-  const price = useMemo(
-    () => (ebook ? `GH₵ ${(ebook.price_cents / 100).toFixed(2)}` : ""),
-    [ebook]
-  );
+  const price = useMemo(() => (ebook ? `GH₵ ${(ebook.price_cents / 100).toFixed(2)}` : ""), [ebook]);
 
   async function handleBuy() {
     const { data: { user } } = await supabase.auth.getUser();
@@ -152,22 +138,31 @@ export default function EbookDetailPage({
     } catch (e) { setErr((e as Error).message); setBuying(false); }
   }
 
+  // Load the PDF doc once
+  async function ensurePdfDoc(): Promise<PdfDoc | null> {
+    if (pdfDocRef.current) return pdfDocRef.current;
+    if (!ebook?.sample_url) return null;
+    const doc = await pdfjs.getDocument({ url: `/api/secure-pdf?src=${encodeURIComponent(ebook.sample_url)}` }).promise;
+    pdfDocRef.current = doc as unknown as PdfDoc;
+    return pdfDocRef.current;
+  }
+
+  // Render (fits width * zoom). Always scroll to top after a full render.
   async function renderPdf() {
-    if (!ebook?.sample_url || !pdfContainerRef.current) return;
+    if (!pdfContainerRef.current) return;
+    const container = pdfContainerRef.current;
     setRendering(true);
     setRenderError(null);
     try {
-      const container = pdfContainerRef.current;
+      const doc = await ensurePdfDoc();
+      if (!doc) throw new Error("PDF not available");
       container.innerHTML = "";
 
-      const proxied = `/api/secure-pdf?src=${encodeURIComponent(ebook.sample_url)}`;
-      const doc = await pdfjs.getDocument({ url: proxied }).promise;
-
-      const width = container.clientWidth || 820;
+      const width = container.clientWidth * zoom;
       for (let i = 1; i <= doc.numPages; i++) {
-        const page = (await doc.getPage(i)) as unknown as PdfPage;
+        const page = await doc.getPage(i);
         const base = page.getViewport({ scale: 1 });
-        const scale = Math.min(width / base.width, 2.0);
+        const scale = Math.max(0.25, Math.min((width / base.width), 4)); // clamp
         const viewport = page.getViewport({ scale });
 
         const canvas = document.createElement("canvas");
@@ -181,27 +176,36 @@ export default function EbookDetailPage({
         if (ctx) await page.render({ canvasContext: ctx, viewport }).promise;
         container.appendChild(canvas);
       }
+      container.scrollTop = 0; // start at the very top
     } catch (e) {
       setRenderError((e as Error).message || "Failed to load PDF");
-    } finally { setRendering(false); }
+    } finally {
+      setRendering(false);
+    }
   }
 
   function openReader() {
     setShowReader(true);
-    queueMicrotask(() => {
+    queueMicrotask(async () => {
       readerWrapRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      if (pdfReady && ebook?.sample_url) void renderPdf();
+      if (pdfReady && ebook?.sample_url) await renderPdf();
     });
   }
 
+  // Re-render on zoom/resize once opened
   useEffect(() => {
-    if (showReader && pdfReady && ebook?.sample_url) void renderPdf();
-    const onResize = () => { if (showReader && pdfReady && ebook?.sample_url) void renderPdf(); };
+    if (showReader && pdfReady && ebook?.sample_url) { void renderPdf(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoom]);
+
+  useEffect(() => {
+    function onResize() { if (showReader && pdfReady && ebook?.sample_url) void renderPdf(); }
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showReader, pdfReady, ebook?.sample_url]);
 
+  // UI
   if (err) {
     return (
       <main className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 py-10">
@@ -232,6 +236,7 @@ export default function EbookDetailPage({
       `}</style>
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+        {/* LEFT */}
         <aside className="md:col-span-4">
           <div className="md:sticky md:top-20 space-y-4">
             <div className="rounded-2xl bg-white border border-light overflow-hidden">
@@ -271,10 +276,11 @@ export default function EbookDetailPage({
           </div>
         </aside>
 
+        {/* RIGHT: secure reader */}
         <section className="md:col-span-8">
-          <div ref={readerWrapRef} className="relative rounded-2xl bg-white border border-light secure-viewer">
+          <div ref={readerWrapRef} className="rounded-2xl bg-white border border-light secure-viewer">
             {own.kind !== "owner" ? (
-              <div className="w-full h-[50vh] sm:h-[60vh] grid place-items-center bg-[color:var(--color-light)]/40">
+              <div className="w-full h-[75vh] grid place-items-center bg-[color:var(--color-light)]/40">
                 <div className="text-center px-6">
                   <div className="text-lg font-semibold">Access locked</div>
                   <p className="text-sm text-muted mt-1">
@@ -284,52 +290,44 @@ export default function EbookDetailPage({
               </div>
             ) : (
               <div className="relative">
-                {showReader ? (
-                  <>
-                    <div
-                      aria-hidden
-                      className={`pointer-events-none absolute inset-0 z-20 select-none ${maskActive ? "opacity-90" : "opacity-25"}`}
-                      style={{ transition: "opacity 120ms ease" }}
-                    >
-                      <div className="w-full h-full rotate-[-25deg] grid gap-12" style={{ placeItems: "center" }}>
-                        {Array.from({ length: 6 }).map((_, r) => (
-                          <div key={`r-${r}`} className="flex gap-16">
-                            {Array.from({ length: 4 }).map((__, c) => (
-                              <span key={`c-${c}`} className="text-2xl font-bold tracking-wide text-black/60">
-                                {watermark}
-                              </span>
-                            ))}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className={`relative z-10 ${maskActive ? "blur-sm" : ""}`}>
-                      <div ref={pdfContainerRef} className="max-h-[75vh] min-h-[50vh] overflow-auto px-2 py-4" />
-                      <div className="pointer-events-none absolute top-0 left-0 right-0 h-8 z-30 bg-gradient-to-b from-white/70 to-transparent" />
-                      {rendering && (
-                        <div className="absolute inset-0 grid place-items-center bg-white/40 z-30">
-                          <div className="text-sm">Loading pages…</div>
-                        </div>
-                      )}
-                      {renderError && (
-                        <div className="p-4 text-sm text-red-600">Error loading PDF: {renderError}</div>
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  <div className="w-full h-[40vh] sm:h-[52vh] grid place-items-center">
-                    <button onClick={openReader} className="rounded-lg bg-brand text-white px-5 py-3 font-semibold hover:opacity-90">
-                      Read securely
-                    </button>
+                {/* Toolbar */}
+                <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-light bg-white/90 px-3 py-2">
+                  <button onClick={() => setZoom(z => Math.max(0.5, Math.round((z - 0.1)*10)/10))}
+                          className="rounded-md px-3 py-1 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50">−</button>
+                  <button onClick={() => setZoom(z => Math.min(3, Math.round((z + 0.1)*10)/10))}
+                          className="rounded-md px-3 py-1 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50">+</button>
+                  <button onClick={() => setZoom(1)}
+                          className="rounded-md px-3 py-1 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50">Fit width</button>
+                  <button onClick={() => setZoom(1.0)}
+                          className="rounded-md px-3 py-1 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50">100%</button>
+                  <span className="ml-2 text-sm text-muted">Zoom: {(zoom*100).toFixed(0)}%</span>
+                  <div className="ml-auto flex gap-2">
+                    <button onClick={() => { const c = pdfContainerRef.current; if (c) c.scrollTo({top:0, behavior:"smooth"}); }}
+                            className="rounded-md px-3 py-1 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50">Top</button>
+                    <button onClick={() => { const c = pdfContainerRef.current; if (c) c.scrollTo({top:c.scrollHeight, behavior:"smooth"}); }}
+                            className="rounded-md px-3 py-1 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50">Bottom</button>
                   </div>
-                )}
+                </div>
+
+                {/* Fixed-height scrollable frame */}
+                <div className="relative z-0 h-[75vh] overflow-auto px-2 py-4">
+                  <div ref={pdfContainerRef} aria-label="Secure PDF Reader" />
+                  {rendering && (
+                    <div className="absolute inset-0 grid place-items-center bg-white/40">
+                      <div className="text-sm">Loading pages…</div>
+                    </div>
+                  )}
+                  {renderError && (
+                    <div className="p-4 text-sm text-red-600">Error loading PDF: {renderError}</div>
+                  )}
+                </div>
               </div>
             )}
           </div>
         </section>
       </div>
 
+      {/* DESCRIPTION */}
       <section className="mt-10">
         <div className="rounded-2xl bg-white border border-light p-6">
           <h2 className="text-xl font-semibold">About this e-book</h2>
