@@ -81,7 +81,6 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
   useEffect(() => {
     try {
       const worker = new Worker("/vendor/pdf.worker.min.mjs", { type: "module" });
-      // @ts-ignore runtime prop
       pdfjs.GlobalWorkerOptions.workerPort = worker;
       setPdfReady(true);
     } catch {
