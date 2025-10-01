@@ -153,7 +153,7 @@ export default function DashboardPage() {
               price_cedis: `GH₵ ${(e.price_cents / 100).toFixed(2)}`
             } as PurchasedEbook;
           })
-          .filter(Boolean) as PurchasedEebook[];
+          .filter(Boolean) as PurchasedEbook[];
         setEbooks(items);
       }
 
