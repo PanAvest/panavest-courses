@@ -39,11 +39,11 @@ export default function EbookDetailPage({
 
   // Global hardening: block printing, copy, right-click, common save/print shortcuts
   useEffect(() => {
-    const prevent = (e: Event) => {
+    const preventAll = (e: Event): void => {
       e.preventDefault();
       e.stopPropagation();
     };
-    const onKey = (e: KeyboardEvent) => {
+    const onKey = (e: KeyboardEvent): void => {
       const k = e.key.toLowerCase();
       if (
         (e.ctrlKey || e.metaKey) &&
@@ -53,20 +53,22 @@ export default function EbookDetailPage({
         e.stopPropagation();
       }
     };
-    document.addEventListener("contextmenu", prevent, { capture: true });
-    document.addEventListener("copy", prevent, { capture: true });
-    document.addEventListener("cut", prevent, { capture: true });
-    document.addEventListener("paste", prevent, { capture: true });
-    document.addEventListener("keydown", onKey, { capture: true });
-    window.addEventListener("beforeprint", prevent as EventListener, { capture: true });
+    const CAPTURE: AddEventListenerOptions = { capture: true };
+
+    document.addEventListener("contextmenu", preventAll, CAPTURE);
+    document.addEventListener("copy", preventAll, CAPTURE);
+    document.addEventListener("cut", preventAll, CAPTURE);
+    document.addEventListener("paste", preventAll, CAPTURE);
+    document.addEventListener("keydown", onKey, CAPTURE);
+    window.addEventListener("beforeprint", preventAll, CAPTURE);
 
     return () => {
-      document.removeEventListener("contextmenu", prevent, { capture: true } as any);
-      document.removeEventListener("copy", prevent, { capture: true } as any);
-      document.removeEventListener("cut", prevent, { capture: true } as any);
-      document.removeEventListener("paste", prevent, { capture: true } as any);
-      document.removeEventListener("keydown", onKey, { capture: true } as any);
-      window.removeEventListener("beforeprint", prevent as EventListener, { capture: true } as any);
+      document.removeEventListener("contextmenu", preventAll, CAPTURE);
+      document.removeEventListener("copy", preventAll, CAPTURE);
+      document.removeEventListener("cut", preventAll, CAPTURE);
+      document.removeEventListener("paste", preventAll, CAPTURE);
+      document.removeEventListener("keydown", onKey, CAPTURE);
+      window.removeEventListener("beforeprint", preventAll, CAPTURE);
     };
   }, []);
 
@@ -105,8 +107,6 @@ export default function EbookDetailPage({
         setOwn({ kind: "loading" });
         return;
       }
-      // Expect a table: ebook_purchases(user_id uuid, ebook_id uuid, status text)
-      // RLS: users can read only their own rows.
       const { data, error } = await supabase
         .from("ebook_purchases")
         .select("status")
@@ -128,7 +128,6 @@ export default function EbookDetailPage({
   );
 
   async function handleBuy() {
-    // Must be logged in first
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       const redirect = encodeURIComponent(`/ebooks/${slug}`);
@@ -139,7 +138,6 @@ export default function EbookDetailPage({
 
     setBuying(true);
     try {
-      // DEMO PAYMENT: call your gateway creator endpoint (already present)
       const r = await fetch("/api/payments/ebook", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -152,7 +150,6 @@ export default function EbookDetailPage({
       });
       const j = await r.json();
       if (!r.ok || !j?.checkoutUrl) throw new Error(j?.error || "Payment init failed");
-      // Redirect to hosted checkout (demo)
       window.location.href = j.checkoutUrl;
     } catch (e) {
       setErr((e as Error).message);
@@ -197,7 +194,6 @@ export default function EbookDetailPage({
         @media print {
           body { display: none !important; }
         }
-        /* Reduce trivial extraction on this page */
         html, body, main, .secure-viewer, .secure-viewer * {
           -webkit-user-select: none !important;
           -moz-user-select: none !important;
@@ -229,11 +225,10 @@ export default function EbookDetailPage({
           <div className="relative border-t border-light secure-viewer">
             {own.kind === "owner" ? (
               <iframe
-                // Hide controls via fragment; sandbox to block downloads & popouts
                 src={securePdfSrc}
                 title="E-book reader"
                 className="w-full h-[420px] block"
-                sandbox="allow-scripts allow-same-origin" // intentionally omit allow-downloads
+                sandbox="allow-scripts allow-same-origin" /* no allow-downloads */
                 referrerPolicy="no-referrer"
                 allow="clipboard-read; clipboard-write"
               />
