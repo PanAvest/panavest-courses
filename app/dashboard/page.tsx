@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
 
+/* ===== Types ===== */
 type CourseRow = {
   id: string;
   slug: string;
@@ -28,15 +29,6 @@ type EnrolledCourse = {
   cpd_points: number | null;
 };
 
-type AssessmentJoined = {
-  id: string;
-  title: string;
-  due_at: string | null;
-  status: "due" | "submitted" | "graded" | null;
-  course_slug: string;
-  course_title: string;
-};
-
 type QuizAttempt = {
   course_id: string;
   chapter_id: string;
@@ -53,7 +45,6 @@ type ChapterInfo = {
   course_id: string;
 };
 
-/* ===== E-Books ===== */
 type EbookRow = {
   id: string;
   slug: string;
@@ -73,36 +64,86 @@ type PurchasedEbook = {
   slug: string;
   title: string;
   cover_url: string | null;
-  price_cedis: string; // formatted price
+  price_cedis: string; // formatted GH₵
 };
 
+type AttemptRow = {
+  exam_id: string;
+  score: number | null;
+  passed: boolean | null;
+  created_at: string;
+};
+
+type ExamRow = {
+  id: string;
+  course_id: string;
+  title: string | null;
+  pass_mark: number | null;
+};
+
+type ProfileRow = {
+  id: string;
+  full_name: string | null;
+};
+
+type CertificateCard = {
+  exam_id: string;
+  course_id: string;
+  course_title: string;
+  course_slug: string;
+  score_pct: number;
+  pass_mark: number;
+  passed: boolean;
+  attempted_at: string;
+  learner_name: string;
+};
+
+/* ===== Helpers ===== */
 function pickCourse(c: CourseRow | CourseRow[] | null | undefined): CourseRow | null {
   if (!c) return null;
   return Array.isArray(c) ? (c[0] ?? null) : c;
 }
-
 function pickEbook(e: EbookRow | EbookRow[] | null | undefined): EbookRow | null {
   if (!e) return null;
   return Array.isArray(e) ? (e[0] ?? null) : e;
 }
 
+/* ========================================================================== */
+
 export default function DashboardPage() {
+  const [fullName, setFullName] = useState<string>("");
+  const [savingName, setSavingName] = useState<boolean>(false);
+  const [nameNotice, setNameNotice] = useState<string>("");
+
   const [enrolled, setEnrolled] = useState<EnrolledCourse[]>([]);
-  const [due, setDue] = useState<AssessmentJoined[]>([]);
   const [quiz, setQuiz] = useState<QuizAttempt[]>([]);
   const [chaptersById, setChaptersById] = useState<Record<string, ChapterInfo>>({});
   const [ebooks, setEbooks] = useState<PurchasedEbook[]>([]);
+  const [certs, setCerts] = useState<CertificateCard[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: auth } = await supabase.auth.getUser();
+      const user = auth?.user;
       if (!user) {
         window.location.href = "/auth/sign-in";
         return;
       }
 
-      // Enrollments (joined with courses)
+      /* --- Profile (full name) --- */
+      try {
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .eq("id", user.id)
+          .maybeSingle<ProfileRow>();
+        setFullName(prof?.full_name ?? "");
+      } catch {
+        // ignore
+      }
+
+      /* --- Enrollments (joined with courses) --- */
       const { data: enrData } = await supabase
         .from("enrollments")
         .select("course_id, progress_pct, courses!inner(title,slug,img,cpd_points)")
@@ -132,7 +173,7 @@ export default function DashboardPage() {
         setEnrolled(mapped);
       }
 
-      // Purchased E-Books (join with ebooks, only status=paid)
+      /* --- Purchased E-Books --- */
       const { data: purRows } = await supabase
         .from("ebook_purchases")
         .select("ebook_id,status,ebooks!inner(id,slug,title,cover_url,price_cents)")
@@ -157,16 +198,7 @@ export default function DashboardPage() {
         setEbooks(items);
       }
 
-      // Upcoming assessments (optional view)
-      const { data: dueRows } = await supabase
-        .from("assessments_due_view" as unknown as string)
-        .select("id,title,due_at,status,course_slug,course_title")
-        .eq("user_id", user.id)
-        .limit(5);
-
-      setDue(((dueRows ?? []) as AssessmentJoined[]));
-
-      // Quiz attempts
+      /* --- Chapter quiz attempts (for “Your quiz results”) --- */
       const { data: quizRows } = await supabase
         .from("user_chapter_quiz")
         .select("course_id, chapter_id, total_count, correct_count, score_pct, completed_at")
@@ -175,7 +207,7 @@ export default function DashboardPage() {
       const attempts = (quizRows ?? []) as QuizAttempt[];
       setQuiz(attempts);
 
-      // Chapter metadata
+      /* --- Chapter metadata (for sorting) --- */
       const chapterIds = Array.from(new Set(attempts.map(a => a.chapter_id)));
       if (chapterIds.length > 0) {
         const { data: chRows } = await supabase
@@ -196,11 +228,96 @@ export default function DashboardPage() {
         setChaptersById(map);
       }
 
+      /* --- Final exam attempts -> Certificates --- */
+      // 1) get all attempts for user (latest-first)
+      const { data: attRows } = await supabase
+        .from("attempts")
+        .select("exam_id, score, passed, created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      const attemptsAll = (attRows ?? []) as AttemptRow[];
+      if (attemptsAll.length === 0) {
+        setCerts([]);
+        setLoading(false);
+        return;
+      }
+
+      // keep latest attempt per exam_id
+      const byExam: Record<string, AttemptRow> = {};
+      for (const a of attemptsAll) {
+        if (!byExam[a.exam_id]) byExam[a.exam_id] = a;
+      }
+      const examIds = Object.keys(byExam);
+      // 2) fetch exams
+      const { data: exRows } = await supabase
+        .from("exams")
+        .select("id, course_id, title, pass_mark")
+        .in("id", examIds);
+      const exams = (exRows ?? []) as ExamRow[];
+      const courseIds = Array.from(new Set(exams.map(e => e.course_id)));
+
+      // 3) fetch courses
+      const { data: courseRows } = await supabase
+        .from("courses")
+        .select("id, slug, title")
+        .in("id", courseIds);
+
+      const courseMap = new Map<string, { id: string; slug: string; title: string }>();
+      (courseRows ?? []).forEach(c => {
+        courseMap.set(c.id, { id: c.id, slug: c.slug, title: c.title });
+      });
+
+      // 4) assemble certificate cards
+      const learner = fullName || "Learner";
+      const certCards: CertificateCard[] = exams.map((ex) => {
+        const a = byExam[ex.id];
+        const c = courseMap.get(ex.course_id);
+        const scorePct = Math.round(Number(a.score ?? 0));
+        const pm = Math.round(Number(ex.pass_mark ?? 0));
+        return {
+          exam_id: ex.id,
+          course_id: ex.course_id,
+          course_title: c?.title ?? (ex.title || "Course"),
+          course_slug: c?.slug ?? "",
+          score_pct: scorePct,
+          pass_mark: pm,
+          passed: Boolean(a.passed),
+          attempted_at: a.created_at,
+          learner_name: learner,
+        };
+      });
+
+      setCerts(certCards);
       setLoading(false);
     })();
   }, []);
 
-  // Group quiz results by course and sort chapters by order_index
+  /* ===== Save full name ===== */
+  async function saveFullName() {
+    setSavingName(true);
+    setNameNotice("");
+    try {
+      const { data: auth } = await supabase.auth.getUser();
+      const user = auth?.user;
+      if (!user) return;
+
+      await supabase.from("profiles").upsert({
+        id: user.id,
+        full_name: fullName,
+        updated_at: new Date().toISOString(),
+      });
+      setNameNotice("Saved ✓");
+      setTimeout(() => setNameNotice(""), 1500);
+      // also refresh displayed learner_name inside certificate cards
+      setCerts(prev => prev.map(c => ({ ...c, learner_name: fullName || "Learner" })));
+    } catch {
+      setNameNotice("Could not save. Please try again.");
+    } finally {
+      setSavingName(false);
+    }
+  }
+
+  /* ===== Group quiz results by course / sort by chapter order ===== */
   const quizByCourse = useMemo(() => {
     const grouped: Record<string, { attempt: QuizAttempt; chapter: ChapterInfo }[]> = {};
     for (const a of quiz) {
@@ -222,8 +339,113 @@ export default function DashboardPage() {
 
       {!loading && (
         <>
-          {/* Purchased E-Books */}
+          {/* ===== Profile: Full Name ===== */}
+          <section className="mt-6 rounded-xl border border-light bg-white p-4">
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+              <div>
+                <div className="text-sm text-muted">This name appears on your certificates</div>
+                <label className="block text-sm font-medium mt-1">Full name</label>
+                <input
+                  type="text"
+                  placeholder="Enter your full legal name"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="mt-1 w-full sm:w-[420px] rounded-lg border px-3 py-2"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={saveFullName}
+                  disabled={savingName || !fullName.trim()}
+                  className={`rounded-lg px-4 py-2 font-semibold ${savingName || !fullName.trim() ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-brand text-white hover:opacity-90"}`}
+                >
+                  {savingName ? "Saving…" : "Save"}
+                </button>
+                {!!nameNotice && <div className="text-sm text-[#0a1156]">{nameNotice}</div>}
+              </div>
+            </div>
+          </section>
+
+          {/* ===== Course Certificates (replaces 'Upcoming assessments') ===== */}
           <section className="mt-8">
+            <h2 className="text-xl font-semibold">Course Certificates</h2>
+            {certs.length === 0 ? (
+              <div className="mt-3 rounded-xl border border-light bg-white p-4">
+                <p className="text-muted">
+                  You don’t have any certificates yet. Complete a course and sit the final exam to earn one.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-4 grid gap-6 sm:grid-cols-2">
+                {certs.map((c) => (
+                  <div key={c.exam_id} className="relative rounded-2xl border border-light bg-white p-5 overflow-hidden">
+                    {/* decorative border */}
+                    <div className="absolute inset-2 rounded-xl border-2 border-amber-200 pointer-events-none" />
+                    {/* header */}
+                    <div className="relative z-10 text-center">
+                      <div className="text-xs tracking-widest text-amber-700">PanAvest Institute</div>
+                      <div className="mt-0.5 text-lg font-semibold">Certificate of Completion</div>
+                    </div>
+                    {/* name */}
+                    <div className="relative z-10 mt-4 text-center">
+                      <div className="text-xs text-muted">Awarded to</div>
+                      <div className="mt-1 text-xl font-bold">{c.learner_name || "Learner"}</div>
+                    </div>
+                    {/* course */}
+                    <div className="relative z-10 mt-4 text-center">
+                      <div className="text-xs text-muted">For successfully completing</div>
+                      <div className="mt-1 font-semibold">{c.course_title}</div>
+                    </div>
+                    {/* result line */}
+                    <div className="relative z-10 mt-4 grid place-items-center">
+                      <div className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ring-1 ring-[color:var(--color-light)]">
+                        Final exam: {c.score_pct}% &nbsp;·&nbsp; Pass mark: {c.pass_mark}%
+                        <span className={`ml-2 inline-flex items-center rounded-full px-2 py-0.5 ${c.passed ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+                          {c.passed ? "PASSED" : "NOT PASSED"}
+                        </span>
+                      </div>
+                      <div className="mt-2 text-[11px] text-muted">
+                        Attempted: {new Date(c.attempted_at).toLocaleString()}
+                      </div>
+                    </div>
+                    {/* message */}
+                    <p className="relative z-10 mt-4 text-center text-sm">
+                      {c.passed
+                        ? "This certifies that the learner has met the requirements for this course."
+                        : "This record confirms an attempt was made for the final exam. Pass required for certification."}
+                    </p>
+                    {/* stamp (pure CSS) */}
+                    <div className="pointer-events-none absolute right-3 bottom-3 rotate-[-12deg]">
+                      <div className={`select-none rounded-full px-4 py-3 text-xs font-bold ring-2 ${c.passed ? "ring-green-600 text-green-700" : "ring-red-600 text-red-700"} bg-white/80`}>
+                        {c.passed ? "PANAVEST CERTIFIED" : "ATTEMPT RECORDED"}
+                      </div>
+                    </div>
+                    {/* footer / actions */}
+                    <div className="relative z-10 mt-5 flex items-center justify-between gap-2">
+                      <div className="text-[11px] text-muted">
+                        CPD: {
+                          (enrolled.find(e => e.slug === c.course_slug)?.cpd_points ?? 0) || 0
+                        } points
+                      </div>
+                      {c.course_slug && (
+                        <Link
+                          href={`/knowledge/${c.course_slug}`}
+                          className="text-xs rounded-lg px-3 py-1.5 bg-brand text-white"
+                          title="View course"
+                        >
+                          View course
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* ===== Purchased E-Books ===== */}
+          <section className="mt-10">
             <h2 className="text-xl font-semibold">Purchased E-Books</h2>
             {ebooks.length === 0 ? (
               <div className="mt-3 rounded-xl border border-light bg-white p-4">
@@ -261,7 +483,7 @@ export default function DashboardPage() {
             )}
           </section>
 
-          {/* Continue learning */}
+          {/* ===== Continue learning ===== */}
           <section className="mt-10">
             <h2 className="text-xl font-semibold">Continue learning</h2>
             {enrolled.length === 0 ? (
@@ -303,7 +525,7 @@ export default function DashboardPage() {
             )}
           </section>
 
-          {/* Quiz results */}
+          {/* ===== Your quiz results ===== */}
           <section className="mt-10">
             <h2 className="text-xl font-semibold">Your quiz results</h2>
             {Object.keys(quizByCourse).length === 0 ? (
@@ -350,25 +572,6 @@ export default function DashboardPage() {
                   );
                 })}
               </div>
-            )}
-          </section>
-
-          {/* Upcoming assessments */}
-          <section className="mt-10">
-            <h2 className="text-xl font-semibold">Upcoming assessments</h2>
-            {due.length === 0 ? (
-              <p className="mt-3 text-muted">No upcoming deadlines.</p>
-            ) : (
-              <ul className="mt-3 grid gap-3">
-                {due.map((a) => (
-                  <li key={a.id} className="rounded-xl border border-light bg-white p-4">
-                    <div className="font-medium">{a.title}</div>
-                    <div className="text-sm text-muted">
-                      {a.course_title} · {a.due_at ? new Date(a.due_at).toLocaleDateString() : "No due date"}
-                    </div>
-                  </li>
-                ))}
-              </ul>
             )}
           </section>
         </>
