@@ -5,9 +5,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
 
-/** ─────────────────────────────────────────────────────────────────────────────
- * Types
- * ──────────────────────────────────────────────────────────────────────────── */
+/* ───────────────────────────────── Types ───────────────────────────────── */
+
 type CourseRow = {
   id: string;
   slug: string;
@@ -75,8 +74,6 @@ type ProfileRow = {
   updated_at?: string | null;
 };
 
-type SupaCourse = { id: string; title: string; slug: string; img: string | null };
-
 type CertificateRow = {
   id: string;
   user_id: string;
@@ -85,40 +82,44 @@ type CertificateRow = {
   score_pct: number;
   certificate_no: string;
   issued_at: string;
-  courses: SupaCourse | null; // normalized to a single object or null
+  courses: {
+    title: string;
+    slug: string;
+    img: string | null;
+  } | null;
 };
 
-/** ─────────────────────────────────────────────────────────────────────────────
- * Helpers
- * ──────────────────────────────────────────────────────────────────────────── */
+/** Raw shape from Supabase for certificates (courses can be object OR array) */
+type RawCertificateRow = Omit<CertificateRow, "courses"> & {
+  courses: { title: string; slug: string; img: string | null } | { title: string; slug: string; img: string | null }[] | null;
+};
+
+/* ─────────────────────────────── Helpers ─────────────────────────────── */
+
 function pickCourse(c: CourseRow | CourseRow[] | null | undefined): CourseRow | null {
   if (!c) return null;
   return Array.isArray(c) ? (c[0] ?? null) : c;
 }
+
 function pickEbook(e: EbookRow | EbookRow[] | null | undefined): EbookRow | null {
   if (!e) return null;
   return Array.isArray(e) ? (e[0] ?? null) : e;
 }
-function ensureSingleCourse(c: unknown): SupaCourse | null {
-  if (!c) return null;
-  const arr = Array.isArray(c) ? c : [c];
-  const first = arr[0] as Partial<SupaCourse> | undefined;
-  if (!first) return null;
-  return {
-    id: String(first.id ?? ""),
-    title: String(first.title ?? ""),
-    slug: String(first.slug ?? ""),
-    img: (first.img ?? null) as string | null,
-  };
+
+function normalizeCertificates(rows: RawCertificateRow[] | null | undefined): CertificateRow[] {
+  if (!rows) return [];
+  return rows.map((r) => ({
+    ...r,
+    courses: Array.isArray(r.courses) ? (r.courses[0] ?? null) : r.courses,
+  }));
 }
 
-/** ─────────────────────────────────────────────────────────────────────────────
- * Component
- * ──────────────────────────────────────────────────────────────────────────── */
+/* ───────────────────────────── Component ───────────────────────────── */
+
 export default function DashboardPage() {
   const [loading, setLoading] = useState<boolean>(true);
 
-  // Profile (for persistent welcome name)
+  // Profile (persistent welcome name)
   const [userId, setUserId] = useState<string>("");
   const [fullName, setFullName] = useState<string>("");
   const [isEditingName, setIsEditingName] = useState<boolean>(false);
@@ -134,10 +135,9 @@ export default function DashboardPage() {
   // Purchased ebooks
   const [ebooks, setEbooks] = useState<PurchasedEbook[]>([]);
 
-  // Certificates (normalized)
+  // Certificates
   const [certs, setCerts] = useState<CertificateRow[]>([]);
 
-  // Load everything
   useEffect(() => {
     (async () => {
       const { data: auth } = await supabase.auth.getUser();
@@ -160,7 +160,7 @@ export default function DashboardPage() {
       setFullName(initialName);
       setNameDraft(initialName);
 
-      // Enrollments
+      // Enrollments (joined with courses)
       const { data: enrData } = await supabase
         .from("enrollments")
         .select("course_id, progress_pct, courses!inner(title,slug,img,cpd_points)")
@@ -168,7 +168,7 @@ export default function DashboardPage() {
         .order("updated_at", { ascending: false });
 
       if (enrData) {
-        const rows = (enrData as unknown as EnrollmentRow[]) ?? [];
+        const rows = enrData as unknown as EnrollmentRow[];
         const mapped: EnrolledCourse[] = rows.map((r) => {
           const c = pickCourse(r.courses) || {
             id: "",
@@ -191,7 +191,7 @@ export default function DashboardPage() {
         setEnrolled(mapped);
       }
 
-      // Ebooks (paid)
+      // Purchased E-Books (paid only)
       const { data: purRows } = await supabase
         .from("ebook_purchases")
         .select("ebook_id,status,ebooks!inner(id,slug,title,cover_url,price_cents)")
@@ -225,7 +225,7 @@ export default function DashboardPage() {
       const attempts = (quizRows as unknown as QuizAttempt[]) ?? [];
       setQuiz(attempts);
 
-      // Chapter metadata
+      // Chapter metadata (for quiz display ordering)
       const chapterIds = Array.from(new Set(attempts.map((a) => a.chapter_id))).filter(Boolean);
       if (chapterIds.length > 0) {
         const { data: chRows } = await supabase
@@ -245,84 +245,16 @@ export default function DashboardPage() {
         setChaptersById(map);
       }
 
-      // Certificates (try embedded join; fallback if PostgREST complains)
-      const certSelect =
-        "id,user_id,course_id,attempt_id,score_pct,certificate_no,issued_at,courses(id,title,slug,img)";
-      let certData: CertificateRow[] = [];
+      // Certificates (issued after passing final exam)
+      const { data: certRows } = await supabase
+        .from("certificates")
+        .select("id,user_id,course_id,attempt_id,score_pct,certificate_no,issued_at,courses(title,slug,img)")
+        .eq("user_id", user.id)
+        .order("issued_at", { ascending: false });
 
-      {
-        const { data, error } = await supabase
-          .from("certificates")
-          .select(certSelect)
-          .eq("user_id", user.id)
-          .order("issued_at", { ascending: false });
+      const normalized = normalizeCertificates(certRows as unknown as RawCertificateRow[] | null | undefined);
+      setCerts(normalized);
 
-        if (!error && data) {
-          // normalize courses shape
-          const normalized = (data as unknown[]).map((row) => {
-            const r = row as Record<string, unknown>;
-            return {
-              id: String(r.id),
-              user_id: String(r.user_id),
-              course_id: String(r.course_id),
-              attempt_id: r.attempt_id ? String(r.attempt_id) : null,
-              score_pct: Number(r.score_pct ?? 0),
-              certificate_no: String(r.certificate_no ?? ""),
-              issued_at: String(r.issued_at ?? new Date().toISOString()),
-              courses: ensureSingleCourse(r.courses ?? null),
-            } satisfies CertificateRow;
-          });
-          certData = normalized;
-        } else {
-          // Fallback: fetch certs only, then hydrate courses in a second query
-          const { data: simple, error: simpleErr } = await supabase
-            .from("certificates")
-            .select("id,user_id,course_id,attempt_id,score_pct,certificate_no,issued_at")
-            .eq("user_id", user.id)
-            .order("issued_at", { ascending: false });
-
-          const simpleRows = (simple as unknown[] | null) ?? [];
-          if (!simpleErr && simpleRows.length > 0) {
-            const courseIds = Array.from(
-              new Set(
-                simpleRows.map((r) => String((r as any).course_id)).filter(Boolean)
-              )
-            );
-            let courseMap: Record<string, SupaCourse> = {};
-            if (courseIds.length > 0) {
-              const { data: courseRows } = await supabase
-                .from("courses")
-                .select("id,title,slug,img")
-                .in("id", courseIds);
-              (courseRows as unknown[] | null)?.forEach((cr) => {
-                const c = cr as SupaCourse;
-                courseMap[c.id] = {
-                  id: c.id,
-                  title: c.title,
-                  slug: c.slug,
-                  img: c.img ?? null,
-                };
-              });
-            }
-            certData = simpleRows.map((r) => {
-              const rr = r as Record<string, unknown>;
-              const cid = String(rr.course_id);
-              return {
-                id: String(rr.id),
-                user_id: String(rr.user_id),
-                course_id: cid,
-                attempt_id: rr.attempt_id ? String(rr.attempt_id) : null,
-                score_pct: Number(rr.score_pct ?? 0),
-                certificate_no: String(rr.certificate_no ?? ""),
-                issued_at: String(rr.issued_at ?? new Date().toISOString()),
-                courses: courseMap[cid] ?? null,
-              } satisfies CertificateRow;
-            });
-          }
-        }
-      }
-
-      setCerts(certData);
       setLoading(false);
     })();
   }, []);
@@ -330,8 +262,7 @@ export default function DashboardPage() {
   // Name save
   async function saveName() {
     const trimmed = nameDraft.trim();
-    if (!userId) return;
-    if (!trimmed) return;
+    if (!userId || !trimmed) return;
     await supabase
       .from("profiles")
       .upsert({ id: userId, full_name: trimmed, updated_at: new Date().toISOString() });
@@ -487,9 +418,7 @@ export default function DashboardPage() {
           <section className="mt-10">
             <h2 className="text-xl font-semibold">Course Certificates</h2>
             {certs.length === 0 ? (
-              <p className="mt-3 text-muted">
-                No certificates yet. Complete a course and pass the final exam to earn one.
-              </p>
+              <p className="mt-3 text-muted">No certificates yet. Complete a course and pass the final exam to earn one.</p>
             ) : (
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 {certs.map((c) => {
@@ -517,6 +446,7 @@ export default function DashboardPage() {
                           <div className="text-muted text-xs">Issued: {new Date(c.issued_at).toLocaleString()}</div>
                         </div>
 
+                        {/* Decorative certificate panel */}
                         <div className="mt-3 rounded-lg border border-dashed p-3">
                           <div className="text-[13px]">This certifies that</div>
                           <div className="text-lg font-semibold">{fullName || "Your Name"}</div>
