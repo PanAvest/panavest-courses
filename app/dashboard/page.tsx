@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
 
-/* ===== Types ===== */
+/* ========= Types ========= */
 type CourseRow = {
   id: string;
   slug: string;
@@ -45,6 +45,35 @@ type ChapterInfo = {
   course_id: string;
 };
 
+type ProfileRow = {
+  id: string;
+  full_name: string | null;
+};
+
+type CertificateRow = {
+  id: string;
+  user_id: string;
+  course_id: string;
+  exam_id: string;
+  learner_name: string;
+  score_pct: number;
+  pass_mark: number;
+  issued_at: string;
+  courses?: CourseRow | CourseRow[] | null;
+};
+
+type CertificateCard = {
+  id: string;
+  course_id: string;
+  slug: string;
+  course_title: string;
+  learner_name: string;
+  score_pct: number;
+  pass_mark: number;
+  issued_at: string;
+  img: string | null;
+};
+
 /* ===== E-Books ===== */
 type EbookRow = {
   id: string;
@@ -53,11 +82,13 @@ type EbookRow = {
   cover_url: string | null;
   price_cents: number;
 };
+
 type PurchaseRow = {
   ebook_id: string;
   status: string | null;
   ebooks?: EbookRow | EbookRow[] | null;
 };
+
 type PurchasedEbook = {
   ebook_id: string;
   slug: string;
@@ -66,95 +97,76 @@ type PurchasedEbook = {
   price_cedis: string; // formatted price
 };
 
-/* ===== Profile / Certificates ===== */
-type ProfileRow = {
-  id: string;
-  full_name: string | null;
-};
-
-type CertificateRow = {
-  exam_id: string;
-  course_id: string;
-  learner_name: string | null;
-  score_pct: number | null;
-  pass_mark: number | null;
-  issued_at: string; // ISO
-  courses?:
-    | { title: string; slug: string }
-    | { title: string; slug: string }[]
-    | null;
-};
-
-type CertificateCard = {
-  exam_id: string;
-  course_id: string;
-  course_title: string;
-  course_slug: string;
-  learner_name: string;
-  score_pct: number;
-  pass_mark: number;
-  issued_at: string;
-};
-
+/* ========= Helpers ========= */
 function pickCourse(c: CourseRow | CourseRow[] | null | undefined): CourseRow | null {
   if (!c) return null;
   return Array.isArray(c) ? (c[0] ?? null) : c;
 }
+
 function pickEbook(e: EbookRow | EbookRow[] | null | undefined): EbookRow | null {
   if (!e) return null;
   return Array.isArray(e) ? (e[0] ?? null) : e;
 }
 
+/* ========= Page ========= */
 export default function DashboardPage() {
   const [userId, setUserId] = useState<string>("");
   const [userEmail, setUserEmail] = useState<string>("");
 
-  // Name display + edit controls
-  const [fullName, setFullName] = useState<string>("");
+  // Profile / name edit
+  const [profileName, setProfileName] = useState<string>("");
   const [editingName, setEditingName] = useState<boolean>(false);
-  const [pendingFullName, setPendingFullName] = useState<string>("");
-  const [savingName, setSavingName] = useState<boolean>(false);
-  const [nameNotice, setNameNotice] = useState<string>("");
+  const [nameInput, setNameInput] = useState<string>("");
 
+  // Main collections
   const [enrolled, setEnrolled] = useState<EnrolledCourse[]>([]);
   const [quiz, setQuiz] = useState<QuizAttempt[]>([]);
   const [chaptersById, setChaptersById] = useState<Record<string, ChapterInfo>>({});
   const [ebooks, setEbooks] = useState<PurchasedEbook[]>([]);
   const [certs, setCerts] = useState<CertificateCard[]>([]);
+
   const [loading, setLoading] = useState<boolean>(true);
+  const [savingName, setSavingName] = useState<boolean>(false);
+  const [notice, setNotice] = useState<string>("");
 
-  // Friendly display name for greeting
-  const displayName = fullName || userEmail || "there";
-
+  /* ---- Auth ---- */
   useEffect(() => {
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data } = await supabase.auth.getUser();
+      const user = data?.user;
       if (!user) {
         window.location.href = "/auth/sign-in";
         return;
       }
       setUserId(user.id);
       setUserEmail(user.email ?? "");
+    })();
+  }, []);
 
-      /* --- Profile (full name) --- */
-      try {
-        const { data: prof } = await supabase
-          .from("profiles")
-          .select("id, full_name")
-          .eq("id", user.id)
-          .maybeSingle<ProfileRow>();
-        const name = prof?.full_name ?? "";
-        setFullName(name);
-        setPendingFullName(name);
-      } catch {
-        // ignore; UI still works
-      }
+  /* ---- Load everything ---- */
+  useEffect(() => {
+    if (!userId) return;
 
-      /* --- Enrollments + courses --- */
+    (async () => {
+      setLoading(true);
+
+      // Profile
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .eq("id", userId)
+        .maybeSingle();
+
+      const fullName = (prof as ProfileRow | null)?.full_name ?? "";
+
+      setProfileName(fullName || "");
+      setNameInput(fullName || "");
+
+      // Enrollments (joined with courses)
       const { data: enrData } = await supabase
         .from("enrollments")
         .select("course_id, progress_pct, courses!inner(title,slug,img,cpd_points)")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .order("updated_at", { ascending: false });
 
       if (enrData) {
@@ -167,7 +179,8 @@ export default function DashboardPage() {
             img: null,
             cpd_points: null,
           };
-          const pct = Number.isFinite(Number(r.progress_pct)) ? Number(r.progress_pct) : 0;
+          const pctNum = Number(r.progress_pct);
+          const pct = Number.isFinite(pctNum) ? pctNum : 0;
           return {
             course_id: r.course_id,
             progress_pct: Math.max(0, Math.min(100, pct)),
@@ -180,11 +193,11 @@ export default function DashboardPage() {
         setEnrolled(mapped);
       }
 
-      /* --- Purchased E-Books --- */
+      // Purchased E-Books
       const { data: purRows } = await supabase
         .from("ebook_purchases")
         .select("ebook_id,status,ebooks!inner(id,slug,title,cover_url,price_cents)")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .eq("status", "paid")
         .order("created_at", { ascending: false });
 
@@ -205,101 +218,72 @@ export default function DashboardPage() {
         setEbooks(items);
       }
 
-      /* --- Quiz attempts --- */
+      // Quiz attempts
       const { data: quizRows } = await supabase
         .from("user_chapter_quiz")
         .select("course_id, chapter_id, total_count, correct_count, score_pct, completed_at")
-        .eq("user_id", user.id);
+        .eq("user_id", userId);
+
       const attempts = (quizRows ?? []) as QuizAttempt[];
       setQuiz(attempts);
 
-      /* --- Chapter metadata (for ordering quiz results) --- */
+      // Chapter metadata for ordering
       const chapterIds = Array.from(new Set(attempts.map(a => a.chapter_id)));
       if (chapterIds.length > 0) {
         const { data: chRows } = await supabase
           .from("course_chapters")
           .select("id,title,order_index,course_id")
           .in("id", chapterIds);
+
         const map: Record<string, ChapterInfo> = {};
-        (chRows ?? []).forEach((c) => {
-          const row = c as unknown as ChapterInfo;
-          map[row.id] = {
-            id: row.id,
-            title: row.title,
-            order_index: Number(row.order_index ?? 0),
-            course_id: row.course_id,
+        (chRows ?? []).forEach((c: any) => {
+          map[c.id] = {
+            id: c.id,
+            title: c.title,
+            order_index: Number(c.order_index ?? 0),
+            course_id: c.course_id,
           };
         });
         setChaptersById(map);
       }
 
-      /* --- Certificates (passed) --- */
+      // Certificates (join with courses)
       const { data: certRows } = await supabase
         .from("certificates")
-        .select("exam_id, course_id, learner_name, score_pct, pass_mark, issued_at, courses!inner(title,slug)")
-        .eq("user_id", user.id)
+        .select("id,user_id,course_id,exam_id,learner_name,score_pct,pass_mark,issued_at,courses!inner(id,slug,title,img)")
+        .eq("user_id", userId)
         .order("issued_at", { ascending: false });
 
-      const cards: CertificateCard[] = (certRows ?? [])
-        .filter((r) => (r.score_pct ?? 0) >= (r.pass_mark ?? 0))
-        .map((r) => {
-          const c = (Array.isArray(r.courses) ? r.courses[0] : r.courses) as { title: string; slug: string } | null;
+      if (certRows) {
+        const list: CertificateCard[] = (certRows as CertificateRow[]).map((r) => {
+          const c = pickCourse(r.courses);
           return {
-            exam_id: r.exam_id,
+            id: r.id,
             course_id: r.course_id,
+            slug: c?.slug ?? "",
             course_title: c?.title ?? "Course",
-            course_slug: c?.slug ?? "",
-            learner_name: ((r.learner_name ?? fullName) || userEmail || "Learner") as string,
-            score_pct: Math.round(Number(r.score_pct ?? 0)),
-            pass_mark: Math.round(Number(r.pass_mark ?? 0)),
+            learner_name: r.learner_name,
+            score_pct: r.score_pct,
+            pass_mark: r.pass_mark,
             issued_at: r.issued_at,
+            img: c?.img ?? null,
           };
         });
+        setCerts(list);
+      }
 
-      setCerts(cards);
       setLoading(false);
     })();
-  }, []);
+  }, [userId]);
 
-  /* ===== Save/Edit full name ===== */
-  async function saveFullName() {
-    setSavingName(true);
-    setNameNotice("");
-    try {
-      if (!userId) return;
+  /* ---- Derived ---- */
+  const displayName = useMemo(() => {
+    if (profileName && profileName.trim().length > 0) return profileName.trim();
+    if (userEmail && userEmail.trim().length > 0) return userEmail.trim();
+    return "Learner";
+  }, [profileName, userEmail]);
 
-      const clean = pendingFullName.trim();
-
-      // Save to profiles table
-      await supabase.from("profiles").upsert({
-        id: userId,
-        full_name: clean,
-        updated_at: new Date().toISOString(),
-      });
-
-      setFullName(clean);
-      setEditingName(false);
-      setNameNotice("Saved ✓");
-
-      // Keep certificates consistent with the new name
-      await supabase
-        .from("certificates")
-        .update({ learner_name: clean })
-        .eq("user_id", userId);
-
-      // update local view immediately
-      setCerts(prev => prev.map(c => ({ ...c, learner_name: clean })));
-
-      // clear notice
-      setTimeout(() => setNameNotice(""), 1500);
-    } catch {
-      setNameNotice("Could not save name. Please try again.");
-    } finally {
-      setSavingName(false);
-    }
-  }
-
-  /* ===== Quiz results grouped by course ===== */
+  // Group quiz results by course and sort chapters by order_index
   const quizByCourse = useMemo(() => {
     const grouped: Record<string, { attempt: QuizAttempt; chapter: ChapterInfo }[]> = {};
     for (const a of quiz) {
@@ -313,148 +297,163 @@ export default function DashboardPage() {
     return grouped;
   }, [quiz, chaptersById]);
 
+  /* ---- Actions ---- */
+  async function saveName() {
+    if (!userId) return;
+    const value = (nameInput || "").trim();
+    if (value.length < 2) {
+      setNotice("Please enter at least 2 characters.");
+      setTimeout(() => setNotice(""), 1600);
+      return;
+    }
+    setSavingName(true);
+    const { error } = await supabase
+      .from("profiles")
+      .upsert({ id: userId, full_name: value }, { onConflict: "id" });
+
+    setSavingName(false);
+
+    if (error) {
+      setNotice("Could not save your name. Try again.");
+      setTimeout(() => setNotice(""), 1800);
+      return;
+    }
+    setProfileName(value);
+    setEditingName(false);
+    setNotice("Name updated.");
+    setTimeout(() => setNotice(""), 1200);
+  }
+
   return (
     <div className="mx-auto max-w-screen-lg px-4 md:px-6 py-8">
-      {/* Welcome heading */}
-      <h1 className="text-2xl sm:text-3xl font-bold">
-        Welcome{displayName ? `, ${displayName}` : ""} 👋
-      </h1>
-      {!fullName && (
-        <p className="mt-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2">
-          Add your full name below to appear on your certificates.
-        </p>
-      )}
+      {/* Greeting + profile name */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold">Welcome, {displayName}</h1>
+          <p className="text-sm text-muted mt-1">This is your PanAvest dashboard.</p>
+          {!!notice && <div className="mt-2 text-sm text-[#0a1156]">{notice}</div>}
+        </div>
 
-      {loading && <p className="mt-4 text-muted">Loading…</p>}
+        <div className="shrink-0">
+          {!editingName ? (
+            <button
+              type="button"
+              className="rounded-lg border px-3 py-1.5 text-sm"
+              onClick={() => { setEditingName(true); setNameInput(profileName || ""); }}
+            >
+              Edit name
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <input
+                className="rounded-lg border px-3 py-1.5 text-sm"
+                value={nameInput}
+                onChange={(e) => setNameInput(e.target.value)}
+                placeholder="Your full name"
+                aria-label="Your full name"
+              />
+              <button
+                type="button"
+                className="rounded-lg bg-[color:#0a1156] text-white px-3 py-1.5 text-sm disabled:opacity-60"
+                onClick={saveName}
+                disabled={savingName}
+              >
+                {savingName ? "Saving…" : "Save"}
+              </button>
+              <button
+                type="button"
+                className="rounded-lg border px-3 py-1.5 text-sm"
+                onClick={() => { setEditingName(false); setNameInput(profileName || ""); }}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {loading && <p className="mt-6 text-muted">Loading…</p>}
 
       {!loading && (
         <>
-          {/* ===== Profile: Name (permanent view with edit) ===== */}
-          <section className="mt-6 rounded-xl border border-light bg-white p-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div>
-                <div className="text-sm text-muted">Name on certificates</div>
-                {!editingName ? (
-                  <div className="mt-1 text-lg font-semibold">{fullName || "—"}</div>
-                ) : (
-                  <input
-                    type="text"
-                    autoFocus
-                    value={pendingFullName}
-                    onChange={(e) => setPendingFullName(e.target.value)}
-                    placeholder="Enter your full legal name"
-                    className="mt-1 w-full sm:w-[420px] rounded-lg border px-3 py-2"
-                  />
-                )}
-              </div>
-
-              <div className="flex items-center gap-2">
-                {!editingName ? (
-                  <button
-                    type="button"
-                    onClick={() => setEditingName(true)}
-                    className="rounded-lg px-4 py-2 bg-brand text-white"
-                  >
-                    {fullName ? "Edit name" : "Add name"}
-                  </button>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={saveFullName}
-                      disabled={savingName || !pendingFullName.trim()}
-                      className={`rounded-lg px-4 py-2 font-semibold ${
-                        savingName || !pendingFullName.trim()
-                          ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                          : "bg-brand text-white hover:opacity-90"
-                      }`}
-                    >
-                      {savingName ? "Saving…" : "Save"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingName(false);
-                        setPendingFullName(fullName);
-                      }}
-                      className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]"
-                    >
-                      Cancel
-                    </button>
-                  </>
-                )}
-                {!!nameNotice && <div className="text-sm text-[#0a1156]">{nameNotice}</div>}
-              </div>
-            </div>
-          </section>
-
-          {/* ===== Course Certificates ===== */}
+          {/* Course Certificates */}
           <section className="mt-8">
             <h2 className="text-xl font-semibold">Course Certificates</h2>
+
             {certs.length === 0 ? (
               <div className="mt-3 rounded-xl border border-light bg-white p-4">
                 <p className="text-muted">
-                  No certificates yet. Finish a course and pass the final exam to earn one.
+                  No certificates yet. Complete a course and <b>pass the final exam</b> to earn one.
                 </p>
               </div>
             ) : (
-              <div className="mt-4 grid gap-6 sm:grid-cols-2">
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 {certs.map((c) => (
-                  <div
-                    key={c.exam_id}
-                    className="relative rounded-2xl border border-light bg-white p-5 overflow-hidden"
-                    aria-label={`Certificate for ${c.course_title}`}
-                  >
-                    <div className="absolute inset-2 rounded-xl border-2 border-amber-200 pointer-events-none" />
-                    <div className="relative z-10 text-center">
-                      <div className="text-xs tracking-widest text-amber-700">PanAvest Institute</div>
-                      <div className="mt-0.5 text-lg font-semibold">Certificate of Completion</div>
+                  <div key={c.id} className="relative overflow-hidden rounded-2xl border bg-white">
+                    {/* Certificate header / banner */}
+                    <div className="relative w-full h-28">
+                      <Image
+                        src={c.img || "/project-management.png"}
+                        alt={c.course_title}
+                        fill
+                        className="object-cover opacity-80"
+                        sizes="(max-width: 768px) 100vw, 50vw"
+                      />
                     </div>
 
-                    <div className="relative z-10 mt-4 text-center">
-                      <div className="text-xs text-muted">Awarded to</div>
-                      <div className="mt-1 text-xl font-bold">{c.learner_name}</div>
-                    </div>
-
-                    <div className="relative z-10 mt-4 text-center">
-                      <div className="text-xs text-muted">For successfully completing</div>
-                      <div className="mt-1 font-semibold">{c.course_title}</div>
-                    </div>
-
-                    <div className="relative z-10 mt-4 grid place-items-center">
-                      <div className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ring-1 ring-[color:var(--color-light)]">
-                        Final exam: {c.score_pct}% · Pass mark: {c.pass_mark}%
-                        <span className="ml-2 inline-flex items-center rounded-full px-2 py-0.5 bg-green-100 text-green-800">
-                          PASSED
-                        </span>
+                    <div className="p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-sm text-muted">Certificate of Completion</div>
+                          <div className="text-lg font-semibold">{c.course_title}</div>
+                        </div>
+                        {/* Stamp */}
+                        <div className="text-center">
+                          <Image
+                            src="/certificate-stamp.png"
+                            alt="Certified Stamp"
+                            width={64}
+                            height={64}
+                            className="opacity-90"
+                          />
+                          <div className="text-[10px] text-muted mt-1">PanAvest Certified</div>
+                        </div>
                       </div>
-                      <div className="mt-2 text-[11px] text-muted">
+
+                      <div className="mt-3 text-sm">
+                        Awarded to <span className="font-semibold">{c.learner_name}</span>
+                      </div>
+                      <div className="mt-1 text-xs text-muted">
                         Issued: {new Date(c.issued_at).toLocaleString()}
                       </div>
-                    </div>
 
-                    <p className="relative z-10 mt-4 text-center text-sm">
-                      This certifies that the learner has met the requirements for this course.
-                    </p>
-
-                    {/* Stamp */}
-                    <div className="pointer-events-none absolute right-3 bottom-3 rotate-[-12deg]">
-                      <div className="select-none rounded-full px-4 py-3 text-xs font-bold ring-2 ring-green-600 text-green-700 bg-white/80">
-                        PANAVEST CERTIFIED
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-[color:var(--color-light)]">
+                          Final Score: {c.score_pct}%
+                        </span>
+                        <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-green-100 text-green-800">
+                          Pass Mark: {c.pass_mark}%
+                        </span>
                       </div>
-                    </div>
 
-                    <div className="relative z-10 mt-5 flex items-center justify-between gap-2">
-                      {c.course_slug ? (
-                        <Link
-                          href={`/knowledge/${c.course_slug}`}
-                          className="text-xs rounded-lg px-3 py-1.5 bg-brand text-white"
-                          title="View course"
+                      <div className="mt-4 flex items-center gap-2">
+                        {c.slug ? (
+                          <Link
+                            href={`/courses/${c.slug}`}
+                            className="rounded-lg px-3 py-1.5 text-sm bg-[color:#0a1156] text-white"
+                          >
+                            View course
+                          </Link>
+                        ) : null}
+                        {/* Simple print button (prints the page; you can wire a dedicated cert page later) */}
+                        <button
+                          type="button"
+                          onClick={() => window.print()}
+                          className="rounded-lg px-3 py-1.5 text-sm border"
                         >
-                          View course
-                        </Link>
-                      ) : <span />}
-                      <span className="text-[11px] text-muted">Certificate ID: {c.exam_id.slice(0, 8)}…</span>
+                          Print
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -462,13 +461,13 @@ export default function DashboardPage() {
             )}
           </section>
 
-          {/* ===== Purchased E-Books ===== */}
+          {/* Purchased E-Books */}
           <section className="mt-10">
             <h2 className="text-xl font-semibold">Purchased E-Books</h2>
             {ebooks.length === 0 ? (
               <div className="mt-3 rounded-xl border border-light bg-white p-4">
                 <p className="text-muted">No purchased e-books yet.</p>
-                <Link href="/ebooks" className="mt-2 inline-block rounded-lg bg-brand px-4 py-2 text-white">
+                <Link href="/ebooks" className="mt-2 inline-block rounded-lg bg-[color:#0a1156] px-4 py-2 text-white">
                   Browse e-books
                 </Link>
               </div>
@@ -490,7 +489,7 @@ export default function DashboardPage() {
                       <div className="mt-1 text-xs text-muted">Purchased · {b.price_cedis}</div>
                       <Link
                         href={`/ebooks/${b.slug}`}
-                        className="mt-3 inline-block rounded-lg bg-brand px-3 py-1.5 text-white"
+                        className="mt-3 inline-block rounded-lg bg-[color:#0a1156] px-3 py-1.5 text-white"
                       >
                         Read
                       </Link>
@@ -501,14 +500,14 @@ export default function DashboardPage() {
             )}
           </section>
 
-          {/* ===== Continue learning ===== */}
+          {/* Continue learning */}
           <section className="mt-10">
             <h2 className="text-xl font-semibold">Continue learning</h2>
             {enrolled.length === 0 ? (
               <div className="mt-3 rounded-xl border border-light bg-white p-4">
                 <p className="text-muted">You haven’t enrolled yet.</p>
-                <Link href="/courses" className="mt-2 inline-block rounded-lg bg-brand px-4 py-2 text-white">
-                  Browse knowledge
+                <Link href="/courses" className="mt-2 inline-block rounded-lg bg-[color:#0a1156] px-4 py-2 text-white">
+                  Browse courses
                 </Link>
               </div>
             ) : (
@@ -527,10 +526,13 @@ export default function DashboardPage() {
                     <div className="p-4">
                       <div className="font-semibold line-clamp-1">{c.title}</div>
                       <div className="mt-2 h-2 w-full bg-[color:var(--color-light)] rounded">
-                        <div className="h-2 bg-brand rounded" style={{ width: `${c.progress_pct}%` }} />
+                        <div
+                          className="h-2 bg-[color:#0a1156] rounded"
+                          style={{ width: `${c.progress_pct}%` }}
+                        />
                       </div>
                       <div className="mt-2 text-xs text-muted">{Math.round(c.progress_pct)}% complete</div>
-                      <Link href={`/knowledge/${c.slug}`} className="mt-3 inline-block rounded-lg bg-brand px-3 py-1.5 text-white">
+                      <Link href={`/courses/${c.slug}`} className="mt-3 inline-block rounded-lg bg-[color:#0a1156] px-3 py-1.5 text-white">
                         Resume
                       </Link>
                     </div>
@@ -540,7 +542,7 @@ export default function DashboardPage() {
             )}
           </section>
 
-          {/* ===== Your quiz results ===== */}
+          {/* Your quiz results */}
           <section className="mt-10">
             <h2 className="text-xl font-semibold">Your quiz results</h2>
             {Object.keys(quizByCourse).length === 0 ? (
@@ -556,7 +558,7 @@ export default function DashboardPage() {
                           {meta?.title ?? "Course"} {meta?.slug ? <span className="text-muted">· /{meta.slug}</span> : null}
                         </div>
                         {meta?.slug && (
-                          <Link href={`/knowledge/${meta.slug}`} className="text-sm rounded-lg px-3 py-1.5 bg-brand text-white">
+                          <Link href={`/courses/${meta.slug}`} className="text-sm rounded-lg px-3 py-1.5 bg-[color:#0a1156] text-white">
                             Go to course
                           </Link>
                         )}
@@ -565,7 +567,7 @@ export default function DashboardPage() {
                       <ul className="mt-3 grid gap-2">
                         {rows.map(({ attempt, chapter }) => (
                           <li
-                            key={`${attempt.course_id}-${attempt.chapter_id}`}
+                            key={`${attempt.course_id}-${attempt.chapter_id}-${attempt.completed_at}`}
                             className="flex flex-wrap items-center justify-between gap-2 rounded-lg ring-1 ring-[color:var(--color-light)] px-3 py-2"
                           >
                             <div className="min-w-0">
