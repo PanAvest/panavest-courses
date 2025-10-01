@@ -241,13 +241,11 @@ export default function AdminPage() {
       setQForm({ chapter_id: "", question: "", options: [], correct_index: 0 });
       return;
     }
-    // settings
     {
       const r = await fetch(`/api/admin/quiz-settings?chapter_id=${encodeURIComponent(chapterId)}`, { cache: "no-store" });
       const d = r.ok ? await r.json() : {};
       setQuizSettings(asQuizSettings(d ?? {}, chapterId));
     }
-    // questions
     {
       const r = await fetch(`/api/admin/quiz-questions?chapter_id=${encodeURIComponent(chapterId)}`, { cache: "no-store" });
       const d = r.ok ? await r.json() : [];
@@ -261,7 +259,6 @@ export default function AdminPage() {
     setChForm({ ...emptyChapter, course_id: selectedCourseId });
     setSlForm({ ...emptySlide, chapter_id: "" });
     setSlides([]);
-    // reset quiz when switching course
     setQuizSettings({ chapter_id: "", time_limit_seconds: null, num_questions: null });
     setQuestions([]);
     setQForm({ chapter_id: "", question: "", options: [], correct_index: 0 });
@@ -480,7 +477,6 @@ export default function AdminPage() {
   }
 
   /* ================== E-BOOKS ADMIN ================== */
-
   const emptyEbook: Ebook = {
     slug: "",
     title: "",
@@ -499,26 +495,31 @@ export default function AdminPage() {
 
   const refreshEbooks = useCallback(async () => {
     setLoadingEbooks(true);
-    const r = await fetch("/api/admin/ebooks", { cache: "no-store" });
-    const d = await r.json();
-    const arr = Array.isArray(d) ? d : [];
-    const rows: Ebook[] = arr.map((e) => {
-      const r = (e && typeof e === "object") ? (e as Record<string, unknown>) : {};
-      return {
-        id: isString(r["id"]) ? r["id"] : undefined,
-        slug: String(r["slug"] ?? ""),
-        title: String(r["title"] ?? ""),
-        description: isString(r["description"]) ? r["description"] : "",
-        cover_url: isString(r["cover_url"]) ? r["cover_url"] : "",
-        sample_url: isString(r["sample_url"]) ? r["sample_url"] : "",
-        kpf_url: isString(r["kpf_url"]) ? r["kpf_url"] : "",
-        price_cents: asNumber(r["price_cents"], 0),
-        published: Boolean(r["published"] ?? true),
-        created_at: isString(r["created_at"]) ? r["created_at"] : null,
-      };
-    });
-    setEbooks(rows);
-    setLoadingEbooks(false);
+    try {
+      const r = await fetch("/api/admin/ebooks", { cache: "no-store" });
+      const d = await r.json();
+      const arr = Array.isArray(d) ? d : [];
+      const rows: Ebook[] = arr.map((e) => {
+        const r = (e && typeof e === "object") ? (e as Record<string, unknown>) : {};
+        return {
+          id: isString(r["id"]) ? r["id"] : undefined,
+          slug: String(r["slug"] ?? ""),
+          title: String(r["title"] ?? ""),
+          description: isString(r["description"]) ? r["description"] : "",
+          cover_url: isString(r["cover_url"]) ? r["cover_url"] : "",
+          sample_url: isString(r["sample_url"]) ? r["sample_url"] : "",
+          kpf_url: isString(r["kpf_url"]) ? r["kpf_url"] : "",
+          price_cents: asNumber(r["price_cents"], 0),
+          published: Boolean(r["published"] ?? true),
+          created_at: isString(r["created_at"]) ? r["created_at"] : null,
+        };
+      });
+      setEbooks(rows);
+    } catch (err) {
+      alert(`Load e-books failed: ${(err as Error).message}`);
+    } finally {
+      setLoadingEbooks(false);
+    }
   }, []);
   useEffect(() => { if (tab==="ebooks") void refreshEbooks(); }, [tab, refreshEbooks]);
 
@@ -528,42 +529,48 @@ export default function AdminPage() {
       return;
     }
     setSavingEbook(true);
-    const payload: Ebook = {
-      ...ebookForm,
-      price_cents: asNumber(ebookForm.price_cents, 0),
-      // normalize empty strings to nulls for URLs
-      cover_url: ebookForm.cover_url?.trim() ? ebookForm.cover_url : null,
-      sample_url: ebookForm.sample_url?.trim() ? ebookForm.sample_url : null,
-      kpf_url: ebookForm.kpf_url?.trim() ? ebookForm.kpf_url : null,
-    };
-    const r = await fetch("/api/admin/ebooks", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    setSavingEbook(false);
-    if (!r.ok) {
-      let msg = "";
-      try { const j = await r.json(); msg = (j as { error?: string })?.error || r.statusText; } catch { msg = await r.text(); }
-      alert(`Save e-book failed: ${msg}`);
-      return;
+    try {
+      const payload: Ebook = {
+        ...ebookForm,
+        price_cents: asNumber(ebookForm.price_cents, 0),
+        cover_url: ebookForm.cover_url?.trim() ? ebookForm.cover_url : null,
+        sample_url: ebookForm.sample_url?.trim() ? ebookForm.sample_url : null,
+        kpf_url: ebookForm.kpf_url?.trim() ? ebookForm.kpf_url : null,
+      };
+      const r = await fetch("/api/admin/ebooks", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!r.ok) {
+        let msg = "";
+        try { const j = await r.json(); msg = (j as { error?: string })?.error || r.statusText; } catch { msg = await r.text(); }
+        throw new Error(msg);
+      }
+      setEbookForm(emptyEbook);
+      await refreshEbooks();
+    } catch (e) {
+      alert(`Save e-book failed: ${(e as Error).message}`);
+    } finally {
+      setSavingEbook(false);
     }
-    setEbookForm(emptyEbook);
-    await refreshEbooks();
   }
 
   async function deleteEbook(id?: string) {
     if (!id) return;
     if (!confirm("Delete this e-book?")) return;
-    const r = await fetch(`/api/admin/ebooks/${encodeURIComponent(id)}`, { method: "DELETE" });
-    if (!r.ok) {
-      let msg = "";
-      try { const j = await r.json(); msg = (j as { error?: string })?.error || r.statusText; } catch { msg = await r.text(); }
-      alert(`Delete failed: ${msg}`);
-      return;
+    try {
+      const r = await fetch(`/api/admin/ebooks/${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (!r.ok) {
+        let msg = "";
+        try { const j = await r.json(); msg = (j as { error?: string })?.error || r.statusText; } catch { msg = await r.text(); }
+        throw new Error(msg);
+      }
+      if (ebookForm.id === id) setEbookForm(emptyEbook);
+      await refreshEbooks();
+    } catch (e) {
+      alert(`Delete failed: ${(e as Error).message}`);
     }
-    if (ebookForm.id === id) setEbookForm(emptyEbook);
-    await refreshEbooks();
   }
 
   async function onPickCover(file: File) {
