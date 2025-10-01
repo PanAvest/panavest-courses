@@ -31,10 +31,7 @@ type PdfjsLib = {
     promise: Promise<PdfDocument>;
   };
 };
-type PdfDocument = {
-  numPages: number;
-  getPage: (n: number) => Promise<PdfPage>;
-};
+type PdfDocument = { numPages: number; getPage: (n: number) => Promise<PdfPage> };
 type Viewport = { width: number; height: number; scale: number; transform: number[] };
 type RenderTask = { promise: Promise<void>; cancel: () => void };
 type PdfPage = {
@@ -42,17 +39,9 @@ type PdfPage = {
   render: (opts: { canvasContext: CanvasRenderingContext2D; viewport: Viewport }) => RenderTask;
 };
 
-declare global {
-  interface Window {
-    pdfjsLib?: PdfjsLib;
-  }
-}
+declare global { interface Window { pdfjsLib?: PdfjsLib } }
 
-export default function EbookDetailPage({
-  params
-}: {
-  params: Promise<{ slug: string }>;
-}) {
+export default function EbookDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const router = useRouter();
   const [ebook, setEbook] = useState<Ebook | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -60,7 +49,7 @@ export default function EbookDetailPage({
   const [own, setOwn] = useState<OwnershipState>({ kind: "loading" });
   const [buying, setBuying] = useState(false);
 
-  // Secure reading UI
+  // Reader state
   const [pdfReady, setPdfReady] = useState(false);
   const [showReader, setShowReader] = useState(false);
   const [rendering, setRendering] = useState(false);
@@ -71,19 +60,17 @@ export default function EbookDetailPage({
   const readerWrapRef = useRef<HTMLDivElement | null>(null);
   const pdfContainerRef = useRef<HTMLDivElement | null>(null);
 
-  // Anti-print/copy/right-click/shortcuts
+  // Hardening
   useEffect(() => {
     const preventAll = (e: Event): void => { e.preventDefault(); e.stopPropagation(); };
     const onKey = (e: KeyboardEvent): void => {
       const k = e.key.toLowerCase();
-      if ((e.ctrlKey || e.metaKey) && (k === "p" || k === "s" || k === "u" || k === "c" || k === "x" || k === "a"))
-        preventAll(e);
-      if (e.metaKey && e.shiftKey && (k === "3" || k === "4" || k === "5")) preventAll(e); // best-effort screenshot
+      if ((e.ctrlKey || e.metaKey) && (k === "p" || k === "s" || k === "u" || k === "c" || k === "x" || k === "a")) preventAll(e);
+      if (e.metaKey && e.shiftKey && (k === "3" || k === "4" || k === "5")) preventAll(e); // best-effort
     };
-    const onVisibility = (): void => setMaskActive(document.hidden);
-    const onBlur = (): void => setMaskActive(true);
-    const onFocus = (): void => setMaskActive(false);
-
+    const onVis = () => setMaskActive(document.hidden);
+    const onBlur = () => setMaskActive(true);
+    const onFocus = () => setMaskActive(false);
     const CAPTURE: AddEventListenerOptions = { capture: true };
     document.addEventListener("contextmenu", preventAll, CAPTURE);
     document.addEventListener("copy", preventAll, CAPTURE);
@@ -91,7 +78,7 @@ export default function EbookDetailPage({
     document.addEventListener("paste", preventAll, CAPTURE);
     document.addEventListener("keydown", onKey, CAPTURE);
     window.addEventListener("beforeprint", preventAll, CAPTURE);
-    document.addEventListener("visibilitychange", onVisibility, CAPTURE);
+    document.addEventListener("visibilitychange", onVis, CAPTURE);
     window.addEventListener("blur", onBlur, CAPTURE);
     window.addEventListener("focus", onFocus, CAPTURE);
     return () => {
@@ -101,16 +88,16 @@ export default function EbookDetailPage({
       document.removeEventListener("paste", preventAll, CAPTURE);
       document.removeEventListener("keydown", onKey, CAPTURE);
       window.removeEventListener("beforeprint", preventAll, CAPTURE);
-      document.removeEventListener("visibilitychange", onVisibility, CAPTURE);
+      document.removeEventListener("visibilitychange", onVis, CAPTURE);
       window.removeEventListener("blur", onBlur, CAPTURE);
       window.removeEventListener("focus", onFocus, CAPTURE);
     };
   }, []);
 
-  // Load slug
+  // Slug
   useEffect(() => { (async () => setSlug((await params).slug))(); }, [params]);
 
-  // Load ebook metadata
+  // Load ebook
   useEffect(() => {
     if (!slug) return;
     (async () => {
@@ -119,21 +106,18 @@ export default function EbookDetailPage({
         const j = await r.json();
         if (!r.ok) throw new Error(j?.error || r.statusText);
         setEbook(j as Ebook);
-      } catch (e) {
-        setErr((e as Error).message);
-      }
+      } catch (e) { setErr((e as Error).message); }
     })();
   }, [slug]);
 
-  // Check auth + ownership + watermark identity
+  // Auth/ownership + watermark
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setOwn({ kind: "signed_out" }); setWatermark("SECURE COPY"); return; }
       setWatermark(`${user.email ?? user.id} • ${new Date().toISOString()}`);
       if (!ebook?.id) { setOwn({ kind: "loading" }); return; }
-      const { data, error } = await supabase
-        .from("ebook_purchases").select("status")
+      const { data, error } = await supabase.from("ebook_purchases").select("status")
         .eq("user_id", user.id).eq("ebook_id", ebook.id).maybeSingle();
       if (error) { setOwn({ kind: "not_owner" }); return; }
       setOwn(data?.status === "paid" ? { kind: "owner" } : { kind: "not_owner" });
@@ -156,10 +140,7 @@ export default function EbookDetailPage({
       const j = await r.json();
       if (!r.ok || !j?.checkoutUrl) throw new Error(j?.error || "Payment init failed");
       window.location.href = j.checkoutUrl;
-    } catch (e) {
-      setErr((e as Error).message);
-      setBuying(false);
-    }
+    } catch (e) { setErr((e as Error).message); setBuying(false); }
   }
 
   function openReader() {
@@ -167,7 +148,7 @@ export default function EbookDetailPage({
     queueMicrotask(() => readerWrapRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }
 
-  // PDF.js render
+  // Render with PDF.js (via same-origin proxy URL to avoid CORS)
   async function renderPdf() {
     if (!ebook?.sample_url || !pdfContainerRef.current || !window.pdfjsLib) return;
     setRendering(true);
@@ -180,10 +161,10 @@ export default function EbookDetailPage({
       const container = pdfContainerRef.current;
       container.innerHTML = "";
 
-      // Fit pages to container width
-      const doc = await pdfjs.getDocument({ url: ebook.sample_url }).promise;
-      const width = container.clientWidth || 800;
+      const proxied = `/api/secure-pdf?src=${encodeURIComponent(ebook.sample_url)}`;
+      const doc = await pdfjs.getDocument({ url: proxied }).promise;
 
+      const width = container.clientWidth || 820;
       for (let i = 1; i <= doc.numPages; i++) {
         const page = await doc.getPage(i);
         const base = page.getViewport({ scale: 1 });
@@ -203,18 +184,13 @@ export default function EbookDetailPage({
       }
     } catch (e) {
       setRenderError((e as Error).message || "Failed to load PDF");
-    } finally {
-      setRendering(false);
-    }
+    } finally { setRendering(false); }
   }
 
-  // Render when ready
+  // Trigger render when ready / on resize
   useEffect(() => {
     if (showReader && pdfReady && ebook?.sample_url) renderPdf();
-    // re-render on resize
-    function onResize() {
-      if (showReader && pdfReady && ebook?.sample_url) renderPdf();
-    }
+    function onResize() { if (showReader && pdfReady && ebook?.sample_url) renderPdf(); }
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -222,7 +198,7 @@ export default function EbookDetailPage({
 
   if (err) {
     return (
-      <main className="mx-auto max-w-screen-lg px-4 sm:px-6 lg:px-8 py-10">
+      <main className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 py-10">
         <h1 className="text-2xl font-bold">E-Book</h1>
         <p className="mt-3 text-red-600 text-sm">Error: {err}</p>
         <Link href="/ebooks" className="mt-4 inline-block underline">Back to E-Books</Link>
@@ -232,7 +208,7 @@ export default function EbookDetailPage({
 
   if (!ebook) {
     return (
-      <main className="mx-auto max-w-screen-lg px-4 sm:px-6 lg:px-8 py-10">
+      <main className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 py-10">
         <div className="rounded-2xl bg-white border border-light p-6 animate-pulse h-[320px]" />
       </main>
     );
@@ -244,7 +220,6 @@ export default function EbookDetailPage({
       onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
       onDragStart={(e) => { e.preventDefault(); }}
     >
-      {/* Anti-print & anti-copy CSS */}
       <style jsx global>{`
         @media print { body { display: none !important; } }
         html, body, main, .secure-viewer, .secure-viewer * {
@@ -255,11 +230,11 @@ export default function EbookDetailPage({
         }
       `}</style>
 
-      {/* Load PDF.js from CDN (no other files changed) */}
+      {/* PDF.js UMD */}
       <Script
         src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.js"
         strategy="afterInteractive"
-        onLoad={() => setPdfReady(true)}
+        onLoad={() => setPdfReady(Boolean(window.pdfjsLib))}
       />
 
       {/* GRID: left meta / right reader */}
@@ -279,9 +254,7 @@ export default function EbookDetailPage({
                   draggable={false}
                 />
               ) : (
-                <div className="w-full h-[260px] bg-[color:var(--color-light)]/40 flex items-center justify-center text-muted">
-                  No cover
-                </div>
+                <div className="w-full h-[260px] bg-[color:var(--color-light)]/40 flex items-center justify-center text-muted">No cover</div>
               )}
             </div>
 
@@ -302,25 +275,21 @@ export default function EbookDetailPage({
                 )}
                 {own.kind === "owner" && (
                   <button
-                    onClick={() => setShowReader(true)}
+                    onClick={openReader}
                     className="rounded-lg bg-brand text-white px-5 py-3 font-semibold hover:opacity-90 w-full sm:w-auto"
                   >
                     Read securely
                   </button>
                 )}
               </div>
-              {own.kind !== "owner" && (
-                <p className="mt-3 text-xs text-muted">
-                  Sign in and purchase to unlock reading.
-                </p>
-              )}
+              {own.kind !== "owner" && <p className="mt-3 text-xs text-muted">Sign in and purchase to unlock reading.</p>}
             </div>
           </div>
         </aside>
 
         {/* RIGHT: secure reader */}
         <section className="md:col-span-8">
-          <div ref={readerWrapRef} className="relative rounded-2xl bg-white border border-light p-0 secure-viewer">
+          <div ref={readerWrapRef} className="relative rounded-2xl bg-white border border-light secure-viewer">
             {own.kind !== "owner" && (
               <div className="w-full h-[50vh] sm:h-[60vh] grid place-items-center bg-[color:var(--color-light)]/40">
                 <div className="text-center px-6">
@@ -334,31 +303,30 @@ export default function EbookDetailPage({
 
             {own.kind === "owner" && (
               <div className="relative">
-                {/* Watermark overlay */}
-                <div
-                  aria-hidden
-                  className={`pointer-events-none absolute inset-0 z-20 select-none ${maskActive ? "opacity-90" : "opacity-25"}`}
-                  style={{ transition: "opacity 120ms ease" }}
-                >
-                  <div className="w-full h-full rotate-[-25deg] grid gap-12" style={{ placeItems: "center" }}>
-                    {Array.from({ length: 6 }).map((_, r) => (
-                      <div key={`r-${r}`} className="flex gap-16">
-                        {Array.from({ length: 4 }).map((__, c) => (
-                          <span key={`c-${c}`} className="text-2xl font-bold tracking-wide text-black/60">
-                            {watermark}
-                          </span>
-                        ))}
-                      </div>
-                    ))}
+                {/* Watermark overlay (only when reader is open) */}
+                {showReader && (
+                  <div
+                    aria-hidden
+                    className={`pointer-events-none absolute inset-0 z-20 select-none ${maskActive ? "opacity-90" : "opacity-25"}`}
+                    style={{ transition: "opacity 120ms ease" }}
+                  >
+                    <div className="w-full h-full rotate-[-25deg] grid gap-12" style={{ placeItems: "center" }}>
+                      {Array.from({ length: 6 }).map((_, r) => (
+                        <div key={`r-${r}`} className="flex gap-16">
+                          {Array.from({ length: 4 }).map((__, c) => (
+                            <span key={`c-${c}`} className="text-2xl font-bold tracking-wide text-black/60">
+                              {watermark}
+                            </span>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {!showReader && (
                   <div className="w-full h-[40vh] sm:h-[52vh] grid place-items-center">
-                    <button
-                      onClick={openReader}
-                      className="rounded-lg bg-brand text-white px-5 py-3 font-semibold hover:opacity-90"
-                    >
+                    <button onClick={openReader} className="rounded-lg bg-brand text-white px-5 py-3 font-semibold hover:opacity-90">
                       Read securely
                     </button>
                   </div>
@@ -368,19 +336,16 @@ export default function EbookDetailPage({
                   <div className={`relative z-10 ${maskActive ? "blur-sm" : ""}`}>
                     <div
                       ref={pdfContainerRef}
-                      className="max-h-[75vh] overflow-auto px-2 py-4"
+                      className="max-h-[75vh] min-h-[50vh] overflow-auto px-2 py-4"
                       aria-label="Secure PDF Reader"
                     />
-                    {/* Gradient overlay at top */}
                     <div className="pointer-events-none absolute top-0 left-0 right-0 h-8 z-30 bg-gradient-to-b from-white/70 to-transparent" />
                     {rendering && (
                       <div className="absolute inset-0 grid place-items-center bg-white/40 z-30">
                         <div className="text-sm">Loading pages…</div>
                       </div>
                     )}
-                    {renderError && (
-                      <div className="p-4 text-sm text-red-600">Error: {renderError}</div>
-                    )}
+                    {renderError && <div className="p-4 text-sm text-red-600">Error: {renderError}</div>}
                   </div>
                 )}
               </div>
@@ -393,9 +358,7 @@ export default function EbookDetailPage({
       <section className="mt-10">
         <div className="rounded-2xl bg-white border border-light p-6">
           <h2 className="text-xl font-semibold">About this e-book</h2>
-          <p className="mt-3 text-muted whitespace-pre-line">
-            {ebook.description ?? "No description provided."}
-          </p>
+          <p className="mt-3 text-muted whitespace-pre-line">{ebook.description ?? "No description provided."}</p>
           <div className="mt-6">
             <Link href="/ebooks" className="underline">← Back to E-Books</Link>
           </div>
