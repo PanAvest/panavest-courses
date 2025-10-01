@@ -45,6 +45,7 @@ type ChapterInfo = {
   course_id: string;
 };
 
+/* ===== E-Books ===== */
 type EbookRow = {
   id: string;
   slug: string;
@@ -52,38 +53,36 @@ type EbookRow = {
   cover_url: string | null;
   price_cents: number;
 };
-
 type PurchaseRow = {
   ebook_id: string;
   status: string | null;
   ebooks?: EbookRow | EbookRow[] | null;
 };
-
 type PurchasedEbook = {
   ebook_id: string;
   slug: string;
   title: string;
   cover_url: string | null;
-  price_cedis: string; // formatted GH₵
+  price_cedis: string; // formatted price
 };
 
-type AttemptRow = {
-  exam_id: string;
-  score: number | null;
-  passed: boolean | null;
-  created_at: string;
-};
-
-type ExamRow = {
-  id: string;
-  course_id: string;
-  title: string | null;
-  pass_mark: number | null;
-};
-
+/* ===== Profile / Certificates ===== */
 type ProfileRow = {
   id: string;
   full_name: string | null;
+};
+
+type CertificateRow = {
+  exam_id: string;
+  course_id: string;
+  learner_name: string | null;
+  score_pct: number | null;
+  pass_mark: number | null;
+  issued_at: string; // ISO
+  courses?:
+    | { title: string; slug: string }
+    | { title: string; slug: string }[]
+    | null;
 };
 
 type CertificateCard = {
@@ -91,14 +90,12 @@ type CertificateCard = {
   course_id: string;
   course_title: string;
   course_slug: string;
+  learner_name: string;
   score_pct: number;
   pass_mark: number;
-  passed: boolean;
-  attempted_at: string;
-  learner_name: string;
+  issued_at: string;
 };
 
-/* ===== Helpers ===== */
 function pickCourse(c: CourseRow | CourseRow[] | null | undefined): CourseRow | null {
   if (!c) return null;
   return Array.isArray(c) ? (c[0] ?? null) : c;
@@ -108,10 +105,14 @@ function pickEbook(e: EbookRow | EbookRow[] | null | undefined): EbookRow | null
   return Array.isArray(e) ? (e[0] ?? null) : e;
 }
 
-/* ========================================================================== */
-
 export default function DashboardPage() {
+  const [userId, setUserId] = useState<string>("");
+  const [userEmail, setUserEmail] = useState<string>("");
+
+  // Name display + edit controls
   const [fullName, setFullName] = useState<string>("");
+  const [editingName, setEditingName] = useState<boolean>(false);
+  const [pendingFullName, setPendingFullName] = useState<string>("");
   const [savingName, setSavingName] = useState<boolean>(false);
   const [nameNotice, setNameNotice] = useState<string>("");
 
@@ -122,14 +123,18 @@ export default function DashboardPage() {
   const [certs, setCerts] = useState<CertificateCard[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
+  // Friendly display name for greeting
+  const displayName = fullName || userEmail || "there";
+
   useEffect(() => {
     (async () => {
-      const { data: auth } = await supabase.auth.getUser();
-      const user = auth?.user;
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         window.location.href = "/auth/sign-in";
         return;
       }
+      setUserId(user.id);
+      setUserEmail(user.email ?? "");
 
       /* --- Profile (full name) --- */
       try {
@@ -138,12 +143,14 @@ export default function DashboardPage() {
           .select("id, full_name")
           .eq("id", user.id)
           .maybeSingle<ProfileRow>();
-        setFullName(prof?.full_name ?? "");
+        const name = prof?.full_name ?? "";
+        setFullName(name);
+        setPendingFullName(name);
       } catch {
-        // ignore
+        // ignore; UI still works
       }
 
-      /* --- Enrollments (joined with courses) --- */
+      /* --- Enrollments + courses --- */
       const { data: enrData } = await supabase
         .from("enrollments")
         .select("course_id, progress_pct, courses!inner(title,slug,img,cpd_points)")
@@ -198,23 +205,21 @@ export default function DashboardPage() {
         setEbooks(items);
       }
 
-      /* --- Chapter quiz attempts (for “Your quiz results”) --- */
+      /* --- Quiz attempts --- */
       const { data: quizRows } = await supabase
         .from("user_chapter_quiz")
         .select("course_id, chapter_id, total_count, correct_count, score_pct, completed_at")
         .eq("user_id", user.id);
-
       const attempts = (quizRows ?? []) as QuizAttempt[];
       setQuiz(attempts);
 
-      /* --- Chapter metadata (for sorting) --- */
+      /* --- Chapter metadata (for ordering quiz results) --- */
       const chapterIds = Array.from(new Set(attempts.map(a => a.chapter_id)));
       if (chapterIds.length > 0) {
         const { data: chRows } = await supabase
           .from("course_chapters")
           .select("id,title,order_index,course_id")
           .in("id", chapterIds);
-
         const map: Record<string, ChapterInfo> = {};
         (chRows ?? []).forEach((c) => {
           const row = c as unknown as ChapterInfo;
@@ -228,96 +233,73 @@ export default function DashboardPage() {
         setChaptersById(map);
       }
 
-      /* --- Final exam attempts -> Certificates --- */
-      // 1) get all attempts for user (latest-first)
-      const { data: attRows } = await supabase
-        .from("attempts")
-        .select("exam_id, score, passed, created_at")
+      /* --- Certificates (passed) --- */
+      const { data: certRows } = await supabase
+        .from("certificates")
+        .select("exam_id, course_id, learner_name, score_pct, pass_mark, issued_at, courses!inner(title,slug)")
         .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-      const attemptsAll = (attRows ?? []) as AttemptRow[];
-      if (attemptsAll.length === 0) {
-        setCerts([]);
-        setLoading(false);
-        return;
-      }
+        .order("issued_at", { ascending: false });
 
-      // keep latest attempt per exam_id
-      const byExam: Record<string, AttemptRow> = {};
-      for (const a of attemptsAll) {
-        if (!byExam[a.exam_id]) byExam[a.exam_id] = a;
-      }
-      const examIds = Object.keys(byExam);
-      // 2) fetch exams
-      const { data: exRows } = await supabase
-        .from("exams")
-        .select("id, course_id, title, pass_mark")
-        .in("id", examIds);
-      const exams = (exRows ?? []) as ExamRow[];
-      const courseIds = Array.from(new Set(exams.map(e => e.course_id)));
+      const cards: CertificateCard[] = (certRows ?? [])
+        .filter((r) => (r.score_pct ?? 0) >= (r.pass_mark ?? 0))
+        .map((r) => {
+          const c = (Array.isArray(r.courses) ? r.courses[0] : r.courses) as { title: string; slug: string } | null;
+          return {
+            exam_id: r.exam_id,
+            course_id: r.course_id,
+            course_title: c?.title ?? "Course",
+            course_slug: c?.slug ?? "",
+            learner_name: ((r.learner_name ?? fullName) || userEmail || "Learner") as string,
+            score_pct: Math.round(Number(r.score_pct ?? 0)),
+            pass_mark: Math.round(Number(r.pass_mark ?? 0)),
+            issued_at: r.issued_at,
+          };
+        });
 
-      // 3) fetch courses
-      const { data: courseRows } = await supabase
-        .from("courses")
-        .select("id, slug, title")
-        .in("id", courseIds);
-
-      const courseMap = new Map<string, { id: string; slug: string; title: string }>();
-      (courseRows ?? []).forEach(c => {
-        courseMap.set(c.id, { id: c.id, slug: c.slug, title: c.title });
-      });
-
-      // 4) assemble certificate cards
-      const learner = fullName || "Learner";
-      const certCards: CertificateCard[] = exams.map((ex) => {
-        const a = byExam[ex.id];
-        const c = courseMap.get(ex.course_id);
-        const scorePct = Math.round(Number(a.score ?? 0));
-        const pm = Math.round(Number(ex.pass_mark ?? 0));
-        return {
-          exam_id: ex.id,
-          course_id: ex.course_id,
-          course_title: c?.title ?? (ex.title || "Course"),
-          course_slug: c?.slug ?? "",
-          score_pct: scorePct,
-          pass_mark: pm,
-          passed: Boolean(a.passed),
-          attempted_at: a.created_at,
-          learner_name: learner,
-        };
-      });
-
-      setCerts(certCards);
+      setCerts(cards);
       setLoading(false);
     })();
   }, []);
 
-  /* ===== Save full name ===== */
+  /* ===== Save/Edit full name ===== */
   async function saveFullName() {
     setSavingName(true);
     setNameNotice("");
     try {
-      const { data: auth } = await supabase.auth.getUser();
-      const user = auth?.user;
-      if (!user) return;
+      if (!userId) return;
 
+      const clean = pendingFullName.trim();
+
+      // Save to profiles table
       await supabase.from("profiles").upsert({
-        id: user.id,
-        full_name: fullName,
+        id: userId,
+        full_name: clean,
         updated_at: new Date().toISOString(),
       });
+
+      setFullName(clean);
+      setEditingName(false);
       setNameNotice("Saved ✓");
+
+      // Keep certificates consistent with the new name
+      await supabase
+        .from("certificates")
+        .update({ learner_name: clean })
+        .eq("user_id", userId);
+
+      // update local view immediately
+      setCerts(prev => prev.map(c => ({ ...c, learner_name: clean })));
+
+      // clear notice
       setTimeout(() => setNameNotice(""), 1500);
-      // also refresh displayed learner_name inside certificate cards
-      setCerts(prev => prev.map(c => ({ ...c, learner_name: fullName || "Learner" })));
     } catch {
-      setNameNotice("Could not save. Please try again.");
+      setNameNotice("Could not save name. Please try again.");
     } finally {
       setSavingName(false);
     }
   }
 
-  /* ===== Group quiz results by course / sort by chapter order ===== */
+  /* ===== Quiz results grouped by course ===== */
   const quizByCourse = useMemo(() => {
     const grouped: Record<string, { attempt: QuizAttempt; chapter: ChapterInfo }[]> = {};
     for (const a of quiz) {
@@ -333,102 +315,137 @@ export default function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-screen-lg px-4 md:px-6 py-8">
-      <h1 className="text-2xl sm:text-3xl font-bold">Your Dashboard</h1>
+      {/* Welcome heading */}
+      <h1 className="text-2xl sm:text-3xl font-bold">
+        Welcome{displayName ? `, ${displayName}` : ""} 👋
+      </h1>
+      {!fullName && (
+        <p className="mt-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2">
+          Add your full name below to appear on your certificates.
+        </p>
+      )}
 
       {loading && <p className="mt-4 text-muted">Loading…</p>}
 
       {!loading && (
         <>
-          {/* ===== Profile: Full Name ===== */}
+          {/* ===== Profile: Name (permanent view with edit) ===== */}
           <section className="mt-6 rounded-xl border border-light bg-white p-4">
-            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
-                <div className="text-sm text-muted">This name appears on your certificates</div>
-                <label className="block text-sm font-medium mt-1">Full name</label>
-                <input
-                  type="text"
-                  placeholder="Enter your full legal name"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="mt-1 w-full sm:w-[420px] rounded-lg border px-3 py-2"
-                />
+                <div className="text-sm text-muted">Name on certificates</div>
+                {!editingName ? (
+                  <div className="mt-1 text-lg font-semibold">{fullName || "—"}</div>
+                ) : (
+                  <input
+                    type="text"
+                    autoFocus
+                    value={pendingFullName}
+                    onChange={(e) => setPendingFullName(e.target.value)}
+                    placeholder="Enter your full legal name"
+                    className="mt-1 w-full sm:w-[420px] rounded-lg border px-3 py-2"
+                  />
+                )}
               </div>
+
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={saveFullName}
-                  disabled={savingName || !fullName.trim()}
-                  className={`rounded-lg px-4 py-2 font-semibold ${savingName || !fullName.trim() ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-brand text-white hover:opacity-90"}`}
-                >
-                  {savingName ? "Saving…" : "Save"}
-                </button>
+                {!editingName ? (
+                  <button
+                    type="button"
+                    onClick={() => setEditingName(true)}
+                    className="rounded-lg px-4 py-2 bg-brand text-white"
+                  >
+                    {fullName ? "Edit name" : "Add name"}
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={saveFullName}
+                      disabled={savingName || !pendingFullName.trim()}
+                      className={`rounded-lg px-4 py-2 font-semibold ${
+                        savingName || !pendingFullName.trim()
+                          ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                          : "bg-brand text-white hover:opacity-90"
+                      }`}
+                    >
+                      {savingName ? "Saving…" : "Save"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingName(false);
+                        setPendingFullName(fullName);
+                      }}
+                      className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                )}
                 {!!nameNotice && <div className="text-sm text-[#0a1156]">{nameNotice}</div>}
               </div>
             </div>
           </section>
 
-          {/* ===== Course Certificates (replaces 'Upcoming assessments') ===== */}
+          {/* ===== Course Certificates ===== */}
           <section className="mt-8">
             <h2 className="text-xl font-semibold">Course Certificates</h2>
             {certs.length === 0 ? (
               <div className="mt-3 rounded-xl border border-light bg-white p-4">
                 <p className="text-muted">
-                  You don’t have any certificates yet. Complete a course and sit the final exam to earn one.
+                  No certificates yet. Finish a course and pass the final exam to earn one.
                 </p>
               </div>
             ) : (
               <div className="mt-4 grid gap-6 sm:grid-cols-2">
                 {certs.map((c) => (
-                  <div key={c.exam_id} className="relative rounded-2xl border border-light bg-white p-5 overflow-hidden">
-                    {/* decorative border */}
+                  <div
+                    key={c.exam_id}
+                    className="relative rounded-2xl border border-light bg-white p-5 overflow-hidden"
+                    aria-label={`Certificate for ${c.course_title}`}
+                  >
                     <div className="absolute inset-2 rounded-xl border-2 border-amber-200 pointer-events-none" />
-                    {/* header */}
                     <div className="relative z-10 text-center">
                       <div className="text-xs tracking-widest text-amber-700">PanAvest Institute</div>
                       <div className="mt-0.5 text-lg font-semibold">Certificate of Completion</div>
                     </div>
-                    {/* name */}
+
                     <div className="relative z-10 mt-4 text-center">
                       <div className="text-xs text-muted">Awarded to</div>
-                      <div className="mt-1 text-xl font-bold">{c.learner_name || "Learner"}</div>
+                      <div className="mt-1 text-xl font-bold">{c.learner_name}</div>
                     </div>
-                    {/* course */}
+
                     <div className="relative z-10 mt-4 text-center">
                       <div className="text-xs text-muted">For successfully completing</div>
                       <div className="mt-1 font-semibold">{c.course_title}</div>
                     </div>
-                    {/* result line */}
+
                     <div className="relative z-10 mt-4 grid place-items-center">
                       <div className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ring-1 ring-[color:var(--color-light)]">
-                        Final exam: {c.score_pct}% &nbsp;·&nbsp; Pass mark: {c.pass_mark}%
-                        <span className={`ml-2 inline-flex items-center rounded-full px-2 py-0.5 ${c.passed ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
-                          {c.passed ? "PASSED" : "NOT PASSED"}
+                        Final exam: {c.score_pct}% · Pass mark: {c.pass_mark}%
+                        <span className="ml-2 inline-flex items-center rounded-full px-2 py-0.5 bg-green-100 text-green-800">
+                          PASSED
                         </span>
                       </div>
                       <div className="mt-2 text-[11px] text-muted">
-                        Attempted: {new Date(c.attempted_at).toLocaleString()}
+                        Issued: {new Date(c.issued_at).toLocaleString()}
                       </div>
                     </div>
-                    {/* message */}
+
                     <p className="relative z-10 mt-4 text-center text-sm">
-                      {c.passed
-                        ? "This certifies that the learner has met the requirements for this course."
-                        : "This record confirms an attempt was made for the final exam. Pass required for certification."}
+                      This certifies that the learner has met the requirements for this course.
                     </p>
-                    {/* stamp (pure CSS) */}
+
+                    {/* Stamp */}
                     <div className="pointer-events-none absolute right-3 bottom-3 rotate-[-12deg]">
-                      <div className={`select-none rounded-full px-4 py-3 text-xs font-bold ring-2 ${c.passed ? "ring-green-600 text-green-700" : "ring-red-600 text-red-700"} bg-white/80`}>
-                        {c.passed ? "PANAVEST CERTIFIED" : "ATTEMPT RECORDED"}
+                      <div className="select-none rounded-full px-4 py-3 text-xs font-bold ring-2 ring-green-600 text-green-700 bg-white/80">
+                        PANAVEST CERTIFIED
                       </div>
                     </div>
-                    {/* footer / actions */}
+
                     <div className="relative z-10 mt-5 flex items-center justify-between gap-2">
-                      <div className="text-[11px] text-muted">
-                        CPD: {
-                          (enrolled.find(e => e.slug === c.course_slug)?.cpd_points ?? 0) || 0
-                        } points
-                      </div>
-                      {c.course_slug && (
+                      {c.course_slug ? (
                         <Link
                           href={`/knowledge/${c.course_slug}`}
                           className="text-xs rounded-lg px-3 py-1.5 bg-brand text-white"
@@ -436,7 +453,8 @@ export default function DashboardPage() {
                         >
                           View course
                         </Link>
-                      )}
+                      ) : <span />}
+                      <span className="text-[11px] text-muted">Certificate ID: {c.exam_id.slice(0, 8)}…</span>
                     </div>
                   </div>
                 ))}
@@ -509,13 +527,10 @@ export default function DashboardPage() {
                     <div className="p-4">
                       <div className="font-semibold line-clamp-1">{c.title}</div>
                       <div className="mt-2 h-2 w-full bg-[color:var(--color-light)] rounded">
-                        <div
-                          className="h-2 bg-brand rounded"
-                          style={{ width: `${c.progress_pct}%` }}
-                        />
+                        <div className="h-2 bg-brand rounded" style={{ width: `${c.progress_pct}%` }} />
                       </div>
                       <div className="mt-2 text-xs text-muted">{Math.round(c.progress_pct)}% complete</div>
-                      <Link href={`/courses/${c.slug}`} className="mt-3 inline-block rounded-lg bg-brand px-3 py-1.5 text-white">
+                      <Link href={`/knowledge/${c.slug}`} className="mt-3 inline-block rounded-lg bg-brand px-3 py-1.5 text-white">
                         Resume
                       </Link>
                     </div>
@@ -541,7 +556,7 @@ export default function DashboardPage() {
                           {meta?.title ?? "Course"} {meta?.slug ? <span className="text-muted">· /{meta.slug}</span> : null}
                         </div>
                         {meta?.slug && (
-                          <Link href={`/courses/${meta.slug}`} className="text-sm rounded-lg px-3 py-1.5 bg-brand text-white">
+                          <Link href={`/knowledge/${meta.slug}`} className="text-sm rounded-lg px-3 py-1.5 bg-brand text-white">
                             Go to course
                           </Link>
                         )}
