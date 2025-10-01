@@ -3,10 +3,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import Script from "next/script";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import * as pdfjs from "pdfjs-dist"; // local, typed import
 
 type Ebook = {
   id: string;
@@ -25,25 +25,21 @@ type OwnershipState =
   | { kind: "owner" }
   | { kind: "not_owner" };
 
-type PdfjsLib = {
-  GlobalWorkerOptions: { workerSrc: string };
-  getDocument: (src: string | { url: string }) => { promise: Promise<PdfDocument> };
-};
-type PdfDocument = { numPages: number; getPage: (n: number) => Promise<PdfPage> };
-type Viewport = { width: number; height: number; scale: number; transform: number[] };
-type RenderTask = { promise: Promise<void>; cancel: () => void };
 type PdfPage = {
-  getViewport: (opts: { scale: number }) => Viewport;
-  render: (opts: { canvasContext: CanvasRenderingContext2D; viewport: Viewport }) => RenderTask;
+  getViewport: (opts: { scale: number }) => { width: number; height: number };
+  render: (opts: {
+    canvasContext: CanvasRenderingContext2D;
+    viewport: { width: number; height: number };
+  }) => { promise: Promise<void> };
 };
 
-declare global { interface Window { pdfjsLib?: PdfjsLib } }
-
-export default function EbookDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+export default function EbookDetailPage({
+  params
+}: { params: Promise<{ slug: string }> }) {
   const router = useRouter();
   const [ebook, setEbook] = useState<Ebook | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [slug, setSlug] = useState<string>("");
+  const [slug, setSlug] = useState("");
   const [own, setOwn] = useState<OwnershipState>({ kind: "loading" });
   const [buying, setBuying] = useState(false);
 
@@ -53,18 +49,18 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
   const [rendering, setRendering] = useState(false);
   const [renderError, setRenderError] = useState<string | null>(null);
   const [maskActive, setMaskActive] = useState(false);
-  const [watermark, setWatermark] = useState<string>("SECURE COPY");
+  const [watermark, setWatermark] = useState("SECURE COPY");
 
   const readerWrapRef = useRef<HTMLDivElement | null>(null);
   const pdfContainerRef = useRef<HTMLDivElement | null>(null);
 
-  // Hardening
+  // Hardening (block print/copy/etc.)
   useEffect(() => {
-    const preventAll = (e: Event): void => { e.preventDefault(); e.stopPropagation(); };
-    const onKey = (e: KeyboardEvent): void => {
+    const preventAll = (e: Event) => { e.preventDefault(); e.stopPropagation(); };
+    const onKey = (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
-      if ((e.ctrlKey || e.metaKey) && (k === "p" || k === "s" || k === "u" || k === "c" || k === "x" || k === "a")) preventAll(e);
-      if (e.metaKey && e.shiftKey && (k === "3" || k === "4" || k === "5")) preventAll(e); // best-effort
+      if ((e.ctrlKey || e.metaKey) && ["p","s","u","c","x","a"].includes(k)) preventAll(e);
+      if (e.metaKey && e.shiftKey && ["3","4","5"].includes(k)) preventAll(e);
     };
     const onVis = () => setMaskActive(document.hidden);
     const onBlur = () => setMaskActive(true);
@@ -92,6 +88,18 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
     };
   }, []);
 
+  // Setup module worker from /public (same origin, no nosniff)
+  useEffect(() => {
+    try {
+      const worker = new Worker("/vendor/pdf.worker.min.mjs", { type: "module" });
+      // @ts-expect-error workerPort exists at runtime
+      pdfjs.GlobalWorkerOptions.workerPort = worker;
+      setPdfReady(true);
+    } catch {
+      setPdfReady(false);
+    }
+  }, []);
+
   // Slug
   useEffect(() => { (async () => setSlug((await params).slug))(); }, [params]);
 
@@ -115,14 +123,18 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
       if (!user) { setOwn({ kind: "signed_out" }); setWatermark("SECURE COPY"); return; }
       setWatermark(`${user.email ?? user.id} • ${new Date().toISOString()}`);
       if (!ebook?.id) { setOwn({ kind: "loading" }); return; }
-      const { data, error } = await supabase.from("ebook_purchases").select("status")
+      const { data, error } = await supabase
+        .from("ebook_purchases").select("status")
         .eq("user_id", user.id).eq("ebook_id", ebook.id).maybeSingle();
       if (error) { setOwn({ kind: "not_owner" }); return; }
       setOwn(data?.status === "paid" ? { kind: "owner" } : { kind: "not_owner" });
     })();
   }, [ebook?.id]);
 
-  const price = useMemo(() => (ebook ? `GH₵ ${(ebook.price_cents / 100).toFixed(2)}` : ""), [ebook]);
+  const price = useMemo(
+    () => (ebook ? `GH₵ ${(ebook.price_cents / 100).toFixed(2)}` : ""),
+    [ebook]
+  );
 
   async function handleBuy() {
     const { data: { user } } = await supabase.auth.getUser();
@@ -141,16 +153,11 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
     } catch (e) { setErr((e as Error).message); setBuying(false); }
   }
 
-  // Render with PDF.js (via same-origin proxy URL to avoid CORS)
   async function renderPdf() {
-    if (!ebook?.sample_url || !pdfContainerRef.current || !window.pdfjsLib) return;
+    if (!ebook?.sample_url || !pdfContainerRef.current) return;
     setRendering(true);
     setRenderError(null);
     try {
-      const pdfjs = window.pdfjsLib;
-      pdfjs.GlobalWorkerOptions.workerSrc =
-        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.js";
-
       const container = pdfContainerRef.current;
       container.innerHTML = "";
 
@@ -159,7 +166,7 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
 
       const width = container.clientWidth || 820;
       for (let i = 1; i <= doc.numPages; i++) {
-        const page = await doc.getPage(i);
+        const page = (await doc.getPage(i)) as unknown as PdfPage;
         const base = page.getViewport({ scale: 1 });
         const scale = Math.min(width / base.width, 2.0);
         const viewport = page.getViewport({ scale });
@@ -184,15 +191,13 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
     setShowReader(true);
     queueMicrotask(() => {
       readerWrapRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      // kick off render immediately (no race with useEffect)
       if (pdfReady && ebook?.sample_url) void renderPdf();
     });
   }
 
-  // Also re-render if the script loads later, or on resize
   useEffect(() => {
     if (showReader && pdfReady && ebook?.sample_url) void renderPdf();
-    function onResize() { if (showReader && pdfReady && ebook?.sample_url) void renderPdf(); }
+    const onResize = () => { if (showReader && pdfReady && ebook?.sample_url) void renderPdf(); };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -224,39 +229,20 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
     >
       <style jsx global>{`
         @media print { body { display: none !important; } }
-        html, body, main, .secure-viewer, .secure-viewer * {
-          -webkit-user-select: none !important;
-          -moz-user-select: none !important;
-          -ms-user-select: none !important;
-          user-select: none !important;
-        }
+        html, body, main, .secure-viewer, .secure-viewer * { user-select: none !important; }
       `}</style>
 
-      <Script
-        src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.js"
-        crossOrigin="anonymous"
-        strategy="afterInteractive"
-        onLoad={() => setPdfReady(Boolean(window.pdfjsLib))}
-      />
-
-      {/* GRID: left meta / right reader */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
-        {/* LEFT (sticky) */}
         <aside className="md:col-span-4">
           <div className="md:sticky md:top-20 space-y-4">
             <div className="rounded-2xl bg-white border border-light overflow-hidden">
               {ebook.cover_url ? (
-                <Image
-                  src={ebook.cover_url}
-                  alt={ebook.title}
-                  width={1200}
-                  height={900}
-                  className="w-full h-auto pointer-events-none select-none"
-                  priority
-                  draggable={false}
-                />
+                <Image src={ebook.cover_url} alt={ebook.title} width={1200} height={900}
+                  className="w-full h-auto pointer-events-none select-none" priority draggable={false} />
               ) : (
-                <div className="w-full h-[260px] bg-[color:var(--color-light)]/40 flex items-center justify-center text-muted">No cover</div>
+                <div className="w-full h-[260px] bg-[color:var(--color-light)]/40 flex items-center justify-center text-muted">
+                  No cover
+                </div>
               )}
             </div>
 
@@ -266,33 +252,29 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
               <div className="text-xl font-semibold">{price}</div>
 
               <div className="mt-4 flex flex-wrap gap-3">
-                {own.kind !== "owner" && (
-                  <button
-                    onClick={handleBuy}
-                    disabled={buying || own.kind === "loading"}
-                    className="rounded-lg bg-brand text-white px-5 py-3 font-semibold hover:opacity-90 disabled:opacity-60 w-full sm:w-auto"
-                  >
+                {own.kind !== "owner" ? (
+                  <button onClick={handleBuy} disabled={buying || own.kind === "loading"}
+                    className="rounded-lg bg-brand text-white px-5 py-3 font-semibold hover:opacity-90 disabled:opacity-60 w-full sm:w-auto">
                     {buying ? "Redirecting…" : `Buy • ${price}`}
                   </button>
-                )}
-                {own.kind === "owner" && (
-                  <button
-                    onClick={openReader}
-                    className="rounded-lg bg-brand text-white px-5 py-3 font-semibold hover:opacity-90 w-full sm:w-auto"
-                  >
+                ) : (
+                  <button onClick={openReader}
+                    className="rounded-lg bg-brand text-white px-5 py-3 font-semibold hover:opacity-90 w-full sm:w-auto">
                     Read securely
                   </button>
                 )}
               </div>
-              {own.kind !== "owner" && <p className="mt-3 text-xs text-muted">Sign in and purchase to unlock reading.</p>}
+
+              {own.kind !== "owner" && (
+                <p className="mt-3 text-xs text-muted">Sign in and purchase to unlock reading.</p>
+              )}
             </div>
           </div>
         </aside>
 
-        {/* RIGHT: secure reader */}
         <section className="md:col-span-8">
           <div ref={readerWrapRef} className="relative rounded-2xl bg-white border border-light secure-viewer">
-            {own.kind !== "owner" && (
+            {own.kind !== "owner" ? (
               <div className="w-full h-[50vh] sm:h-[60vh] grid place-items-center bg-[color:var(--color-light)]/40">
                 <div className="text-center px-6">
                   <div className="text-lg font-semibold">Access locked</div>
@@ -301,60 +283,46 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
                   </p>
                 </div>
               </div>
-            )}
-
-            {own.kind === "owner" && (
+            ) : (
               <div className="relative">
-                {showReader && (
-                  <div
-                    aria-hidden
-                    className={`pointer-events-none absolute inset-0 z-20 select-none ${maskActive ? "opacity-90" : "opacity-25"}`}
-                    style={{ transition: "opacity 120ms ease" }}
-                  >
-                    <div className="w-full h-full rotate-[-25deg] grid gap-12" style={{ placeItems: "center" }}>
-                      {Array.from({ length: 6 }).map((_, r) => (
-                        <div key={`r-${r}`} className="flex gap-16">
-                          {Array.from({ length: 4 }).map((__, c) => (
-                            <span key={`c-${c}`} className="text-2xl font-bold tracking-wide text-black/60">
-                              {watermark}
-                            </span>
-                          ))}
-                        </div>
-                      ))}
+                {showReader ? (
+                  <>
+                    <div
+                      aria-hidden
+                      className={`pointer-events-none absolute inset-0 z-20 select-none ${maskActive ? "opacity-90" : "opacity-25"}`}
+                      style={{ transition: "opacity 120ms ease" }}
+                    >
+                      <div className="w-full h-full rotate-[-25deg] grid gap-12" style={{ placeItems: "center" }}>
+                        {Array.from({ length: 6 }).map((_, r) => (
+                          <div key={`r-${r}`} className="flex gap-16">
+                            {Array.from({ length: 4 }).map((__, c) => (
+                              <span key={`c-${c}`} className="text-2xl font-bold tracking-wide text-black/60">
+                                {watermark}
+                              </span>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
 
-                {!showReader && (
+                    <div className={`relative z-10 ${maskActive ? "blur-sm" : ""}`}>
+                      <div ref={pdfContainerRef} className="max-h-[75vh] min-h-[50vh] overflow-auto px-2 py-4" />
+                      <div className="pointer-events-none absolute top-0 left-0 right-0 h-8 z-30 bg-gradient-to-b from-white/70 to-transparent" />
+                      {rendering && (
+                        <div className="absolute inset-0 grid place-items-center bg-white/40 z-30">
+                          <div className="text-sm">Loading pages…</div>
+                        </div>
+                      )}
+                      {renderError && (
+                        <div className="p-4 text-sm text-red-600">Error loading PDF: {renderError}</div>
+                      )}
+                    </div>
+                  </>
+                ) : (
                   <div className="w-full h-[40vh] sm:h-[52vh] grid place-items-center">
                     <button onClick={openReader} className="rounded-lg bg-brand text-white px-5 py-3 font-semibold hover:opacity-90">
                       Read securely
                     </button>
-                  </div>
-                )}
-
-                {showReader && (
-                  <div className={`relative z-10 ${maskActive ? "blur-sm" : ""}`}>
-                    <div
-                      ref={pdfContainerRef}
-                      className="max-h-[75vh] min-h-[50vh] overflow-auto px-2 py-4"
-                      aria-label="Secure PDF Reader"
-                    />
-                    <div className="pointer-events-none absolute top-0 left-0 right-0 h-8 z-30 bg-gradient-to-b from-white/70 to-transparent" />
-
-                    {rendering && (
-                      <div className="absolute inset-0 grid place-items-center bg-white/40 z-30">
-                        <div className="text-sm">Loading pages…</div>
-                      </div>
-                    )}
-                    {renderError && (
-                      <div className="p-4 text-sm text-red-600">
-                        Error loading PDF: {renderError}
-                        <div className="mt-2 text-xs text-muted">
-                          Tip: ensure <code>sample_url</code> is a valid PDF and the proxy route is present.
-                        </div>
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
@@ -363,7 +331,6 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
         </section>
       </div>
 
-      {/* DESCRIPTION (full width below) */}
       <section className="mt-10">
         <div className="rounded-2xl bg-white border border-light p-6">
           <h2 className="text-xl font-semibold">About this e-book</h2>
