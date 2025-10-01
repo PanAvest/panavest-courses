@@ -263,7 +263,7 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
                 ) : (
                   <button onClick={openReader}
                     className="rounded-lg bg-brand text-white px-5 py-3 font-semibold hover:opacity-90 w-full sm:w-auto">
-                    Read securely
+                    Click to Read
                   </button>
                 )}
               </div>
