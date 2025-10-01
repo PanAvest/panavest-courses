@@ -75,11 +75,7 @@ type ProfileRow = {
   updated_at?: string | null;
 };
 
-type CertificateCourse = {
-  title: string;
-  slug: string;
-  img: string | null;
-};
+type SupaCourse = { id: string; title: string; slug: string; img: string | null };
 
 type CertificateRow = {
   id: string;
@@ -89,20 +85,7 @@ type CertificateRow = {
   score_pct: number;
   certificate_no: string;
   issued_at: string;
-  courses: CertificateCourse | null;
-};
-
-/** For typing the Supabase join row before normalization */
-type CertJoinRow = {
-  id: string;
-  user_id: string;
-  course_id: string;
-  attempt_id: string | null;
-  score_pct: number;
-  certificate_no: string;
-  issued_at: string;
-  // Supabase join can sometimes be an object or an array depending on config
-  courses?: CertificateCourse | CertificateCourse[] | null;
+  courses: SupaCourse | null; // normalized to a single object or null
 };
 
 /** ─────────────────────────────────────────────────────────────────────────────
@@ -115,6 +98,18 @@ function pickCourse(c: CourseRow | CourseRow[] | null | undefined): CourseRow | 
 function pickEbook(e: EbookRow | EbookRow[] | null | undefined): EbookRow | null {
   if (!e) return null;
   return Array.isArray(e) ? (e[0] ?? null) : e;
+}
+function ensureSingleCourse(c: unknown): SupaCourse | null {
+  if (!c) return null;
+  const arr = Array.isArray(c) ? c : [c];
+  const first = arr[0] as Partial<SupaCourse> | undefined;
+  if (!first) return null;
+  return {
+    id: String(first.id ?? ""),
+    title: String(first.title ?? ""),
+    slug: String(first.slug ?? ""),
+    img: (first.img ?? null) as string | null,
+  };
 }
 
 /** ─────────────────────────────────────────────────────────────────────────────
@@ -139,7 +134,7 @@ export default function DashboardPage() {
   // Purchased ebooks
   const [ebooks, setEbooks] = useState<PurchasedEbook[]>([]);
 
-  // Certificates
+  // Certificates (normalized)
   const [certs, setCerts] = useState<CertificateRow[]>([]);
 
   // Load everything
@@ -160,7 +155,7 @@ export default function DashboardPage() {
         .eq("id", user.id)
         .maybeSingle();
 
-      const p = (prof as ProfileRow | null) || null;
+      const p = (prof as unknown as ProfileRow) || null;
       const initialName = (p?.full_name ?? "").trim();
       setFullName(initialName);
       setNameDraft(initialName);
@@ -173,7 +168,7 @@ export default function DashboardPage() {
         .order("updated_at", { ascending: false });
 
       if (enrData) {
-        const rows = (enrData as EnrollmentRow[]) ?? [];
+        const rows = (enrData as unknown as EnrollmentRow[]) ?? [];
         const mapped: EnrolledCourse[] = rows.map((r) => {
           const c = pickCourse(r.courses) || {
             id: "",
@@ -205,17 +200,16 @@ export default function DashboardPage() {
         .order("created_at", { ascending: false });
 
       if (purRows) {
-        const items = (purRows as PurchaseRow[])
+        const items = (purRows as unknown as PurchaseRow[])
           .map((p) => {
             const e = pickEbook(p.ebooks);
             if (!e) return null;
-            const cents = Number.isFinite(Number(e.price_cents)) ? Number(e.price_cents) : 0;
             return {
               ebook_id: p.ebook_id,
               slug: e.slug,
               title: e.title,
               cover_url: e.cover_url ?? null,
-              price_cedis: `GH₵ ${(cents / 100).toFixed(2)}`,
+              price_cedis: `GH₵ ${((e.price_cents ?? 0) / 100).toFixed(2)}`,
             } as PurchasedEbook;
           })
           .filter((x): x is PurchasedEbook => Boolean(x));
@@ -228,7 +222,7 @@ export default function DashboardPage() {
         .select("course_id, chapter_id, total_count, correct_count, score_pct, completed_at")
         .eq("user_id", user.id);
 
-      const attempts = (quizRows as QuizAttempt[] | null) ?? [];
+      const attempts = (quizRows as unknown as QuizAttempt[]) ?? [];
       setQuiz(attempts);
 
       // Chapter metadata
@@ -240,7 +234,7 @@ export default function DashboardPage() {
           .in("id", chapterIds);
 
         const map: Record<string, ChapterInfo> = {};
-        (chRows as ChapterInfo[] | null | undefined)?.forEach((row) => {
+        (chRows as unknown as ChapterInfo[] | null | undefined)?.forEach((row) => {
           map[row.id] = {
             id: row.id,
             title: row.title,
@@ -251,40 +245,84 @@ export default function DashboardPage() {
         setChaptersById(map);
       }
 
-      // Certificates (issued for completed courses w/ final exam)
-      const { data: certRows } = await supabase
-        .from("certificates")
-        .select("id,user_id,course_id,attempt_id,score_pct,certificate_no,issued_at,courses(title,slug,img)")
-        .eq("user_id", user.id)
-        .order("issued_at", { ascending: false });
+      // Certificates (try embedded join; fallback if PostgREST complains)
+      const certSelect =
+        "id,user_id,course_id,attempt_id,score_pct,certificate_no,issued_at,courses(id,title,slug,img)";
+      let certData: CertificateRow[] = [];
 
-      const normalizedCerts: CertificateRow[] = ((certRows ?? []) as CertJoinRow[]).map((r) => {
-        let course: CertificateCourse | null = null;
-        if (Array.isArray(r.courses)) {
-          const first = r.courses[0];
-          course = first
-            ? { title: String(first.title), slug: String(first.slug), img: first.img ?? null }
-            : null;
-        } else if (r.courses) {
-          course = {
-            title: String(r.courses.title),
-            slug: String(r.courses.slug),
-            img: r.courses.img ?? null,
-          };
+      {
+        const { data, error } = await supabase
+          .from("certificates")
+          .select(certSelect)
+          .eq("user_id", user.id)
+          .order("issued_at", { ascending: false });
+
+        if (!error && data) {
+          // normalize courses shape
+          const normalized = (data as unknown[]).map((row) => {
+            const r = row as Record<string, unknown>;
+            return {
+              id: String(r.id),
+              user_id: String(r.user_id),
+              course_id: String(r.course_id),
+              attempt_id: r.attempt_id ? String(r.attempt_id) : null,
+              score_pct: Number(r.score_pct ?? 0),
+              certificate_no: String(r.certificate_no ?? ""),
+              issued_at: String(r.issued_at ?? new Date().toISOString()),
+              courses: ensureSingleCourse(r.courses ?? null),
+            } satisfies CertificateRow;
+          });
+          certData = normalized;
+        } else {
+          // Fallback: fetch certs only, then hydrate courses in a second query
+          const { data: simple, error: simpleErr } = await supabase
+            .from("certificates")
+            .select("id,user_id,course_id,attempt_id,score_pct,certificate_no,issued_at")
+            .eq("user_id", user.id)
+            .order("issued_at", { ascending: false });
+
+          const simpleRows = (simple as unknown[] | null) ?? [];
+          if (!simpleErr && simpleRows.length > 0) {
+            const courseIds = Array.from(
+              new Set(
+                simpleRows.map((r) => String((r as any).course_id)).filter(Boolean)
+              )
+            );
+            let courseMap: Record<string, SupaCourse> = {};
+            if (courseIds.length > 0) {
+              const { data: courseRows } = await supabase
+                .from("courses")
+                .select("id,title,slug,img")
+                .in("id", courseIds);
+              (courseRows as unknown[] | null)?.forEach((cr) => {
+                const c = cr as SupaCourse;
+                courseMap[c.id] = {
+                  id: c.id,
+                  title: c.title,
+                  slug: c.slug,
+                  img: c.img ?? null,
+                };
+              });
+            }
+            certData = simpleRows.map((r) => {
+              const rr = r as Record<string, unknown>;
+              const cid = String(rr.course_id);
+              return {
+                id: String(rr.id),
+                user_id: String(rr.user_id),
+                course_id: cid,
+                attempt_id: rr.attempt_id ? String(rr.attempt_id) : null,
+                score_pct: Number(rr.score_pct ?? 0),
+                certificate_no: String(rr.certificate_no ?? ""),
+                issued_at: String(rr.issued_at ?? new Date().toISOString()),
+                courses: courseMap[cid] ?? null,
+              } satisfies CertificateRow;
+            });
+          }
         }
-        return {
-          id: String(r.id),
-          user_id: String(r.user_id),
-          course_id: String(r.course_id),
-          attempt_id: r.attempt_id ? String(r.attempt_id) : null,
-          score_pct: Number(r.score_pct ?? 0),
-          certificate_no: String(r.certificate_no),
-          issued_at: String(r.issued_at),
-          courses: course,
-        };
-      });
-      setCerts(normalizedCerts);
+      }
 
+      setCerts(certData);
       setLoading(false);
     })();
   }, []);
@@ -449,7 +487,9 @@ export default function DashboardPage() {
           <section className="mt-10">
             <h2 className="text-xl font-semibold">Course Certificates</h2>
             {certs.length === 0 ? (
-              <p className="mt-3 text-muted">No certificates yet. Complete a course and pass the final exam to earn one.</p>
+              <p className="mt-3 text-muted">
+                No certificates yet. Complete a course and pass the final exam to earn one.
+              </p>
             ) : (
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 {certs.map((c) => {
@@ -477,7 +517,6 @@ export default function DashboardPage() {
                           <div className="text-muted text-xs">Issued: {new Date(c.issued_at).toLocaleString()}</div>
                         </div>
 
-                        {/* “Certificate” look */}
                         <div className="mt-3 rounded-lg border border-dashed p-3">
                           <div className="text-[13px]">This certifies that</div>
                           <div className="text-lg font-semibold">{fullName || "Your Name"}</div>
