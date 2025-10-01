@@ -6,6 +6,22 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import ProgressBar from "@/components/ProgressBar";
 
+/** Types for anti-copy/auto-end guards on window */
+type ExamGuards = {
+  onCopy: (e: ClipboardEvent) => void;
+  onContext: (e: MouseEvent) => void;
+  onKey: (e: KeyboardEvent) => void;
+  onBeforeUnload: (e: BeforeUnloadEvent) => void;
+  onVisibility: () => void;
+};
+
+declare global {
+  interface Window {
+    __pv_exam_guards__?: ExamGuards;
+  }
+}
+
+
 /** ──────────────────────────────────────────────────────────────────────────────
  * Types
  * ───────────────────────────────────────────────────────────────────────────── */
@@ -70,7 +86,7 @@ type Attempt = {
   score: number;
   passed: boolean;
   created_at: string;
-  meta?: any;
+  meta?: Record<string, unknown>;
 };
 
 /** ──────────────────────────────────────────────────────────────────────────────
@@ -525,18 +541,18 @@ export default function CourseDashboard() {
       document.addEventListener("visibilitychange", onVisibility);
 
       // store to window so we can remove later
-      (window as any).__pv_exam_guards__ = { onCopy, onContext, onKey, onBeforeUnload, onVisibility };
+      window.__pv_exam_guards__ = { onCopy, onContext, onKey, onBeforeUnload, onVisibility };
     }
     if (!enable && blockHandlersBound.current) {
       blockHandlersBound.current = false;
-      const g = (window as any).__pv_exam_guards__;
+      const g = window.__pv_exam_guards__;
       if (g) {
         document.removeEventListener("copy", g.onCopy);
         document.removeEventListener("contextmenu", g.onContext);
         document.removeEventListener("keydown", g.onKey);
         window.removeEventListener("beforeunload", g.onBeforeUnload);
         document.removeEventListener("visibilitychange", g.onVisibility);
-        (window as any).__pv_exam_guards__ = undefined;
+        window.__pv_exam_guards__ = undefined;
       }
     }
   }
