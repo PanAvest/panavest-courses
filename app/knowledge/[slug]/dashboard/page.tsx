@@ -54,6 +54,15 @@ type ExamQuestion = {
   correct_index: number;
 };
 
+type ChapterQuizScore = {
+  chapterId: string;
+  chapterTitle: string;
+  scorePct: number | null;
+  correctCount: number | null;
+  totalCount: number | null;
+  completedAt: string | null;
+};
+
 /** Types for anti-copy/auto-end guards on window */
 type ExamGuards = {
   onCopy: (e: ClipboardEvent) => void;
@@ -87,6 +96,8 @@ function secondsToClock(s: number) {
 
 export default function CourseDashboard() {
   const params = useParams<{ slug: string }>();
+  theSlug: {
+  }
   const slug = params?.slug;
   const router = useRouter();
 
@@ -106,6 +117,7 @@ export default function CourseDashboard() {
   const [quizByChapter, setQuizByChapter] = useState<Record<string, QuizQuestion[]>>({});
   const [quizSettings, setQuizSettings] = useState<Record<string, QuizSetting>>({});
   const [completedQuizzes, setCompletedQuizzes] = useState<string[]>([]);
+  const [chapterScores, setChapterScores] = useState<ChapterQuizScore[]>([]);
 
   // quiz UI state
   const [quizOpen, setQuizOpen] = useState(false);
@@ -123,9 +135,17 @@ export default function CourseDashboard() {
   const [finalTimeLeft, setFinalTimeLeft] = useState<number>(0);
   const finalTickRef = useRef<number | null>(null);
   const [finalAttemptExists, setFinalAttemptExists] = useState<boolean>(false);
-  const [isOnline, setIsOnline] = useState<boolean>(true);
+
+  // preflight confirm
+  const [startConfirmOpen, setStartConfirmOpen] = useState(false);
+  const [startConfirmChecked, setStartConfirmChecked] = useState(false);
+
+  // results modal
+  const [resultOpen, setResultOpen] = useState(false);
+  const [finalResult, setFinalResult] = useState<{ scorePct: number; correct: number; total: number; passed: boolean } | null>(null);
 
   // misc
+  const [isOnline, setIsOnline] = useState<boolean>(true);
   const blockHandlersBound = useRef<boolean>(false);
   const initializedRef = useRef(false);
 
@@ -154,7 +174,7 @@ export default function CourseDashboard() {
       if (!c) { router.push("/knowledge"); return; }
       setCourse(c);
 
-      // paywall
+      // soft paywall
       try {
         const { data: enr } = await supabase
           .from("enrollments")
@@ -167,16 +187,17 @@ export default function CourseDashboard() {
         }
       } catch {}
 
-      // chapters
+      // chapters (ordered)
       const { data: ch } = await supabase
         .from("course_chapters")
         .select("id,title,order_index,intro_video_url")
         .eq("course_id", c.id)
         .order("order_index", { ascending: true });
+
       setChapters(ch ?? []);
       const chapterIds = (ch ?? []).map(x => x.id);
 
-      // slides
+      // slides (ordered within each chapter)
       let sl: Slide[] = [];
       if (chapterIds.length > 0) {
         const { data: slData } = await supabase
@@ -187,12 +208,12 @@ export default function CourseDashboard() {
         sl = slData ?? [];
       }
 
-      // sort slides linear by chapter.order_index then slide.order_index
+      // linear order sorted by chapter.order_index then slide.order_index
       const chOrder: Record<string, number> = {};
       (ch ?? []).forEach(chp => { chOrder[chp.id] = chp.order_index ?? 0; });
       const slSorted = [...sl].sort((a, b) => {
         const ca = chOrder[a.chapter_id] ?? 0;
-        const cb = chOrder[b.chapter_id] ?? 0;
+               const cb = chOrder[b.chapter_id] ?? 0;
         if (ca !== cb) return ca - cb;
         return (a.order_index ?? 0) - (b.order_index ?? 0);
       });
@@ -244,14 +265,39 @@ export default function CourseDashboard() {
         }
       } catch {}
 
-      // quiz completion (per user per chapter)
+      // quiz completion + scores (per user per chapter)
       try {
         const { data: qprog } = await supabase
           .from("user_chapter_quiz")
-          .select("chapter_id")
+          .select("chapter_id, score_pct, total_count, correct_count, completed_at")
           .eq("user_id", userId)
-          .eq("course_id", c.id);
-        setCompletedQuizzes(Array.from(new Set((qprog ?? []).map(r => r.chapter_id))));
+          .eq("course_id", c.id)
+          .order("completed_at", { ascending: false });
+
+        const latestByChapter: Record<string, { score_pct: number | null; total_count: number | null; correct_count: number | null; completed_at: string | null }> = {};
+        const completedSet = new Set<string>();
+        (qprog ?? []).forEach(r => {
+          if (!latestByChapter[r.chapter_id]) {
+            latestByChapter[r.chapter_id] = {
+              score_pct: r.score_pct ?? null,
+              total_count: r.total_count ?? null,
+              correct_count: r.correct_count ?? null,
+              completed_at: r.completed_at ?? null,
+            };
+          }
+          completedSet.add(r.chapter_id);
+        });
+        setCompletedQuizzes(Array.from(completedSet));
+
+        const rows: ChapterQuizScore[] = Object.entries(latestByChapter).map(([chapterId, v]) => ({
+          chapterId,
+          chapterTitle: (ch ?? []).find(cc => cc.id === chapterId)?.title ?? "Chapter",
+          scorePct: v.score_pct,
+          totalCount: v.total_count,
+          correctCount: v.correct_count,
+          completedAt: v.completed_at,
+        }));
+        setChapterScores(rows);
       } catch {}
 
       // FINAL EXAM (get first exam for course + questions + attempt)
@@ -453,6 +499,21 @@ export default function CourseDashboard() {
         meta: { autoSubmit: auto } as Record<string, unknown>,
       });
       setCompletedQuizzes(prev => (prev.includes(quizChapterId) ? prev : [...prev, quizChapterId]));
+      // refresh chapter score table
+      setChapterScores(prev => {
+        const title = chapters.find(ch => ch.id === quizChapterId)?.title ?? "Chapter";
+        const existing = prev.find(p => p.chapterId === quizChapterId);
+        const row: ChapterQuizScore = {
+          chapterId: quizChapterId!,
+          chapterTitle: title,
+          scorePct,
+          totalCount: total,
+          correctCount,
+          completedAt: new Date().toISOString(),
+        };
+        if (!existing) return [...prev, row];
+        return prev.map(p => (p.chapterId === quizChapterId ? row : p));
+      });
     } catch {}
 
     setQuizOpen(false);
@@ -539,15 +600,16 @@ export default function CourseDashboard() {
     }
   }
 
-  function beginFinalExam() {
+  /** Preflight confirm flow */
+  function openFinalConfirm() {
     if (!finalExam || finalExamQuestions.length === 0) {
       setNotice("Final exam is not set yet.");
       setTimeout(() => setNotice(""), 1800);
       return;
     }
-    if (!navigator.onLine) {
-      setNotice("You are offline. Please reconnect to a stable internet connection before starting.");
-      setTimeout(() => setNotice(""), 2000);
+    if (!canTakeFinal) {
+      setNotice("Complete all slides and chapter quizzes first.");
+      setTimeout(() => setNotice(""), 1800);
       return;
     }
     if (finalAttemptExists) {
@@ -555,13 +617,23 @@ export default function CourseDashboard() {
       setTimeout(() => setNotice(""), 2500);
       return;
     }
+    setStartConfirmChecked(false);
+    setStartConfirmOpen(true);
+  }
 
+  function beginFinalExam() {
+    // called only after acceptance
+    if (!navigator.onLine) {
+      setNotice("You are offline. Please reconnect to a stable internet connection before starting.");
+      setTimeout(() => setNotice(""), 2000);
+      return;
+    }
     const randomized = shuffle(finalExamQuestions);
     const answers: Record<string, number | null> = {};
     randomized.forEach(q => { answers[q.id] = null; });
     setFinalAnswers(answers);
 
-    const limitMinutes = Math.max(1, Number(finalExam.time_limit_minutes ?? 60));
+    const limitMinutes = Math.max(1, Number(finalExam?.time_limit_minutes ?? 60));
     setFinalTimeLeft(limitMinutes * 60);
     setFinalExamOpen(true);
   }
@@ -618,14 +690,16 @@ export default function CourseDashboard() {
         created_at: new Date().toISOString(),
         meta: { autoSubmit: auto, total, correctCount } as Record<string, unknown>,
       });
+      // lock future attempts
       setFinalAttemptExists(true);
     } catch {}
 
+    // close exam modal + show result modal
     setFinalExamOpen(false);
     setFinalTimeLeft(0);
     setFinalAnswers({});
-    setNotice(`Final exam submitted. Score: ${correctCount}/${total} (${scorePct}%).`);
-    setTimeout(() => setNotice(""), 3000);
+    setFinalResult({ scorePct, correct: correctCount, total, passed });
+    setResultOpen(true);
   }
 
   /** UI helpers */
@@ -720,11 +794,10 @@ export default function CourseDashboard() {
               {canTakeFinal && !finalAttemptExists && (
                 <button
                   type="button"
-                  onClick={beginFinalExam}
+                  onClick={openFinalConfirm}
                   className="rounded-lg bg-[color:#0a1156] text-white px-3 py-1.5 text-xs md:text-sm hover:opacity-90"
                   aria-label="Start Final Exam"
                   title={isOnline ? "Start Final Exam" : "You are offline"}
-                  disabled={!isOnline}
                 >
                   Start Final Exam
                 </button>
@@ -751,7 +824,7 @@ export default function CourseDashboard() {
         </div>
       </div>
 
-      {/* Pre-test checklist banner */}
+      {/* Pre-test checklist banner (general reminder) */}
       <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs md:text-sm">
         <div className="font-semibold mb-1">Before starting any test:</div>
         <ul className="list-disc pl-5 grid gap-1">
@@ -898,12 +971,10 @@ export default function CourseDashboard() {
         </main>
       </div>
 
-      {/* Quiz Modal */}
+      {/* Chapter Quiz Modal */}
       {quizOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* backdrop */}
           <div className="absolute inset-0 bg-black/40" onClick={() => setQuizOpen(false)} />
-          {/* card */}
           <div className="relative z-10 w-full max-w-2xl rounded-2xl bg-white border border-light p-5 max-h-[90vh] overflow-auto">
             <div className="flex items-center justify-between gap-3">
               <div className="text-lg font-semibold">Chapter Quiz</div>
@@ -960,6 +1031,56 @@ export default function CourseDashboard() {
         </div>
       )}
 
+      {/* Final Exam Preflight Confirmation Modal */}
+      {startConfirmOpen && finalExam && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setStartConfirmOpen(false)} />
+          <div className="relative z-10 w-full max-w-xl rounded-2xl bg-white border border-light p-5 max-h-[88vh] overflow-auto">
+            <div className="text-lg font-semibold">Before you start the Final Exam</div>
+            <div className="mt-3 text-xs md:text-sm">
+              <ul className="list-disc pl-5 grid gap-1">
+                <li>Use a stable internet connection. Status: {isOnline ? "✅ Online" : "⚠️ Offline"}</li>
+                <li>Close other heavy apps/tabs and avoid VPNs that may drop.</li>
+                <li>Once you start, you <b>cannot pause</b>. The timer runs continuously.</li>
+                <li>Do <b>not</b> close or switch the tab; the exam will auto-end.</li>
+                <li>Copying/printing is disabled during the exam.</li>
+                <li>One attempt only. To retry, you must pay the penalty via admin.</li>
+              </ul>
+              <div className="mt-3 text-xs text-muted">
+                Time limit: <b>{finalExam.time_limit_minutes ?? 60} minutes</b> • Pass mark: <b>{finalExam.pass_mark ?? 0}%</b>
+              </div>
+              <label className="mt-4 flex items-start gap-2 text-xs">
+                <input
+                  type="checkbox"
+                  checked={startConfirmChecked}
+                  onChange={(e) => setStartConfirmChecked(e.target.checked)}
+                />
+                <span>
+                  I have read the rules and understand that if I close/switch the tab the exam will automatically end, and copying is disabled.
+                </span>
+              </label>
+            </div>
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setStartConfirmOpen(false)}
+                className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!startConfirmChecked || !isOnline}
+                onClick={() => { setStartConfirmOpen(false); beginFinalExam(); }}
+                className={`rounded-lg px-4 py-2 font-semibold ${(!startConfirmChecked || !isOnline) ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-[color:#0a1156] text-white hover:opacity-90"}`}
+              >
+                I Agree — Start Exam
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Final Exam Modal */}
       {finalExamOpen && finalExam && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 select-none">
@@ -977,13 +1098,13 @@ export default function CourseDashboard() {
               </div>
             </div>
 
-            {/* Warnings */}
+            {/* Warnings (shown again inside exam) */}
             <div className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2">
               <ul className="list-disc pl-5 grid gap-1">
-                <li>Starting the exam begins the timer. You cannot pause.</li>
+                <li>Timer cannot be paused.</li>
                 <li>Do not close or switch this tab. Doing so will auto-end the exam.</li>
                 <li>Copying/printing is disabled during the exam.</li>
-                <li>One attempt only. To retry, you must pay the penalty via admin.</li>
+                <li>One attempt only. To retry, pay the penalty via admin.</li>
               </ul>
             </div>
 
@@ -1028,6 +1149,71 @@ export default function CourseDashboard() {
                 className="rounded-lg bg-[color:#0a1156] text-white px-4 py-2 font-semibold hover:opacity-90"
               >
                 Submit Final Exam
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Results Modal (Final score + all chapter quiz scores) */}
+      {resultOpen && finalResult && finalExam && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setResultOpen(false)} />
+          <div className="relative z-10 w-full max-w-2xl rounded-2xl bg-white border border-light p-5 max-h-[92vh] overflow-auto">
+            <div className="text-lg font-semibold">Results</div>
+
+            <div className="mt-3 grid gap-2 text-sm">
+              <div className="rounded-lg p-3 ring-1 ring-[color:var(--color-light)]">
+                <div className="font-medium">Final Exam</div>
+                <div className="mt-1">
+                  Score: <b>{finalResult.correct}/{finalResult.total}</b> ({finalResult.scorePct}%)
+                  {" · "}Pass mark: <b>{finalExam.pass_mark ?? 0}%</b>
+                </div>
+                <div className={`mt-1 inline-block px-2 py-0.5 rounded ${finalResult.passed ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+                  {finalResult.passed ? "PASSED" : "NOT PASSED"}
+                </div>
+              </div>
+
+              <div className="rounded-lg p-3 ring-1 ring-[color:var(--color-light)]">
+                <div className="font-medium mb-2">Chapter Quiz Scores</div>
+                {chapterScores.length === 0 ? (
+                  <div className="text-xs text-muted">No chapter quiz submissions found.</div>
+                ) : (
+                  <div className="overflow-auto">
+                    <table className="w-full text-xs md:text-sm">
+                      <thead>
+                        <tr className="text-left">
+                          <th className="py-1 pr-2">Chapter</th>
+                          <th className="py-1 pr-2">Score</th>
+                          <th className="py-1 pr-2">Details</th>
+                          <th className="py-1 pr-2">Completed</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {chapterScores.map((r) => (
+                          <tr key={r.chapterId} className="border-t">
+                            <td className="py-1 pr-2">{r.chapterTitle}</td>
+                            <td className="py-1 pr-2">{r.scorePct ?? "—"}%</td>
+                            <td className="py-1 pr-2">
+                              {r.correctCount ?? "—"}/{r.totalCount ?? "—"}
+                            </td>
+                            <td className="py-1 pr-2">{r.completedAt ? new Date(r.completedAt).toLocaleString() : "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-5 flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => setResultOpen(false)}
+                className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]"
+              >
+                Close
               </button>
             </div>
           </div>
