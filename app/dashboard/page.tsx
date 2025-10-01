@@ -75,6 +75,12 @@ type ProfileRow = {
   updated_at?: string | null;
 };
 
+type CertificateCourse = {
+  title: string;
+  slug: string;
+  img: string | null;
+};
+
 type CertificateRow = {
   id: string;
   user_id: string;
@@ -83,11 +89,20 @@ type CertificateRow = {
   score_pct: number;
   certificate_no: string;
   issued_at: string;
-  courses?: {
-    title: string;
-    slug: string;
-    img: string | null;
-  } | null;
+  courses: CertificateCourse | null;
+};
+
+/** For typing the Supabase join row before normalization */
+type CertJoinRow = {
+  id: string;
+  user_id: string;
+  course_id: string;
+  attempt_id: string | null;
+  score_pct: number;
+  certificate_no: string;
+  issued_at: string;
+  // Supabase join can sometimes be an object or an array depending on config
+  courses?: CertificateCourse | CertificateCourse[] | null;
 };
 
 /** ─────────────────────────────────────────────────────────────────────────────
@@ -122,7 +137,7 @@ export default function DashboardPage() {
   const [chaptersById, setChaptersById] = useState<Record<string, ChapterInfo>>({});
 
   // Purchased ebooks
-  const [ebooks, setEbooks] = useState<PurchasedEebook[]>([] as unknown as PurchasedEbook[]); // will set properly in effect
+  const [ebooks, setEbooks] = useState<PurchasedEbook[]>([]);
 
   // Certificates
   const [certs, setCerts] = useState<CertificateRow[]>([]);
@@ -145,7 +160,7 @@ export default function DashboardPage() {
         .eq("id", user.id)
         .maybeSingle();
 
-      const p = (prof as unknown as ProfileRow) || null;
+      const p = (prof as ProfileRow | null) || null;
       const initialName = (p?.full_name ?? "").trim();
       setFullName(initialName);
       setNameDraft(initialName);
@@ -158,7 +173,7 @@ export default function DashboardPage() {
         .order("updated_at", { ascending: false });
 
       if (enrData) {
-        const rows = (enrData as unknown as EnrollmentRow[]) ?? [];
+        const rows = (enrData as EnrollmentRow[]) ?? [];
         const mapped: EnrolledCourse[] = rows.map((r) => {
           const c = pickCourse(r.courses) || {
             id: "",
@@ -190,16 +205,17 @@ export default function DashboardPage() {
         .order("created_at", { ascending: false });
 
       if (purRows) {
-        const items = (purRows as unknown as PurchaseRow[])
+        const items = (purRows as PurchaseRow[])
           .map((p) => {
             const e = pickEbook(p.ebooks);
             if (!e) return null;
+            const cents = Number.isFinite(Number(e.price_cents)) ? Number(e.price_cents) : 0;
             return {
               ebook_id: p.ebook_id,
               slug: e.slug,
               title: e.title,
               cover_url: e.cover_url ?? null,
-              price_cedis: `GH₵ ${((e.price_cents ?? 0) / 100).toFixed(2)}`,
+              price_cedis: `GH₵ ${(cents / 100).toFixed(2)}`,
             } as PurchasedEbook;
           })
           .filter((x): x is PurchasedEbook => Boolean(x));
@@ -212,7 +228,7 @@ export default function DashboardPage() {
         .select("course_id, chapter_id, total_count, correct_count, score_pct, completed_at")
         .eq("user_id", user.id);
 
-      const attempts = (quizRows as unknown as QuizAttempt[]) ?? [];
+      const attempts = (quizRows as QuizAttempt[] | null) ?? [];
       setQuiz(attempts);
 
       // Chapter metadata
@@ -224,7 +240,7 @@ export default function DashboardPage() {
           .in("id", chapterIds);
 
         const map: Record<string, ChapterInfo> = {};
-        (chRows as unknown as ChapterInfo[] | null | undefined)?.forEach((row) => {
+        (chRows as ChapterInfo[] | null | undefined)?.forEach((row) => {
           map[row.id] = {
             id: row.id,
             title: row.title,
@@ -242,7 +258,32 @@ export default function DashboardPage() {
         .eq("user_id", user.id)
         .order("issued_at", { ascending: false });
 
-      setCerts(((certRows as unknown as CertificateRow[]) ?? []));
+      const normalizedCerts: CertificateRow[] = ((certRows ?? []) as CertJoinRow[]).map((r) => {
+        let course: CertificateCourse | null = null;
+        if (Array.isArray(r.courses)) {
+          const first = r.courses[0];
+          course = first
+            ? { title: String(first.title), slug: String(first.slug), img: first.img ?? null }
+            : null;
+        } else if (r.courses) {
+          course = {
+            title: String(r.courses.title),
+            slug: String(r.courses.slug),
+            img: r.courses.img ?? null,
+          };
+        }
+        return {
+          id: String(r.id),
+          user_id: String(r.user_id),
+          course_id: String(r.course_id),
+          attempt_id: r.attempt_id ? String(r.attempt_id) : null,
+          score_pct: Number(r.score_pct ?? 0),
+          certificate_no: String(r.certificate_no),
+          issued_at: String(r.issued_at),
+          courses: course,
+        };
+      });
+      setCerts(normalizedCerts);
 
       setLoading(false);
     })();
@@ -404,7 +445,7 @@ export default function DashboardPage() {
             )}
           </section>
 
-          {/* Course Certificates (replaces assignments) */}
+          {/* Course Certificates */}
           <section className="mt-10">
             <h2 className="text-xl font-semibold">Course Certificates</h2>
             {certs.length === 0 ? (
