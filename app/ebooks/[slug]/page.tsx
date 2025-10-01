@@ -3,7 +3,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -13,8 +13,7 @@ type Ebook = {
   title: string;
   description?: string | null;
   cover_url?: string | null;
-  sample_url?: string | null; // PDF preview (LOCKED until paid)
-  kpf_url?: string | null;    // ignored (no download allowed)
+  sample_url?: string | null; // Use this as the FULL book PDF (locked until paid)
   price_cents: number;
   published: boolean;
 };
@@ -37,6 +36,12 @@ export default function EbookDetailPage({
   const [own, setOwn] = useState<OwnershipState>({ kind: "loading" });
   const [buying, setBuying] = useState(false);
 
+  // Secure reading UI
+  const [showReader, setShowReader] = useState(false);
+  const [maskActive, setMaskActive] = useState(false);
+  const [watermark, setWatermark] = useState<string>("SECURE COPY");
+  const readerRef = useRef<HTMLDivElement | null>(null);
+
   // Global hardening: block printing, copy, right-click, common save/print shortcuts
   useEffect(() => {
     const preventAll = (e: Event): void => {
@@ -45,6 +50,7 @@ export default function EbookDetailPage({
     };
     const onKey = (e: KeyboardEvent): void => {
       const k = e.key.toLowerCase();
+      // Block common shortcuts: print/save/view-source/copy/cut/select-all
       if (
         (e.ctrlKey || e.metaKey) &&
         (k === "p" || k === "s" || k === "u" || k === "c" || k === "x" || k === "a")
@@ -52,7 +58,23 @@ export default function EbookDetailPage({
         e.preventDefault();
         e.stopPropagation();
       }
+      // Best-effort block of screenshot shortcuts on some platforms (not guaranteed)
+      if (e.metaKey && e.shiftKey && (k === "3" || k === "4" || k === "5")) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
     };
+    const onVisibility = (): void => {
+      // Dim the reader when tab not visible (best-effort anti-screenshot)
+      setMaskActive(document.hidden);
+    };
+    const onBlur = (): void => {
+      setMaskActive(true);
+    };
+    const onFocus = (): void => {
+      setMaskActive(false);
+    };
+
     const CAPTURE: AddEventListenerOptions = { capture: true };
 
     document.addEventListener("contextmenu", preventAll, CAPTURE);
@@ -61,6 +83,9 @@ export default function EbookDetailPage({
     document.addEventListener("paste", preventAll, CAPTURE);
     document.addEventListener("keydown", onKey, CAPTURE);
     window.addEventListener("beforeprint", preventAll, CAPTURE);
+    document.addEventListener("visibilitychange", onVisibility, CAPTURE);
+    window.addEventListener("blur", onBlur, CAPTURE);
+    window.addEventListener("focus", onFocus, CAPTURE);
 
     return () => {
       document.removeEventListener("contextmenu", preventAll, CAPTURE);
@@ -69,9 +94,13 @@ export default function EbookDetailPage({
       document.removeEventListener("paste", preventAll, CAPTURE);
       document.removeEventListener("keydown", onKey, CAPTURE);
       window.removeEventListener("beforeprint", preventAll, CAPTURE);
+      document.removeEventListener("visibilitychange", onVisibility, CAPTURE);
+      window.removeEventListener("blur", onBlur, CAPTURE);
+      window.removeEventListener("focus", onFocus, CAPTURE);
     };
   }, []);
 
+  // Load slug
   useEffect(() => {
     (async () => {
       setSlug((await params).slug);
@@ -95,14 +124,16 @@ export default function EbookDetailPage({
     })();
   }, [slug]);
 
-  // Check auth + ownership
+  // Check auth + ownership + watermark identity
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setOwn({ kind: "signed_out" });
+        setWatermark("SECURE COPY");
         return;
       }
+      setWatermark(`${user.email ?? user.id} • ${new Date().toISOString()}`);
       if (!ebook?.id) {
         setOwn({ kind: "loading" });
         return;
@@ -157,6 +188,14 @@ export default function EbookDetailPage({
     }
   }
 
+  function openReader() {
+    setShowReader(true);
+    // Scroll reader into view
+    queueMicrotask(() => {
+      readerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
   if (err) {
     return (
       <main className="mx-auto max-w-screen-md px-4 sm:px-6 lg:px-8 py-10">
@@ -177,8 +216,8 @@ export default function EbookDetailPage({
     );
   }
 
-  // Secure PDF viewer: hides toolbar; sandbox blocks downloads; print blocked at page level.
-  const securePdfSrc =
+  // We use sample_url as the ACTUAL book PDF (no toolbar)
+  const bookPdfSrc =
     ebook.sample_url && ebook.sample_url.endsWith(".pdf")
       ? `${ebook.sample_url}#toolbar=0&navpanes=0&scrollbar=0&statusbar=0&view=FitH`
       : null;
@@ -202,7 +241,7 @@ export default function EbookDetailPage({
         }
       `}</style>
 
-      {/* LEFT: cover + gated sample */}
+      {/* LEFT: cover + reader area */}
       <div className="rounded-2xl bg-white border border-light overflow-hidden">
         {ebook.cover_url ? (
           <Image
@@ -220,58 +259,95 @@ export default function EbookDetailPage({
           </div>
         )}
 
-        {/* GATED PDF PREVIEW (read-only on site) */}
-        {securePdfSrc && (
-          <div className="relative border-t border-light secure-viewer">
-            {own.kind === "owner" ? (
-              <iframe
-                src={securePdfSrc}
-                title="E-book reader"
-                className="w-full h-[420px] block"
-                sandbox="allow-scripts allow-same-origin" /* no allow-downloads */
-                referrerPolicy="no-referrer"
-                allow="clipboard-read; clipboard-write"
-              />
-            ) : (
-              <div className="w-full h-[320px] sm:h-[420px] bg-[color:var(--color-light)]/40 grid place-items-center">
-                <div className="text-center px-6">
-                  <div className="text-lg font-semibold">Preview locked</div>
-                  <p className="text-sm text-muted mt-1">
-                    {own.kind === "signed_out"
-                      ? "Sign in and purchase to unlock reading."
-                      : "Purchase to unlock reading."}
-                  </p>
-                  <div className="mt-4 flex items-center justify-center gap-3">
-                    {own.kind === "signed_out" ? (
-                      <>
-                        <Link
-                          href={`/auth/sign-in?redirect=${encodeURIComponent(`/ebooks/${slug}`)}`}
-                          className="rounded-lg bg-brand text-white px-4 py-2 font-medium hover:opacity-90"
-                        >
-                          Sign in
-                        </Link>
-                        <Link
-                          href={`/auth/sign-up?redirect=${encodeURIComponent(`/ebooks/${slug}`)}`}
-                          className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)] bg-white hover:bg-[color:var(--color-light)]/30"
-                        >
-                          Create account
-                        </Link>
-                      </>
-                    ) : (
-                      <button
-                        onClick={handleBuy}
-                        disabled={buying || own.kind === "loading"}
-                        className="rounded-lg bg-brand text-white px-4 py-2 font-medium hover:opacity-90 disabled:opacity-60"
+        {/* SECURE READER (owner must click "Read securely") */}
+        <div ref={readerRef} className="relative border-t border-light secure-viewer">
+          {own.kind !== "owner" && (
+            <div className="w-full h-[320px] sm:h-[420px] bg-[color:var(--color-light)]/40 grid place-items-center">
+              <div className="text-center px-6">
+                <div className="text-lg font-semibold">Access locked</div>
+                <p className="text-sm text-muted mt-1">
+                  {own.kind === "signed_out"
+                    ? "Sign in and purchase to read the full e-book."
+                    : "Purchase to read the full e-book."}
+                </p>
+                <div className="mt-4 flex items-center justify-center gap-3">
+                  {own.kind === "signed_out" ? (
+                    <>
+                      <Link
+                        href={`/auth/sign-in?redirect=${encodeURIComponent(`/ebooks/${slug}`)}`}
+                        className="rounded-lg bg-brand text-white px-4 py-2 font-medium hover:opacity-90"
                       >
-                        {buying ? "Redirecting…" : `Buy • ${price}`}
-                      </button>
-                    )}
-                  </div>
+                        Sign in
+                      </Link>
+                      <Link
+                        href={`/auth/sign-up?redirect=${encodeURIComponent(`/ebooks/${slug}`)}`}
+                        className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)] bg-white hover:bg-[color:var(--color-light)]/30"
+                      >
+                        Create account
+                      </Link>
+                    </>
+                  ) : (
+                    <button
+                      onClick={handleBuy}
+                      disabled={buying || own.kind === "loading"}
+                      className="rounded-lg bg-brand text-white px-4 py-2 font-medium hover:opacity-90 disabled:opacity-60"
+                    >
+                      {buying ? "Redirecting…" : `Buy • ${price}`}
+                    </button>
+                  )}
                 </div>
               </div>
-            )}
-          </div>
-        )}
+            </div>
+          )}
+
+          {own.kind === "owner" && (
+            <div className="p-4">
+              {!showReader ? (
+                <button
+                  onClick={openReader}
+                  className="rounded-lg bg-brand text-white px-4 py-2 font-semibold hover:opacity-90"
+                >
+                  Read securely
+                </button>
+              ) : bookPdfSrc ? (
+                <div className="relative">
+                  {/* Watermark overlay (dense, rotated) */}
+                  <div
+                    aria-hidden
+                    className={`pointer-events-none absolute inset-0 z-20 select-none ${maskActive ? "opacity-90" : "opacity-25"}`}
+                    style={{ transition: "opacity 120ms ease" }}
+                  >
+                    <div className="w-full h-full rotate-[-25deg] grid gap-12 opacity-100" style={{ placeItems: "center" }}>
+                      {Array.from({ length: 6 }).map((_, r) => (
+                        <div key={`r-${r}`} className="flex gap-16">
+                          {Array.from({ length: 4 }).map((__, c) => (
+                            <span key={`c-${c}`} className="text-2xl font-bold tracking-wide text-black/60">
+                              {watermark}
+                            </span>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Secure iframe */}
+                  <iframe
+                    src={bookPdfSrc}
+                    title="E-book reader"
+                    className={`w-full h-[70vh] block relative z-10 ${maskActive ? "blur-sm" : ""}`}
+                    sandbox="allow-scripts allow-same-origin" /* intentionally no allow-downloads */
+                    referrerPolicy="no-referrer"
+                    allow="clipboard-read; clipboard-write"
+                  />
+                  {/* Top gradient to hinder easy OCR of header lines */}
+                  <div className="pointer-events-none absolute top-0 left-0 right-0 h-8 z-30 bg-gradient-to-b from-white/70 to-transparent" />
+                </div>
+              ) : (
+                <div className="text-sm text-muted">PDF not available.</div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* RIGHT: details + CTAs */}
@@ -282,7 +358,6 @@ export default function EbookDetailPage({
         </p>
 
         <div className="mt-6 flex flex-wrap items-center gap-3">
-          {/* BUY (forces sign-in first) */}
           {own.kind !== "owner" && (
             <button
               onClick={handleBuy}
@@ -292,12 +367,19 @@ export default function EbookDetailPage({
               {buying ? "Redirecting…" : `Buy • ${price}`}
             </button>
           )}
-
-          {/* ⛔️ No download button — even for owners */}
+          {own.kind === "owner" && !showReader && (
+            <button
+              onClick={openReader}
+              className="rounded-lg bg-brand text-white px-5 py-3 font-semibold hover:opacity-90"
+            >
+              Read securely
+            </button>
+          )}
+          {/* No download/print options ever */}
         </div>
 
         <div className="mt-6 text-sm text-muted">
-          Reading is enabled on this page after purchase. Downloading and printing are disabled.
+          Reading is enabled on this page after purchase. Downloading and printing are disabled. The reader dims when this tab loses focus.
         </div>
 
         <div className="mt-8">
