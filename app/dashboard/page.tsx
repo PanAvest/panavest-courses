@@ -53,9 +53,37 @@ type ChapterInfo = {
   course_id: string;
 };
 
+/* ===== E-Books ===== */
+type EbookRow = {
+  id: string;
+  slug: string;
+  title: string;
+  cover_url: string | null;
+  price_cents: number;
+};
+
+type PurchaseRow = {
+  ebook_id: string;
+  status: string | null;
+  ebooks?: EbookRow | EbookRow[] | null;
+};
+
+type PurchasedEbook = {
+  ebook_id: string;
+  slug: string;
+  title: string;
+  cover_url: string | null;
+  price_cedis: string; // formatted price
+};
+
 function pickCourse(c: CourseRow | CourseRow[] | null | undefined): CourseRow | null {
   if (!c) return null;
   return Array.isArray(c) ? (c[0] ?? null) : c;
+}
+
+function pickEbook(e: EbookRow | EbookRow[] | null | undefined): EbookRow | null {
+  if (!e) return null;
+  return Array.isArray(e) ? (e[0] ?? null) : e;
 }
 
 export default function DashboardPage() {
@@ -63,6 +91,7 @@ export default function DashboardPage() {
   const [due, setDue] = useState<AssessmentJoined[]>([]);
   const [quiz, setQuiz] = useState<QuizAttempt[]>([]);
   const [chaptersById, setChaptersById] = useState<Record<string, ChapterInfo>>({});
+  const [ebooks, setEbooks] = useState<PurchasedEbook[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
@@ -103,6 +132,31 @@ export default function DashboardPage() {
         setEnrolled(mapped);
       }
 
+      // Purchased E-Books (join with ebooks, only status=paid)
+      const { data: purRows } = await supabase
+        .from("ebook_purchases")
+        .select("ebook_id,status,ebooks!inner(id,slug,title,cover_url,price_cents)")
+        .eq("user_id", user.id)
+        .eq("status", "paid")
+        .order("created_at", { ascending: false });
+
+      if (purRows) {
+        const items = (purRows as PurchaseRow[])
+          .map((p) => {
+            const e = pickEbook(p.ebooks);
+            if (!e) return null;
+            return {
+              ebook_id: p.ebook_id,
+              slug: e.slug,
+              title: e.title,
+              cover_url: e.cover_url ?? null,
+              price_cedis: `GH₵ ${(e.price_cents / 100).toFixed(2)}`
+            } as PurchasedEbook;
+          })
+          .filter(Boolean) as PurchasedEebook[];
+        setEbooks(items);
+      }
+
       // Upcoming assessments (optional view)
       const { data: dueRows } = await supabase
         .from("assessments_due_view" as unknown as string)
@@ -112,7 +166,7 @@ export default function DashboardPage() {
 
       setDue(((dueRows ?? []) as AssessmentJoined[]));
 
-      // Quiz attempts (unique per user/course/chapter by schema)
+      // Quiz attempts
       const { data: quizRows } = await supabase
         .from("user_chapter_quiz")
         .select("course_id, chapter_id, total_count, correct_count, score_pct, completed_at")
@@ -121,7 +175,7 @@ export default function DashboardPage() {
       const attempts = (quizRows ?? []) as QuizAttempt[];
       setQuiz(attempts);
 
-      // Fetch chapter metadata for any chapter_ids we saw
+      // Chapter metadata
       const chapterIds = Array.from(new Set(attempts.map(a => a.chapter_id)));
       if (chapterIds.length > 0) {
         const { data: chRows } = await supabase
@@ -168,8 +222,47 @@ export default function DashboardPage() {
 
       {!loading && (
         <>
-          {/* Continue learning */}
+          {/* Purchased E-Books */}
           <section className="mt-8">
+            <h2 className="text-xl font-semibold">Purchased E-Books</h2>
+            {ebooks.length === 0 ? (
+              <div className="mt-3 rounded-xl border border-light bg-white p-4">
+                <p className="text-muted">No purchased e-books yet.</p>
+                <Link href="/ebooks" className="mt-2 inline-block rounded-lg bg-brand px-4 py-2 text-white">
+                  Browse e-books
+                </Link>
+              </div>
+            ) : (
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                {ebooks.map((b) => (
+                  <div key={b.ebook_id} className="rounded-xl border border-light bg-white overflow-hidden">
+                    <div className="relative w-full h-40">
+                      <Image
+                        src={b.cover_url || "/project-management.png"}
+                        alt={b.title}
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 768px) 100vw, 50vw"
+                      />
+                    </div>
+                    <div className="p-4">
+                      <div className="font-semibold line-clamp-1">{b.title}</div>
+                      <div className="mt-1 text-xs text-muted">Purchased · {b.price_cedis}</div>
+                      <Link
+                        href={`/ebooks/${b.slug}`}
+                        className="mt-3 inline-block rounded-lg bg-brand px-3 py-1.5 text-white"
+                      >
+                        Read
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* Continue learning */}
+          <section className="mt-10">
             <h2 className="text-xl font-semibold">Continue learning</h2>
             {enrolled.length === 0 ? (
               <div className="mt-3 rounded-xl border border-light bg-white p-4">
