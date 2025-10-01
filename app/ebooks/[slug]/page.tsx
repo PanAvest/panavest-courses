@@ -27,9 +27,7 @@ type OwnershipState =
 
 type PdfjsLib = {
   GlobalWorkerOptions: { workerSrc: string };
-  getDocument: (src: string | { url: string }) => {
-    promise: Promise<PdfDocument>;
-  };
+  getDocument: (src: string | { url: string }) => { promise: Promise<PdfDocument> };
 };
 type PdfDocument = { numPages: number; getPage: (n: number) => Promise<PdfPage> };
 type Viewport = { width: number; height: number; scale: number; transform: number[] };
@@ -143,11 +141,6 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
     } catch (e) { setErr((e as Error).message); setBuying(false); }
   }
 
-  function openReader() {
-    setShowReader(true);
-    queueMicrotask(() => readerWrapRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
-  }
-
   // Render with PDF.js (via same-origin proxy URL to avoid CORS)
   async function renderPdf() {
     if (!ebook?.sample_url || !pdfContainerRef.current || !window.pdfjsLib) return;
@@ -187,10 +180,19 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
     } finally { setRendering(false); }
   }
 
-  // Trigger render when ready / on resize
+  function openReader() {
+    setShowReader(true);
+    queueMicrotask(() => {
+      readerWrapRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      // kick off render immediately (no race with useEffect)
+      if (pdfReady && ebook?.sample_url) void renderPdf();
+    });
+  }
+
+  // Also re-render if the script loads later, or on resize
   useEffect(() => {
-    if (showReader && pdfReady && ebook?.sample_url) renderPdf();
-    function onResize() { if (showReader && pdfReady && ebook?.sample_url) renderPdf(); }
+    if (showReader && pdfReady && ebook?.sample_url) void renderPdf();
+    function onResize() { if (showReader && pdfReady && ebook?.sample_url) void renderPdf(); }
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -230,9 +232,9 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
         }
       `}</style>
 
-      {/* PDF.js UMD */}
       <Script
         src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.js"
+        crossOrigin="anonymous"
         strategy="afterInteractive"
         onLoad={() => setPdfReady(Boolean(window.pdfjsLib))}
       />
@@ -303,7 +305,6 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
 
             {own.kind === "owner" && (
               <div className="relative">
-                {/* Watermark overlay (only when reader is open) */}
                 {showReader && (
                   <div
                     aria-hidden
@@ -340,12 +341,20 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
                       aria-label="Secure PDF Reader"
                     />
                     <div className="pointer-events-none absolute top-0 left-0 right-0 h-8 z-30 bg-gradient-to-b from-white/70 to-transparent" />
+
                     {rendering && (
                       <div className="absolute inset-0 grid place-items-center bg-white/40 z-30">
                         <div className="text-sm">Loading pages…</div>
                       </div>
                     )}
-                    {renderError && <div className="p-4 text-sm text-red-600">Error: {renderError}</div>}
+                    {renderError && (
+                      <div className="p-4 text-sm text-red-600">
+                        Error loading PDF: {renderError}
+                        <div className="mt-2 text-xs text-muted">
+                          Tip: ensure <code>sample_url</code> is a valid PDF and the proxy route is present.
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -359,9 +368,7 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
         <div className="rounded-2xl bg-white border border-light p-6">
           <h2 className="text-xl font-semibold">About this e-book</h2>
           <p className="mt-3 text-muted whitespace-pre-line">{ebook.description ?? "No description provided."}</p>
-          <div className="mt-6">
-            <Link href="/ebooks" className="underline">← Back to E-Books</Link>
-          </div>
+          <div className="mt-6"><Link href="/ebooks" className="underline">← Back to E-Books</Link></div>
         </div>
       </section>
     </main>
