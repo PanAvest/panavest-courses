@@ -1,3 +1,4 @@
+// app/ebooks/[slug]/page.tsx
 "use client";
 
 import Image from "next/image";
@@ -13,7 +14,7 @@ type Ebook = {
   description?: string | null;
   cover_url?: string | null;
   sample_url?: string | null; // PDF preview (LOCKED until paid)
-  kpf_url?: string | null;    // download after purchase (LOCKED until paid)
+  kpf_url?: string | null;    // ignored (no download allowed)
   price_cents: number;
   published: boolean;
 };
@@ -35,6 +36,39 @@ export default function EbookDetailPage({
   const [slug, setSlug] = useState<string>("");
   const [own, setOwn] = useState<OwnershipState>({ kind: "loading" });
   const [buying, setBuying] = useState(false);
+
+  // Global hardening: block printing, copy, right-click, common save/print shortcuts
+  useEffect(() => {
+    const prevent = (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      const k = e.key.toLowerCase();
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        (k === "p" || k === "s" || k === "u" || k === "c" || k === "x" || k === "a")
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    document.addEventListener("contextmenu", prevent, { capture: true });
+    document.addEventListener("copy", prevent, { capture: true });
+    document.addEventListener("cut", prevent, { capture: true });
+    document.addEventListener("paste", prevent, { capture: true });
+    document.addEventListener("keydown", onKey, { capture: true });
+    window.addEventListener("beforeprint", prevent as EventListener, { capture: true });
+
+    return () => {
+      document.removeEventListener("contextmenu", prevent, { capture: true } as any);
+      document.removeEventListener("copy", prevent, { capture: true } as any);
+      document.removeEventListener("cut", prevent, { capture: true } as any);
+      document.removeEventListener("paste", prevent, { capture: true } as any);
+      document.removeEventListener("keydown", onKey, { capture: true } as any);
+      window.removeEventListener("beforeprint", prevent as EventListener, { capture: true } as any);
+    };
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -81,7 +115,6 @@ export default function EbookDetailPage({
         .maybeSingle();
 
       if (error) {
-        // treat as not owned if no row
         setOwn({ kind: "not_owner" });
         return;
       }
@@ -106,8 +139,7 @@ export default function EbookDetailPage({
 
     setBuying(true);
     try {
-      // DEMO PAYMENT: call your gateway creator endpoint
-      // Replace this POST with your real gateway code.
+      // DEMO PAYMENT: call your gateway creator endpoint (already present)
       const r = await fetch("/api/payments/ebook", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -148,10 +180,32 @@ export default function EbookDetailPage({
     );
   }
 
- 
+  // Secure PDF viewer: hides toolbar; sandbox blocks downloads; print blocked at page level.
+  const securePdfSrc =
+    ebook.sample_url && ebook.sample_url.endsWith(".pdf")
+      ? `${ebook.sample_url}#toolbar=0&navpanes=0&scrollbar=0&statusbar=0&view=FitH`
+      : null;
 
   return (
-    <main className="mx-auto max-w-screen-lg px-4 sm:px-6 lg:px-8 py-10 grid gap-8 md:grid-cols-2">
+    <main
+      className="mx-auto max-w-screen-lg px-4 sm:px-6 lg:px-8 py-10 grid gap-8 md:grid-cols-2 select-none"
+      onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
+      onDragStart={(e) => { e.preventDefault(); }}
+    >
+      {/* Anti-print & anti-copy CSS (scoped global for this page) */}
+      <style jsx global>{`
+        @media print {
+          body { display: none !important; }
+        }
+        /* Reduce trivial extraction on this page */
+        html, body, main, .secure-viewer, .secure-viewer * {
+          -webkit-user-select: none !important;
+          -moz-user-select: none !important;
+          -ms-user-select: none !important;
+          user-select: none !important;
+        }
+      `}</style>
+
       {/* LEFT: cover + gated sample */}
       <div className="rounded-2xl bg-white border border-light overflow-hidden">
         {ebook.cover_url ? (
@@ -160,8 +214,9 @@ export default function EbookDetailPage({
             alt={ebook.title}
             width={1200}
             height={900}
-            className="w-full h-auto"
+            className="w-full h-auto pointer-events-none select-none"
             priority
+            draggable={false}
           />
         ) : (
           <div className="w-full h-[260px] bg-[color:var(--color-light)]/40 flex items-center justify-center text-muted">
@@ -169,14 +224,18 @@ export default function EbookDetailPage({
           </div>
         )}
 
-        {/* GATED PDF PREVIEW */}
-        {ebook.sample_url && ebook.sample_url.endsWith(".pdf") && (
-          <div className="relative border-t border-light">
+        {/* GATED PDF PREVIEW (read-only on site) */}
+        {securePdfSrc && (
+          <div className="relative border-t border-light secure-viewer">
             {own.kind === "owner" ? (
               <iframe
-                src={ebook.sample_url}
-                title="Sample preview"
-                className="w-full h-[420px]"
+                // Hide controls via fragment; sandbox to block downloads & popouts
+                src={securePdfSrc}
+                title="E-book reader"
+                className="w-full h-[420px] block"
+                sandbox="allow-scripts allow-same-origin" // intentionally omit allow-downloads
+                referrerPolicy="no-referrer"
+                allow="clipboard-read; clipboard-write"
               />
             ) : (
               <div className="w-full h-[320px] sm:h-[420px] bg-[color:var(--color-light)]/40 grid place-items-center">
@@ -184,8 +243,8 @@ export default function EbookDetailPage({
                   <div className="text-lg font-semibold">Preview locked</div>
                   <p className="text-sm text-muted mt-1">
                     {own.kind === "signed_out"
-                      ? "Sign in and purchase to unlock the PDF preview."
-                      : "Purchase to unlock the PDF preview."}
+                      ? "Sign in and purchase to unlock reading."
+                      : "Purchase to unlock reading."}
                   </p>
                   <div className="mt-4 flex items-center justify-center gap-3">
                     {own.kind === "signed_out" ? (
@@ -239,21 +298,11 @@ export default function EbookDetailPage({
             </button>
           )}
 
-          {/* DOWNLOAD KPF — only if owner */}
-          {ebook.kpf_url && own.kind === "owner" && (
-            <a
-              href={ebook.kpf_url}
-              className="rounded-lg px-5 py-3 ring-1 ring-[color:var(--color-light)] bg-white hover:bg-[color:var(--color-light)]/30"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Download KPF
-            </a>
-          )}
+          {/* ⛔️ No download button — even for owners */}
         </div>
 
         <div className="mt-6 text-sm text-muted">
-          * KPF files open in Kindle Previewer/Kindle apps. PDF preview is available after purchase.
+          Reading is enabled on this page after purchase. Downloading and printing are disabled.
         </div>
 
         <div className="mt-8">
