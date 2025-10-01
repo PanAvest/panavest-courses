@@ -92,7 +92,6 @@ export default function EbookDetailPage({
   useEffect(() => {
     try {
       const worker = new Worker("/vendor/pdf.worker.min.mjs", { type: "module" });
-      // @ts-expect-error workerPort exists at runtime
       pdfjs.GlobalWorkerOptions.workerPort = worker;
       setPdfReady(true);
     } catch {
