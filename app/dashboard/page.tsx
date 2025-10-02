@@ -91,8 +91,13 @@ type CertificateRow = {
 
 /** Raw shape from Supabase for certificates (courses can be object OR array) */
 type RawCertificateRow = Omit<CertificateRow, "courses"> & {
-  courses: { title: string; slug: string; img: string | null } | { title: string; slug: string; img: string | null }[] | null;
+  courses:
+    | { title: string; slug: string; img: string | null }
+    | { title: string; slug: string; img: string | null }[]
+    | null;
 };
+
+type CourseMeta = { title: string; slug: string };
 
 /* ─────────────────────────────── Helpers ─────────────────────────────── */
 
@@ -138,6 +143,9 @@ export default function DashboardPage() {
   // Certificates
   const [certs, setCerts] = useState<CertificateRow[]>([]);
 
+  // Course meta map for quiz section titles
+  const [courseMetaMap, setCourseMetaMap] = useState<Record<string, CourseMeta>>({});
+
   useEffect(() => {
     (async () => {
       const { data: auth } = await supabase.auth.getUser();
@@ -167,6 +175,7 @@ export default function DashboardPage() {
         .eq("user_id", user.id)
         .order("updated_at", { ascending: false });
 
+      const localMeta: Record<string, CourseMeta> = {};
       if (enrData) {
         const rows = enrData as unknown as EnrollmentRow[];
         const mapped: EnrolledCourse[] = rows.map((r) => {
@@ -179,6 +188,12 @@ export default function DashboardPage() {
           };
           const rawPct = Number(r.progress_pct ?? 0);
           const pct = Number.isFinite(rawPct) ? rawPct : 0;
+
+          // collect meta for later quiz display
+          if (r.course_id && c.title) {
+            localMeta[r.course_id] = { title: c.title, slug: c.slug };
+          }
+
           return {
             course_id: r.course_id,
             progress_pct: Math.max(0, Math.min(100, pct)),
@@ -244,6 +259,21 @@ export default function DashboardPage() {
         });
         setChaptersById(map);
       }
+
+      // Fill in missing course meta for quiz section (for courses not in enrolled[])
+      const quizCourseIds = Array.from(new Set(attempts.map((a) => a.course_id))).filter(Boolean);
+      const missing = quizCourseIds.filter((cid) => !localMeta[cid]);
+      if (missing.length > 0) {
+        const { data: courseRows } = await supabase
+          .from("courses")
+          .select("id,title,slug")
+          .in("id", missing);
+
+        (courseRows as { id: string; title: string; slug: string }[] | null | undefined)?.forEach((cr) => {
+          localMeta[cr.id] = { title: cr.title, slug: cr.slug };
+        });
+      }
+      setCourseMetaMap(localMeta);
 
       // Certificates (issued after passing final exam)
       const { data: certRows } = await supabase
@@ -488,31 +518,43 @@ export default function DashboardPage() {
               <p className="mt-3 text-muted">No quiz attempts yet.</p>
             ) : (
               <div className="mt-4 grid gap-4">
-                {Object.entries(quizByCourse).map(([courseId, rows]) => (
-                  <div key={courseId} className="rounded-xl border border-light bg-white p-4">
-                    <div className="font-semibold">Course {courseId.slice(0, 8)}…</div>
-                    <ul className="mt-3 grid gap-2">
-                      {rows.map(({ attempt, chapter }) => (
-                        <li
-                          key={`${attempt.course_id}-${attempt.chapter_id}-${attempt.completed_at}`}
-                          className="flex flex-wrap items-center justify-between gap-2 rounded-lg ring-1 ring-[color:var(--color-light)] px-3 py-2"
-                        >
-                          <div className="min-w-0">
-                            <div className="font-medium line-clamp-1">{chapter.title}</div>
-                            <div className="text-xs text-muted">
-                              {attempt.correct_count}/{attempt.total_count} correct · {new Date(attempt.completed_at).toLocaleString()}
+                {Object.entries(quizByCourse).map(([courseId, rows]) => {
+                  const meta = courseMetaMap[courseId];
+                  return (
+                    <div key={courseId} className="rounded-xl border border-light bg-white p-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="font-semibold">{meta?.title ?? "Course"}</div>
+                        {meta?.slug && (
+                          <Link href={`/courses/${meta.slug}`} className="text-sm rounded-lg px-3 py-1.5 bg-[color:var(--color-light)]">
+                            Go to course
+                          </Link>
+                        )}
+                      </div>
+
+                      <ul className="mt-3 grid gap-2">
+                        {rows.map(({ attempt, chapter }) => (
+                          <li
+                            key={`${attempt.course_id}-${attempt.chapter_id}-${attempt.completed_at}`}
+                            className="flex flex-wrap items-center justify-between gap-2 rounded-lg ring-1 ring-[color:var(--color-light)] px-3 py-2"
+                          >
+                            <div className="min-w-0">
+                              <div className="font-medium line-clamp-1">{chapter.title}</div>
+                              <div className="text-xs text-muted">
+                                {attempt.correct_count}/{attempt.total_count} correct ·{" "}
+                                {new Date(attempt.completed_at).toLocaleString()}
+                              </div>
                             </div>
-                          </div>
-                          <div className="shrink-0">
-                            <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-[color:var(--color-light)]">
-                              {attempt.score_pct}%
-                            </span>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
+                            <div className="shrink-0">
+                              <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-[color:var(--color-light)]">
+                                {attempt.score_pct}%
+                              </span>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </section>
