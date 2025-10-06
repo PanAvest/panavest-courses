@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { flushSync } from "react-dom";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import ProgressBar from "@/components/ProgressBar";
@@ -96,8 +97,6 @@ function secondsToClock(s: number) {
 
 export default function CourseDashboard() {
   const params = useParams<{ slug: string }>();
-  theSlug: {
-  }
   const slug = params?.slug;
   const router = useRouter();
 
@@ -213,7 +212,7 @@ export default function CourseDashboard() {
       (ch ?? []).forEach(chp => { chOrder[chp.id] = chp.order_index ?? 0; });
       const slSorted = [...sl].sort((a, b) => {
         const ca = chOrder[a.chapter_id] ?? 0;
-               const cb = chOrder[b.chapter_id] ?? 0;
+        const cb = chOrder[b.chapter_id] ?? 0;
         if (ca !== cb) return ca - cb;
         return (a.order_index ?? 0) - (b.order_index ?? 0);
       });
@@ -365,7 +364,7 @@ export default function CourseDashboard() {
     for (let i = 0; i < orderedIds.length; i++) {
       if (!completed.includes(orderedIds[i])) return i;
     }
-    return orderedIds.length - 1; // all slides done
+    return Math.max(0, orderedIds.length - 1); // all slides done
   }, [orderedIds, completed]);
 
   // extra lock at chapter boundaries: if an entire chapter's slides are done but its quiz isn't completed,
@@ -384,7 +383,7 @@ export default function CourseDashboard() {
         return chapterLastSlideIndex[chId] ?? firstIncompleteIndex;
       }
     }
-    return orderedIds.length - 1;
+    return Math.max(0, orderedIds.length - 1);
   }, [chapterOrder, slidesByChapter, completed, completedQuizzes, chapterLastSlideIndex, orderedIds.length, firstIncompleteIndex]);
 
   const maxAccessibleIndex = Math.min(firstIncompleteIndex, boundaryLockedIndex);
@@ -399,7 +398,7 @@ export default function CourseDashboard() {
   const done = completed.length;
   const pct = totalSlides === 0 ? 0 : Math.round((done / totalSlides) * 100);
 
-  /** Mark slide as done */
+  /** Mark slide as done — instant unlock & optional auto-advance */
   async function markDone(slide: Slide | null) {
     if (!slide || !userId || !course) return;
     try {
@@ -407,12 +406,17 @@ export default function CourseDashboard() {
         .from("user_slide_progress")
         .upsert(
           { user_id: userId, course_id: course.id, slide_id: slide.id },
-          { onConflict: "user_id,slide_id" }
+          { onConflict: "user_id,course_id,slide_id" }
         );
-      setCompleted(prev => (prev.includes(slide.id) ? prev : [...prev, slide.id]));
+
+      // Ensure gating recomputes immediately
+      flushSync(() => {
+        setCompleted(prev => (prev.includes(slide.id) ? prev : [...prev, slide.id]));
+      });
+
       setNotice("Marked as done ✓");
 
-      // auto-advance to next slide (if allowed)
+      // Re-check access and move if allowed (within same chapter unless boundary-locked)
       const idx = orderedIds.indexOf(slide.id);
       if (idx > -1 && idx + 1 < orderedIds.length) {
         const next = orderedSlides[idx + 1];
@@ -421,6 +425,7 @@ export default function CourseDashboard() {
           window.scrollTo({ top: 0, behavior: "smooth" });
         }
       }
+
       setTimeout(() => setNotice(""), 1500);
     } catch {
       setNotice("Could not save progress. Try again.");
