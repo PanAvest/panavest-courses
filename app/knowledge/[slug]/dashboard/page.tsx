@@ -96,8 +96,6 @@ function secondsToClock(s: number) {
 
 export default function CourseDashboard() {
   const params = useParams<{ slug: string }>();
-  theSlug: {
-  }
   const slug = params?.slug;
   const router = useRouter();
 
@@ -213,7 +211,7 @@ export default function CourseDashboard() {
       (ch ?? []).forEach(chp => { chOrder[chp.id] = chp.order_index ?? 0; });
       const slSorted = [...sl].sort((a, b) => {
         const ca = chOrder[a.chapter_id] ?? 0;
-               const cb = chOrder[b.chapter_id] ?? 0;
+        const cb = chOrder[b.chapter_id] ?? 0;
         if (ca !== cb) return ca - cb;
         return (a.order_index ?? 0) - (b.order_index ?? 0);
       });
@@ -368,8 +366,7 @@ export default function CourseDashboard() {
     return orderedIds.length - 1; // all slides done
   }, [orderedIds, completed]);
 
-  // extra lock at chapter boundaries: if an entire chapter's slides are done but its quiz isn't completed,
-  // block the first slide of the *next* chapter.
+  // extra lock at chapter boundaries
   const boundaryLockedIndex = useMemo(() => {
     for (let i = 0; i < chapterOrder.length; i++) {
       const chId = chapterOrder[i];
@@ -380,7 +377,6 @@ export default function CourseDashboard() {
       const quizDone = completedQuizzes.includes(chId);
 
       if (allDone && !quizDone) {
-        // lock at last slide of this chapter (so next chapter is blocked)
         return chapterLastSlideIndex[chId] ?? firstIncompleteIndex;
       }
     }
@@ -399,7 +395,7 @@ export default function CourseDashboard() {
   const done = completed.length;
   const pct = totalSlides === 0 ? 0 : Math.round((done / totalSlides) * 100);
 
-  /** Mark slide as done */
+  /** Mark slide as done — (let the post-state-change effect handle navigation) */
   async function markDone(slide: Slide | null) {
     if (!slide || !userId || !course) return;
     try {
@@ -407,26 +403,32 @@ export default function CourseDashboard() {
         .from("user_slide_progress")
         .upsert(
           { user_id: userId, course_id: course.id, slide_id: slide.id },
-          { onConflict: "user_id,slide_id" }
+          { onConflict: "user_id,course_id,slide_id" }
         );
+
       setCompleted(prev => (prev.includes(slide.id) ? prev : [...prev, slide.id]));
       setNotice("Marked as done ✓");
-
-      // auto-advance to next slide (if allowed)
-      const idx = orderedIds.indexOf(slide.id);
-      if (idx > -1 && idx + 1 < orderedIds.length) {
-        const next = orderedSlides[idx + 1];
-        if (canAccessById(next.id)) {
-          setActiveSlide(next);
-          window.scrollTo({ top: 0, behavior: "smooth" });
-        }
-      }
       setTimeout(() => setNotice(""), 1500);
     } catch {
       setNotice("Could not save progress. Try again.");
       setTimeout(() => setNotice(""), 2000);
     }
   }
+
+  /** Auto-advance AFTER completed updates & gating recomputes */
+  useEffect(() => {
+    if (!activeSlide) return;
+    const idx = orderedIds.indexOf(activeSlide.id);
+    if (idx === -1) return;
+
+    if (completed.includes(activeSlide.id) && idx + 1 < orderedIds.length) {
+      const nextId = orderedIds[idx + 1];
+      if (canAccessById(nextId)) {
+        setActiveSlide(orderedSlides[idx + 1]);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    }
+  }, [completed, activeSlide, orderedIds, orderedSlides, canAccessById]);
 
   /** Chapter quiz */
   function beginQuiz(chId: string) {
@@ -532,7 +534,6 @@ export default function CourseDashboard() {
   }, [orderedIds, completed]);
 
   const allChapterQuizzesDone = useMemo(() => {
-    // if a chapter has a quiz pool, it must be completed
     return chapters.every(ch => {
       const hasQuiz = (quizByChapter[ch.id]?.length ?? 0) > 0;
       return !hasQuiz || completedQuizzes.includes(ch.id);
@@ -622,7 +623,6 @@ export default function CourseDashboard() {
   }
 
   function beginFinalExam() {
-    // called only after acceptance
     if (!navigator.onLine) {
       setNotice("You are offline. Please reconnect to a stable internet connection before starting.");
       setTimeout(() => setNotice(""), 2000);
@@ -690,11 +690,9 @@ export default function CourseDashboard() {
         created_at: new Date().toISOString(),
         meta: { autoSubmit: auto, total, correctCount } as Record<string, unknown>,
       });
-      // lock future attempts
       setFinalAttemptExists(true);
     } catch {}
 
-    // close exam modal + show result modal
     setFinalExamOpen(false);
     setFinalTimeLeft(0);
     setFinalAnswers({});
@@ -756,7 +754,6 @@ export default function CourseDashboard() {
   const canGoPrev = activeIndex > 0;
   const canGoNext = activeIndex > -1 && (activeIndex + 1) <= maxAccessibleIndex;
 
-  // is this the last slide of its chapter?
   const isLastSlideOfChapter = useMemo(() => {
     if (!activeSlide) return false;
     const lastIdx = chapterLastSlideIndex[activeSlide.chapter_id];
@@ -783,7 +780,6 @@ export default function CourseDashboard() {
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="text-xl md:text-2xl font-semibold">{course.title}</div>
-          {/* Final Exam CTA appears next to the title once unlocked */}
           {finalExam && finalExamQuestions.length > 0 && (
             <>
               {!canTakeFinal && !finalAttemptExists && (
@@ -1084,9 +1080,7 @@ export default function CourseDashboard() {
       {/* Final Exam Modal */}
       {finalExamOpen && finalExam && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 select-none">
-          {/* backdrop */}
           <div className="absolute inset-0 bg-black/50" />
-          {/* card */}
           <div className="relative z-10 w-full max-w-3xl rounded-2xl bg-white border border-light p-5 max-h-[92vh] overflow-auto">
             <div className="flex items-center justify-between gap-3">
               <div className="text-lg font-semibold">{finalExam.title || "Final Exam"}</div>
@@ -1098,7 +1092,6 @@ export default function CourseDashboard() {
               </div>
             </div>
 
-            {/* Warnings (shown again inside exam) */}
             <div className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2">
               <ul className="list-disc pl-5 grid gap-1">
                 <li>Timer cannot be paused.</li>
@@ -1108,7 +1101,6 @@ export default function CourseDashboard() {
               </ul>
             </div>
 
-            {/* Questions */}
             <div className="mt-4 grid gap-4">
               {finalExamQuestions.map((q, idx) => (
                 <div key={q.id} className="rounded-lg p-3 ring-1 ring-[color:var(--color-light)]">
@@ -1134,14 +1126,12 @@ export default function CourseDashboard() {
               ))}
             </div>
 
-            {/* Internet state */}
             {!isOnline && (
               <div className="mt-3 text-xs text-red-700 bg-red-50 border border-red-200 rounded-md p-2">
                 You are offline. Stay online to ensure your answers are saved.
               </div>
             )}
 
-            {/* Actions */}
             <div className="mt-5 flex items-center justify-end gap-2">
               <button
                 type="button"
@@ -1155,7 +1145,7 @@ export default function CourseDashboard() {
         </div>
       )}
 
-      {/* Results Modal (Final score + all chapter quiz scores) */}
+      {/* Results Modal */}
       {resultOpen && finalResult && finalExam && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50" onClick={() => setResultOpen(false)} />
