@@ -7,22 +7,28 @@ import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
 
-type Params = { slug: string };
-type Props = { params: Params | Promise<Params> };
+export default async function CoursePreview({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  // Next 15 passes params as a Promise
+  const { slug } = await params;
 
-export default async function CoursePreview({ params }: Props) {
-  // Works whether `params` is a Promise or a plain object (Next 15 compat), no `any`
-  const { slug } = await Promise.resolve(params);
-
+  // Server-side admin client (RLS-safe for published content)
   const supabase = getSupabaseAdmin();
   const { data: c, error } = await supabase
     .from("courses")
-    .select("id,slug,title,description,img,price,currency,cpd_points,published")
+    .select(
+      "id,slug,title,description,img,price,currency,cpd_points,published"
+    )
     .eq("slug", slug)
     .eq("published", true)
     .maybeSingle();
 
-  if (error || !c) notFound();
+  if (error || !c) {
+    notFound();
+  }
 
   const price = Number(c.price ?? 0).toFixed(2);
   const currency = c.currency || "GHS";
@@ -43,7 +49,9 @@ export default async function CoursePreview({ params }: Props) {
           <div className="p-5">
             <h1 className="text-2xl font-bold">{c.title}</h1>
             {c.description && (
-              <p className="mt-2 text-muted whitespace-pre-wrap">{c.description}</p>
+              <p className="mt-2 text-muted whitespace-pre-wrap">
+                {c.description}
+              </p>
             )}
           </div>
         </div>
