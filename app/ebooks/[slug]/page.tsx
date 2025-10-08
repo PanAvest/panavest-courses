@@ -3,9 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import * as pdfjs from "pdfjs-dist"; // local, typed import via types/pdfjs-dist.d.ts
+import * as pdfjs from "pdfjs-dist";
 
 type Ebook = {
   id: string;
@@ -13,8 +13,8 @@ type Ebook = {
   title: string;
   description?: string | null;
   cover_url?: string | null;
-  sample_url?: string | null; // FULL book PDF (locked until paid)
-  price_cents: number;
+  sample_url?: string | null;      // Full book PDF (we gate this by ownership)
+  price_cents: number;             // minor units (GHS pesewas)
   published: boolean;
 };
 
@@ -35,11 +35,17 @@ type PdfDoc = { numPages: number; getPage(n: number): Promise<PdfPage> };
 
 export default function EbookDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const router = useRouter();
+  const search = useSearchParams();
+
   const [ebook, setEbook] = useState<Ebook | null>(null);
-  const [err, setErr] = useState<string | null>(null);
   const [slug, setSlug] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+
   const [own, setOwn] = useState<OwnershipState>({ kind: "loading" });
+  const [userId, setUserId] = useState<string>("");
+  const [email, setEmail] = useState<string>(""); // needed for Paystack init
   const [buying, setBuying] = useState(false);
+  const [verifying, setVerifying] = useState<string | null>(null); // reference string when verifying
 
   // Reader state
   const [pdfReady, setPdfReady] = useState(false);
@@ -52,7 +58,9 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
   const pdfContainerRef = useRef<HTMLDivElement | null>(null);
   const pdfDocRef = useRef<PdfDoc | null>(null);
 
-  // Prevent print/copy/save
+  const dashboardHref = "/dashboard";
+
+  /** Lock copy/print/save */
   useEffect(() => {
     const preventAll = (e: Event) => { e.preventDefault(); e.stopPropagation(); };
     const onKey = (e: KeyboardEvent) => {
@@ -76,21 +84,37 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
     };
   }, []);
 
-  // Setup worker from /public
+  /** PDF worker from /public/vendor */
   useEffect(() => {
-    try {
-      const worker = new Worker("/vendor/pdf.worker.min.mjs", { type: "module" });
-      pdfjs.GlobalWorkerOptions.workerPort = worker;
-      setPdfReady(true);
-    } catch {
-      setPdfReady(false);
-    }
-  }, []);
+  try {
+    // This is properly typed in pdfjs-dist and avoids ts-comments
+    pdfjs.GlobalWorkerOptions.workerSrc = "/vendor/pdf.worker.min.mjs";
+    setPdfReady(true);
+  } catch {
+    setPdfReady(false);
+  }
+}, []);
 
-  // Slug
+
+  /** Resolve slug from route params */
   useEffect(() => { (async () => setSlug((await params).slug))(); }, [params]);
 
-  // Load ebook meta
+  /** Auth (get user + email early) */
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setUserId("");
+        setEmail("");
+        setOwn({ kind: "signed_out" });  // still allow viewing page, but gated
+        return;
+      }
+      setUserId(user.id);
+      setEmail(user.email ?? "");
+    })();
+  }, []);
+
+  /** Load ebook meta */
   useEffect(() => {
     if (!slug) return;
     (async () => {
@@ -99,16 +123,18 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
         const j = await r.json();
         if (!r.ok) throw new Error(j?.error || r.statusText);
         setEbook(j as Ebook);
-      } catch (e) { setErr((e as Error).message); }
+      } catch (e) {
+        setErr((e as Error).message);
+      }
     })();
   }, [slug]);
 
-  // Auth/ownership
+  /** Ownership check */
   useEffect(() => {
     (async () => {
+      if (!ebook?.id) { setOwn({ kind: "loading" }); return; }
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setOwn({ kind: "signed_out" }); return; }
-      if (!ebook?.id) { setOwn({ kind: "loading" }); return; }
       const { data, error } = await supabase
         .from("ebook_purchases").select("status")
         .eq("user_id", user.id).eq("ebook_id", ebook.id).maybeSingle();
@@ -117,35 +143,79 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
     })();
   }, [ebook?.id]);
 
+  /** If Paystack sent us back with a reference, verify and poll until unlocked */
+  useEffect(() => {
+    const ref = search.get("reference") || search.get("ref") || null;
+    if (!ref || !ebook?.id || !userId) return;
+
+    let stopped = false;
+    let tries = 0;
+    setVerifying(ref);
+
+    (async () => {
+      // 1) Try server-side verify (if route exists)
+      try {
+        const resp = await fetch(`/api/payments/paystack/verify?reference=${encodeURIComponent(ref)}`, { method: "GET" });
+        // ignore failures; we will poll DB anyway
+        await resp.json().catch(() => null);
+      } catch { /* ignore */ }
+
+      // 2) Poll Supabase for up to ~30s
+      while (!stopped && tries < 15) {
+        tries += 1;
+        try {
+          const { data, error } = await supabase
+            .from("ebook_purchases").select("status")
+            .eq("user_id", userId).eq("ebook_id", ebook.id).maybeSingle();
+          const paid = !error && data?.status === "paid";
+          if (paid) {
+            setOwn({ kind: "owner" });
+            setVerifying(null);
+            // Clean URL (remove ?reference=…)
+            router.replace(`/ebooks/${encodeURIComponent(slug)}`);
+            return;
+          }
+        } catch { /* ignore and keep polling */ }
+        await new Promise(r => setTimeout(r, 2000));
+      }
+      setVerifying(null);
+    })();
+
+    return () => { stopped = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, ebook?.id, userId, slug]);
+
+  /** Price text */
   const price = useMemo(
     () => (ebook ? `GH₵ ${(ebook.price_cents / 100).toFixed(2)}` : ""),
     [ebook]
   );
 
-  const dashboardHref = "/dashboard"; // adjust if your dashboard path differs
-
-  // ✅ Use Paystack init route (same pattern as courses)
+  /** Start Paystack checkout (forces sign-in first) */
   async function handleBuy() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       router.push(`/auth/sign-in?redirect=${encodeURIComponent(`/ebooks/${slug}`)}`);
       return;
     }
-    if (!ebook) return;
+    if (!ebook || !email) return;
 
     setBuying(true);
     try {
+      // price_cents are already minor units (GHS pesewas)
+      const amountMinor = Math.round(Number(ebook.price_cents));
+
       const res = await fetch("/api/payments/paystack/init", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: user.email,
-          amountMinor: Number(ebook.price_cents), // cents = pesewas
+          email,
+          amountMinor,
           meta: {
             kind: "ebook",
             user_id: user.id,
             ebook_id: ebook.id,
-            slug: ebook.slug,
+            slug: ebook.slug, // so server can set callback back to this page
           },
         }),
       });
@@ -155,17 +225,19 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
         throw new Error(data?.error || "Failed to initialize payment.");
       }
 
-      window.location.href = data.authorization_url; // Go to Paystack hosted checkout
+      // Off to Paystack
+      window.location.href = data.authorization_url;
     } catch (e) {
-      setErr((e as Error).message);
+      setErr((e as Error).message || "Payment init failed");
       setBuying(false);
     }
   }
 
-  // PDF doc
+  /** PDF helpers */
   async function ensurePdfDoc(): Promise<PdfDoc | null> {
     if (pdfDocRef.current) return pdfDocRef.current;
     if (!ebook?.sample_url) return null;
+    // Secure proxy route on your server
     const doc = await pdfjs.getDocument({ url: `/api/secure-pdf?src=${encodeURIComponent(ebook.sample_url)}` }).promise;
     pdfDocRef.current = doc as unknown as PdfDoc;
     return pdfDocRef.current;
@@ -185,7 +257,7 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
       for (let i = 1; i <= doc.numPages; i++) {
         const page = await doc.getPage(i);
         const base = page.getViewport({ scale: 1 });
-        const scale = Math.max(0.25, Math.min((width / base.width), 4));
+        const scale = Math.max(0.25, Math.min(width / base.width, 4));
         const viewport = page.getViewport({ scale });
 
         const canvas = document.createElement("canvas");
@@ -208,6 +280,7 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
   }
 
   function openReader() {
+    // Reader is only enabled if own.kind === "owner"
     setShowReader(true);
     queueMicrotask(async () => {
       readerWrapRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -215,11 +288,13 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
     });
   }
 
+  // Re-render on zoom
   useEffect(() => {
     if (showReader && pdfReady && ebook?.sample_url) { void renderPdf(); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zoom]);
 
+  // Re-render on resize
   useEffect(() => {
     function onResize() { if (showReader && pdfReady && ebook?.sample_url) void renderPdf(); }
     window.addEventListener("resize", onResize);
@@ -227,7 +302,7 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showReader, pdfReady, ebook?.sample_url]);
 
-  // UI
+  /** UI states */
   if (err) {
     return (
       <main className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 py-10">
@@ -263,8 +338,15 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
           <div className="md:sticky md:top-20 space-y-4">
             <div className="rounded-2xl bg-white border border-light overflow-hidden">
               {ebook.cover_url ? (
-                <Image src={ebook.cover_url} alt={ebook.title} width={1200} height={900}
-                  className="w-full h-auto pointer-events-none select-none" priority draggable={false} />
+                <Image
+                  src={ebook.cover_url}
+                  alt={ebook.title}
+                  width={1200}
+                  height={900}
+                  className="w-full h-auto pointer-events-none select-none"
+                  priority
+                  draggable={false}
+                />
               ) : (
                 <div className="w-full h-[260px] bg-[color:var(--color-light)]/40 flex items-center justify-center text-muted">
                   No cover
@@ -280,6 +362,12 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
               <div className="mt-4 grid gap-3">
                 {own.kind === "loading" && (
                   <div className="text-sm text-muted">Checking access…</div>
+                )}
+
+                {verifying && (
+                  <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2">
+                    Verifying payment (ref: {verifying})… You’ll be unlocked automatically once confirmed.
+                  </div>
                 )}
 
                 {own.kind === "signed_out" && (
@@ -350,7 +438,9 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
                 <div className="text-center px-6">
                   <div className="text-lg font-semibold">Access locked</div>
                   <p className="text-sm text-muted mt-1">
-                    {own.kind === "signed_out" ? "Sign in and purchase to read the full e-book." : "Purchase to read the full e-book."}
+                    {own.kind === "signed_out"
+                      ? "Sign in and purchase to read the full e-book."
+                      : "Purchase to read the full e-book."}
                   </p>
                 </div>
               </div>
@@ -358,20 +448,50 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
               <div className="relative">
                 {/* Toolbar */}
                 <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-light bg-white/90 px-3 py-2">
-                  <button onClick={() => setZoom(z => Math.max(0.5, Math.round((z - 0.1)*10)/10))}
-                          className="rounded-md px-3 py-1 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50">−</button>
-                  <button onClick={() => setZoom(z => Math.min(3, Math.round((z + 0.1)*10)/10))}
-                          className="rounded-md px-3 py-1 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50">+</button>
-                  <button onClick={() => setZoom(1)}
-                          className="rounded-md px-3 py-1 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50">Fit width</button>
-                  <button onClick={() => setZoom(1.0)}
-                          className="rounded-md px-3 py-1 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50">100%</button>
-                  <span className="ml-2 text-sm text-muted">Zoom: {(zoom*100).toFixed(0)}%</span>
+                  <button
+                    onClick={() => setZoom((z) => Math.max(0.5, Math.round((z - 0.1) * 10) / 10))}
+                    className="rounded-md px-3 py-1 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                  >
+                    −
+                  </button>
+                  <button
+                    onClick={() => setZoom((z) => Math.min(3, Math.round((z + 0.1) * 10) / 10))}
+                    className="rounded-md px-3 py-1 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                  >
+                    +
+                  </button>
+                  <button
+                    onClick={() => setZoom(1)}
+                    className="rounded-md px-3 py-1 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                  >
+                    Fit width
+                  </button>
+                  <button
+                    onClick={() => setZoom(1.0)}
+                    className="rounded-md px-3 py-1 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                  >
+                    100%
+                  </button>
+                  <span className="ml-2 text-sm text-muted">Zoom: {(zoom * 100).toFixed(0)}%</span>
                   <div className="ml-auto flex gap-2">
-                    <button onClick={() => { const c = pdfContainerRef.current; if (c) c.scrollTo({top:0, behavior:"smooth"}); }}
-                            className="rounded-md px-3 py-1 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50">Top</button>
-                    <button onClick={() => { const c = pdfContainerRef.current; if (c) c.scrollTo({top:c.scrollHeight, behavior:"smooth"}); }}
-                            className="rounded-md px-3 py-1 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50">Bottom</button>
+                    <button
+                      onClick={() => {
+                        const c = pdfContainerRef.current;
+                        if (c) c.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                      className="rounded-md px-3 py-1 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                    >
+                      Top
+                    </button>
+                    <button
+                      onClick={() => {
+                        const c = pdfContainerRef.current;
+                        if (c) c.scrollTo({ top: c.scrollHeight, behavior: "smooth" });
+                      }}
+                      className="rounded-md px-3 py-1 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                    >
+                      Bottom
+                    </button>
                   </div>
                 </div>
 
@@ -397,8 +517,14 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
       <section className="mt-10">
         <div className="rounded-2xl bg-white border border-light p-6">
           <h2 className="text-xl font-semibold">About this e-book</h2>
-          <p className="mt-3 text-muted whitespace-pre-line">{ebook.description ?? "No description provided."}</p>
-          <div className="mt-6"><Link href="/ebooks" className="underline">← Back to E-Books</Link></div>
+          <p className="mt-3 text-muted whitespace-pre-line">
+            {ebook.description ?? "No description provided."}
+          </p>
+          <div className="mt-6">
+            <Link href="/ebooks" className="underline">
+              ← Back to E-Books
+            </Link>
+          </div>
         </div>
       </section>
     </main>
