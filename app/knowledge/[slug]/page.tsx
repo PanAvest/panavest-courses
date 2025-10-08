@@ -164,7 +164,7 @@ export default function CoursePreview() {
                   href={enrollHref}
                   className="inline-flex items-center justify-center rounded-lg bg-[#0a1156] text-white px-4 py-2 font-semibold hover:opacity-90"
                 >
-                  Enroll with Paystack
+                  Enroll with Paystack (momo/card)
                 </Link>
                 <Link
                   href={dashboardHref}
