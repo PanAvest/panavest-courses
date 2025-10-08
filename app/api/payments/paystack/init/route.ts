@@ -1,61 +1,72 @@
 // app/api/payments/paystack/init/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-
-type InitBody = {
+type InitGenericBody = {
   email: string;
-  amountMinor: number; // GH₵ 100.00 => 10000
-  meta: {
-    kind: "course" | "ebook";
-    user_id: string;
-    course_id?: string;
-    ebook_id?: string;
-    slug?: string; // for redirect UX
+  amount: number;
+  currency?: string;
+  callbackPath?: string; // e.g. "/knowledge/my-course/enroll?verify=1"
+  metadata?: Record<string, unknown>;
+};
+
+type PaystackInitApiResponse = {
+  status: boolean;
+  message: string;
+  data?: {
+    authorization_url: string;
+    access_code: string;
+    reference: string;
   };
 };
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const secret = process.env.PAYSTACK_SECRET_KEY;
-    if (!secret) return NextResponse.json({ error: "PAYSTACK_SECRET_KEY missing" }, { status: 500 });
+    const { email, amount, currency = "GHS", callbackPath = "/", metadata = {} }
+      = (await req.json()) as unknown as InitGenericBody;
 
-    const body = (await req.json()) as InitBody;
-    if (!body?.email || !body?.amountMinor || !body?.meta?.kind) {
+    if (!email || typeof amount !== "number") {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     }
 
-    // callback URL users will be redirected to by Paystack
-    const callback_url = `${new URL(req.url).origin}/api/payments/paystack/verify`;
+    const secret = process.env.PAYSTACK_SECRET_KEY;
+    if (!secret) return NextResponse.json({ error: "PAYSTACK_SECRET_KEY missing" }, { status: 500 });
+
+    const origin = req.nextUrl.origin;
+    const amountMinor = Math.round(amount * 100);
+
+    const payload = {
+      email,
+      amount: amountMinor,
+      currency,
+      callback_url: `${origin}${callbackPath}`,
+      metadata,
+    };
 
     const res = await fetch("https://api.paystack.co/transaction/initialize", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${secret}`,
         "Content-Type": "application/json",
+        Accept: "application/json",
       },
-      body: JSON.stringify({
-        email: body.email,
-        amount: body.amountMinor,
-        metadata: body.meta,
-        callback_url,
-        channels: ["card", "mobile_money"], // adjust to your needs
-        currency: "GHS",
-      }),
+      body: JSON.stringify(payload),
+      cache: "no-store",
     });
 
-    const data = await res.json();
-    if (!res.ok || !data?.status) {
-      return NextResponse.json({ error: data?.message || "Initialize failed" }, { status: 400 });
+    const data = (await res.json()) as PaystackInitApiResponse;
+
+    if (!res.ok || !data.status || !data.data) {
+      return NextResponse.json(
+        { error: data?.message || "Failed to create Paystack payment" },
+        { status: 400 },
+      );
     }
 
     return NextResponse.json({
       authorization_url: data.data.authorization_url,
-      access_code: data.data.access_code,
       reference: data.data.reference,
     });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Init error" }, { status: 500 });
+  } catch {
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

@@ -1,61 +1,61 @@
 // app/api/payments/paystack/verify/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+type VerifyApiResponse = {
+  status: boolean;
+  message: string;
+  data?: {
+    status: "success" | "failed" | "abandoned" | string;
+    reference: string;
+    amount: number;
+    currency: string;
+    metadata?: {
+      user_id?: string;
+      course_id?: string;
+      slug?: string;
+      purchase_type?: "course" | "ebook";
+      ebook_id?: string;
+      book_slug?: string;
+    } | null;
+    customer?: { email?: string } | null;
+  };
+};
 
-export async function GET(req: Request) {
-  try {
-    const secret = process.env.PAYSTACK_SECRET_KEY;
-    if (!secret) return NextResponse.json({ error: "PAYSTACK_SECRET_KEY missing" }, { status: 500 });
+export async function GET(req: NextRequest) {
+  const secret = process.env.PAYSTACK_SECRET_KEY;
+  if (!secret) return NextResponse.json({ error: "PAYSTACK_SECRET_KEY missing" }, { status: 500 });
 
-    const { searchParams } = new URL(req.url);
-    const reference = searchParams.get("reference");
-    if (!reference) return NextResponse.json({ error: "Missing reference" }, { status: 400 });
+  const reference = req.nextUrl.searchParams.get("reference");
+  if (!reference) return NextResponse.json({ error: "reference required" }, { status: 400 });
 
-    const res = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
-      headers: { Authorization: `Bearer ${secret}` },
-      cache: "no-store",
-    });
-    const data = await res.json();
-    if (!res.ok || !data?.status) {
-      return NextResponse.json({ error: data?.message || "Verify failed" }, { status: 400 });
-    }
+  const res = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
+    headers: { Authorization: `Bearer ${secret}`, Accept: "application/json" },
+    cache: "no-store",
+  });
+  const data = (await res.json()) as VerifyApiResponse;
 
-    const p = data.data;
-    if (p.status !== "success") {
-      return NextResponse.json({ ok: false, status: p.status }, { status: 200 });
-    }
-
-    const meta = p?.metadata || {};
-    const supabaseAdmin = getSupabaseAdmin();
-
-    if (meta.kind === "course" && meta.user_id && meta.course_id) {
-      await supabaseAdmin
-        .from("enrollments")
-        .upsert(
-          {
-            user_id: meta.user_id,
-            course_id: meta.course_id,
-            paid: true,
-            paystack_ref: reference,
-            amount_minor: p.amount,
-            currency: p.currency,
-            gateway: "paystack",
-          },
-          { onConflict: "user_id,course_id" }
-        );
-
-      // optional: user-friendly redirect back to course page
-      const base = process.env.POST_PAY_REDIRECT_BASE || "/knowledge";
-      const dest = meta.slug ? `${base}/${meta.slug}` : base;
-      return NextResponse.redirect(new URL(dest, new URL(req.url).origin));
-    }
-
-    // (ebook flow to be added when you share table/columns)
-    return NextResponse.json({ ok: true });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Verify error" }, { status: 500 });
+  if (!res.ok || !data.status || !data.data) {
+    return NextResponse.json({ ok: false, message: data?.message || "Verify failed" }, { status: 400 });
   }
+
+  // Only proceed on success
+  if (data.data.status !== "success") {
+    return NextResponse.json({ ok: false, message: `Status: ${data.data.status}` }, { status: 400 });
+  }
+
+  // Mark the user as paid (course)
+  const md = data.data.metadata ?? {};
+  const userId = md.user_id as string | undefined;
+  const courseId = md.course_id as string | undefined;
+
+  if (userId && courseId) {
+    const admin = getSupabaseAdmin();
+    await admin.from("enrollments").upsert(
+      { user_id: userId, course_id: courseId, paid: true },
+      { onConflict: "user_id,course_id" },
+    );
+  }
+
+  return NextResponse.json({ ok: true });
 }
