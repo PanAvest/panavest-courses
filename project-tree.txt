@@ -1,0 +1,145 @@
+.
+├── .DS_Store
+├── .env.local
+├── .eslintrc.json
+├── .gitignore
+├── .vercel-build-trigger.txt
+├── README.md
+├── app
+│   ├── .DS_Store
+│   ├── about
+│   │   └── page.tsx
+│   ├── admin
+│   │   ├── content
+│   │   └── page.tsx
+│   ├── api
+│   │   ├── admin
+│   │   │   ├── chapters
+│   │   │   │   ├── [id]
+│   │   │   │   │   └── route.ts
+│   │   │   │   └── route.ts
+│   │   │   ├── deploy
+│   │   │   │   └── route.js
+│   │   │   ├── ebooks
+│   │   │   │   ├── [id]
+│   │   │   │   │   └── route.ts
+│   │   │   │   └── route.ts
+│   │   │   ├── knowledge
+│   │   │   │   ├── [id]
+│   │   │   │   │   └── route.js
+│   │   │   │   └── route.js
+│   │   │   ├── quiz-questions
+│   │   │   │   └── route.ts
+│   │   │   ├── quiz-settings
+│   │   │   │   └── route.ts
+│   │   │   ├── site-settings
+│   │   │   │   └── route.ts
+│   │   │   ├── slides
+│   │   │   │   ├── [id]
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── route.ts
+│   │   │   │   └── route.txt
+│   │   │   ├── upload
+│   │   │   │   ├── route.js
+│   │   │   │   └── route.ts
+│   │   │   └── users
+│   │   │       ├── [id]
+│   │   │       │   └── route.js
+│   │   │       ├── route.js
+│   │   │       └── route.ts
+│   │   ├── ebooks
+│   │   │   ├── [slug]
+│   │   │   │   └── route.ts
+│   │   │   └── route.ts
+│   │   ├── payments
+│   │   │   └── ebook
+│   │   │       └── route.ts
+│   │   ├── public
+│   │   │   └── site-settings
+│   │   │       └── route.ts
+│   │   └── secure-pdf
+│   │       └── route.ts
+│   ├── auth
+│   │   ├── sign-in
+│   │   │   └── page.tsx
+│   │   └── sign-up
+│   │       └── page.tsx
+│   ├── courses
+│   │   ├── [slug]
+│   │   │   └── page.tsx
+│   │   └── page.tsx
+│   ├── dashboard
+│   │   ├── page.tsx
+│   │   └── page.tsx.bak.1758819836
+│   ├── ebooks
+│   │   ├── [slug]
+│   │   │   └── page.tsx
+│   │   └── page.tsx
+│   ├── favicon.ico
+│   ├── globals.css
+│   ├── knowledge
+│   │   ├── [slug]
+│   │   │   ├── EnrollCTA.tsx
+│   │   │   ├── dashboard
+│   │   │   │   └── page.tsx
+│   │   │   ├── enroll
+│   │   │   │   └── page.tsx
+│   │   │   └── page.tsx
+│   │   └── page.tsx
+│   ├── layout.tsx
+│   ├── leaderboard
+│   │   └── page.tsx
+│   ├── page.tsx
+│   └── payments
+│       └── demo-checkout
+│           ├── DemoCheckoutClient.tsx
+│           └── page.tsx
+├── components
+│   ├── AuthForm.tsx
+│   ├── Footer.tsx
+│   ├── Header.tsx
+│   └── ProgressBar.tsx
+├── db
+│   └── chapters_slides.sql
+├── eslint.config.mjs
+├── lib
+│   ├── supabase
+│   │   └── server.ts
+│   ├── supabaseAdmin.ts
+│   ├── supabaseClient.ts
+│   └── types.ts
+├── middleware.ts
+├── next-env.d.ts
+├── next.config.backup.ts
+├── next.config.ts
+├── package-lock.json
+├── package.json
+├── pdfjs-dist.d.ts
+├── postcss.config.mjs
+├── project-tree.txt
+├── public
+│   ├── .DS_Store
+│   ├── data-analysis-with-python.png
+│   ├── file.svg
+│   ├── globe.svg
+│   ├── hero-illustration.png
+│   ├── hero-illustration.psd
+│   ├── introduction-to-marketing.png
+│   ├── leadership-development.png
+│   ├── lgo.png
+│   ├── logo.png
+│   ├── next.svg
+│   ├── project-management.png
+│   ├── vendor
+│   │   └── pdf.worker.min.mjs
+│   ├── vercel.svg
+│   └── window.svg
+├── supabase
+│   ├── knowledge_content.sql
+│   └── site_settings.sql
+├── tailwind.config.ts
+├── tsconfig.json
+└── types
+    └── pdfjs-dist.d.ts
+
+52 directories, 91 files
