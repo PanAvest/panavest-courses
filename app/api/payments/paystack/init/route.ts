@@ -13,7 +13,7 @@ type InitBody = {
   amountMinor?: number; // minor units (e.g. pesewas)
   amount?: number;      // major units (e.g. GHS)
   currency?: string;
-  meta?: CourseMeta;    // optional in type; we’ll narrow it
+  meta?: CourseMeta;
 };
 
 const MINOR_UNIT: Record<string, number> = { GHS: 100, NGN: 100, USD: 100 };
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ✅ meta is guaranteed now; narrow for TS
+    // meta is now guaranteed
     const meta = metaRaw as Required<Pick<CourseMeta, "slug" | "user_id" | "course_id">> & CourseMeta;
 
     const callback_url = `${siteUrl()}/knowledge/${encodeURIComponent(meta.slug)}/enroll?verify=1`;
@@ -81,17 +81,47 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify(payload),
     });
 
-    const json = await psRes.json().catch(() => ({} as any));
-    if (!psRes.ok || !json?.status) {
+    // Parse JSON without `any`
+    let parsed: unknown = null;
+    try {
+      parsed = await psRes.json();
+    } catch {
+      parsed = null;
+    }
+
+    const obj = (parsed && typeof parsed === "object") ? (parsed as Record<string, unknown>) : {};
+    const statusVal = typeof obj["status"] === "boolean" ? (obj["status"] as boolean) : undefined;
+    const message = typeof obj["message"] === "string" ? (obj["message"] as string) : undefined;
+
+    const dataObj =
+      obj["data"] && typeof obj["data"] === "object"
+        ? (obj["data"] as Record<string, unknown>)
+        : undefined;
+
+    const authorization_url =
+      dataObj && typeof dataObj["authorization_url"] === "string"
+        ? (dataObj["authorization_url"] as string)
+        : undefined;
+
+    const access_code =
+      dataObj && typeof dataObj["access_code"] === "string"
+        ? (dataObj["access_code"] as string)
+        : undefined;
+
+    const reference =
+      dataObj && typeof dataObj["reference"] === "string"
+        ? (dataObj["reference"] as string)
+        : undefined;
+
+    if (!psRes.ok || statusVal === false || !authorization_url) {
       return Response.json(
-        { ok: false, error: json?.message || "Failed to initialize with Paystack", details: json },
+        { ok: false, error: message || "Failed to initialize with Paystack", details: obj },
         { status: 400 }
       );
     }
 
-    const data = json.data || {};
     return Response.json(
-      { ok: true, authorization_url: data.authorization_url, reference: data.reference, access_code: data.access_code },
+      { ok: true, authorization_url, reference, access_code },
       { status: 200 }
     );
   } catch {
