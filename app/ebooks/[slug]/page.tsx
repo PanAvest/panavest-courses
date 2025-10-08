@@ -1,4 +1,3 @@
-// app/ebooks/[slug]/page.tsx
 "use client";
 
 import Image from "next/image";
@@ -53,7 +52,7 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
   const pdfContainerRef = useRef<HTMLDivElement | null>(null);
   const pdfDocRef = useRef<PdfDoc | null>(null);
 
-  // Hardening (keep no-print/copy; but no watermarks)
+  // Prevent print/copy/save
   useEffect(() => {
     const preventAll = (e: Event) => { e.preventDefault(); e.stopPropagation(); };
     const onKey = (e: KeyboardEvent) => {
@@ -77,7 +76,7 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
     };
   }, []);
 
-  // Setup module worker from /public (same origin)
+  // Setup worker from /public
   useEffect(() => {
     try {
       const worker = new Worker("/vendor/pdf.worker.min.mjs", { type: "module" });
@@ -91,7 +90,7 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
   // Slug
   useEffect(() => { (async () => setSlug((await params).slug))(); }, [params]);
 
-  // Load ebook
+  // Load ebook meta
   useEffect(() => {
     if (!slug) return;
     (async () => {
@@ -118,26 +117,42 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
     })();
   }, [ebook?.id]);
 
-  const price = useMemo(() => (ebook ? `GH₵ ${(ebook.price_cents / 100).toFixed(2)}` : ""), [ebook]);
+  const price = useMemo(
+    () => (ebook ? `GH₵ ${(ebook.price_cents / 100).toFixed(2)}` : ""),
+    [ebook]
+  );
+
+  const dashboardHref = "/dashboard"; // <— change if your dashboard lives elsewhere
 
   async function handleBuy() {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { router.push(`/auth/sign-in?redirect=${encodeURIComponent(`/ebooks/${slug}`)}`); return; }
+    if (!user) {
+      router.push(`/auth/sign-in?redirect=${encodeURIComponent(`/ebooks/${slug}`)}`);
+      return;
+    }
     if (!ebook) return;
     setBuying(true);
     try {
       const r = await fetch("/api/payments/ebook", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ebookId: ebook.id, slug: ebook.slug, amount_cents: ebook.price_cents, currency: "GHS" }),
+        body: JSON.stringify({
+          ebookId: ebook.id,
+          slug: ebook.slug,
+          amount_cents: ebook.price_cents,
+          currency: "GHS",
+        }),
       });
       const j = await r.json();
       if (!r.ok || !j?.checkoutUrl) throw new Error(j?.error || "Payment init failed");
       window.location.href = j.checkoutUrl;
-    } catch (e) { setErr((e as Error).message); setBuying(false); }
+    } catch (e) {
+      setErr((e as Error).message);
+      setBuying(false);
+    }
   }
 
-  // Load the PDF doc once
+  // PDF doc
   async function ensurePdfDoc(): Promise<PdfDoc | null> {
     if (pdfDocRef.current) return pdfDocRef.current;
     if (!ebook?.sample_url) return null;
@@ -146,7 +161,6 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
     return pdfDocRef.current;
   }
 
-  // Render (fits width * zoom). Always scroll to top after a full render.
   async function renderPdf() {
     if (!pdfContainerRef.current) return;
     const container = pdfContainerRef.current;
@@ -161,7 +175,7 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
       for (let i = 1; i <= doc.numPages; i++) {
         const page = await doc.getPage(i);
         const base = page.getViewport({ scale: 1 });
-        const scale = Math.max(0.25, Math.min((width / base.width), 4)); // clamp
+        const scale = Math.max(0.25, Math.min((width / base.width), 4));
         const viewport = page.getViewport({ scale });
 
         const canvas = document.createElement("canvas");
@@ -175,7 +189,7 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
         if (ctx) await page.render({ canvasContext: ctx, viewport }).promise;
         container.appendChild(canvas);
       }
-      container.scrollTop = 0; // start at the very top
+      container.scrollTop = 0;
     } catch (e) {
       setRenderError((e as Error).message || "Failed to load PDF");
     } finally {
@@ -191,7 +205,6 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
     });
   }
 
-  // Re-render on zoom/resize once opened
   useEffect(() => {
     if (showReader && pdfReady && ebook?.sample_url) { void renderPdf(); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -254,17 +267,61 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
               <div className="mt-2 text-sm text-muted">Price</div>
               <div className="text-xl font-semibold">{price}</div>
 
-              <div className="mt-4 flex flex-wrap gap-3">
-                {own.kind !== "owner" ? (
-                  <button onClick={handleBuy} disabled={buying || own.kind === "loading"}
-                    className="rounded-lg bg-brand text-white px-5 py-3 font-semibold hover:opacity-90 disabled:opacity-60 w-full sm:w-auto">
-                    {buying ? "Redirecting…" : `Buy • ${price}`}
-                  </button>
-                ) : (
-                  <button onClick={openReader}
-                    className="rounded-lg bg-brand text-white px-5 py-3 font-semibold hover:opacity-90 w-full sm:w-auto">
-                    Click to Read
-                  </button>
+              <div className="mt-4 grid gap-3">
+                {own.kind === "loading" && (
+                  <div className="text-sm text-muted">Checking access…</div>
+                )}
+
+                {own.kind === "signed_out" && (
+                  <>
+                    <Link
+                      href={`/auth/sign-in?redirect=${encodeURIComponent(`/ebooks/${slug}`)}`}
+                      className="inline-flex items-center justify-center rounded-lg bg-brand text-white px-5 py-3 font-semibold hover:opacity-90 w-full sm:w-auto"
+                    >
+                      Sign in to buy
+                    </Link>
+                    <Link
+                      href={dashboardHref}
+                      className="inline-flex items-center justify-center rounded-lg px-5 py-3 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50 w-full sm:w-auto"
+                    >
+                      Go to Dashboard
+                    </Link>
+                  </>
+                )}
+
+                {own.kind === "not_owner" && (
+                  <>
+                    <button
+                      onClick={handleBuy}
+                      disabled={buying}
+                      className="rounded-lg bg-brand text-white px-5 py-3 font-semibold hover:opacity-90 disabled:opacity-60 w-full sm:w-auto"
+                    >
+                      {buying ? "Redirecting…" : `Buy • ${price}`}
+                    </button>
+                    <Link
+                      href={dashboardHref}
+                      className="inline-flex items-center justify-center rounded-lg px-5 py-3 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50 w-full sm:w-auto"
+                    >
+                      Go to Dashboard
+                    </Link>
+                  </>
+                )}
+
+                {own.kind === "owner" && (
+                  <>
+                    <button
+                      onClick={openReader}
+                      className="rounded-lg bg-brand text-white px-5 py-3 font-semibold hover:opacity-90 w-full sm:w-auto"
+                    >
+                      Read now
+                    </button>
+                    <Link
+                      href={dashboardHref}
+                      className="inline-flex items-center justify-center rounded-lg px-5 py-3 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50 w-full sm:w-auto"
+                    >
+                      Go to Dashboard
+                    </Link>
+                  </>
                 )}
               </div>
 
