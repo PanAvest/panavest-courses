@@ -6,7 +6,7 @@ type InitBody = {
   email: string;
   course_id: string;
   slug: string;
-  amount: number;        // major units (e.g., 300 for GHS 300.00)
+  amount: number;        // major units, e.g. 300 for GHS 300.00
   currency?: string;     // default "GHS"
 };
 
@@ -65,8 +65,6 @@ export async function POST(req: Request) {
     )}/enroll?verify=1`;
 
     const supabase = getSupabaseAdmin();
-
-    // upsert pending enrollment (typed object; no `any`)
     const upsertRow: EnrollmentUpsert = {
       user_id: user_id!,
       course_id: course_id!,
