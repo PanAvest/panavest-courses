@@ -41,12 +41,12 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
   const [own, setOwn] = useState<OwnershipState>({ kind: "loading" });
   const [buying, setBuying] = useState(false);
 
-  // Reader state (no watermark)
+  // Reader state
   const [pdfReady, setPdfReady] = useState(false);
   const [showReader, setShowReader] = useState(false);
   const [rendering, setRendering] = useState(false);
   const [renderError, setRenderError] = useState<string | null>(null);
-  const [zoom, setZoom] = useState<number>(1); // 1 = fit width baseline
+  const [zoom, setZoom] = useState<number>(1);
 
   const readerWrapRef = useRef<HTMLDivElement | null>(null);
   const pdfContainerRef = useRef<HTMLDivElement | null>(null);
@@ -122,8 +122,9 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
     [ebook]
   );
 
-  const dashboardHref = "/dashboard"; // <— change if your dashboard lives elsewhere
+  const dashboardHref = "/dashboard"; // adjust if your dashboard path differs
 
+  // ✅ Use Paystack init route (same pattern as courses)
   async function handleBuy() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -131,21 +132,30 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
       return;
     }
     if (!ebook) return;
+
     setBuying(true);
     try {
-      const r = await fetch("/api/payments/ebook", {
+      const res = await fetch("/api/payments/paystack/init", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ebookId: ebook.id,
-          slug: ebook.slug,
-          amount_cents: ebook.price_cents,
-          currency: "GHS",
+          email: user.email,
+          amountMinor: Number(ebook.price_cents), // cents = pesewas
+          meta: {
+            kind: "ebook",
+            user_id: user.id,
+            ebook_id: ebook.id,
+            slug: ebook.slug,
+          },
         }),
       });
-      const j = await r.json();
-      if (!r.ok || !j?.checkoutUrl) throw new Error(j?.error || "Payment init failed");
-      window.location.href = j.checkoutUrl;
+
+      const data = await res.json();
+      if (!res.ok || !data?.authorization_url) {
+        throw new Error(data?.error || "Failed to initialize payment.");
+      }
+
+      window.location.href = data.authorization_url; // Go to Paystack hosted checkout
     } catch (e) {
       setErr((e as Error).message);
       setBuying(false);

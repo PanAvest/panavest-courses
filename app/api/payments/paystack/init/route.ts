@@ -1,130 +1,133 @@
-import { NextRequest } from "next/server";
+// app/api/payments/paystack/init/route.ts
+import { NextResponse } from "next/server";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-type CourseMeta = {
-  kind: "course";
-  user_id: string;
-  course_id: string;
-  slug: string;
-  [k: string]: unknown;
-};
+type MetaCourse = { kind: "course"; user_id: string; course_id: string; slug: string };
+type MetaEbook  = { kind: "ebook";  user_id: string; ebook_id:  string; slug: string };
+type Meta = MetaCourse | MetaEbook;
 
 type InitBody = {
   email: string;
-  amountMinor?: number; // minor units (e.g. pesewas)
-  amount?: number;      // major units (e.g. GHS)
-  currency?: string;
-  meta?: CourseMeta;
+  amountMinor: number;          // e.g. 30000 for GHS 300.00
+  currency?: string;            // default GHS
+  meta: Meta;
 };
 
-const MINOR_UNIT: Record<string, number> = { GHS: 100, NGN: 100, USD: 100 };
+type PaystackInitOk = {
+  status: true;
+  message: string;
+  data: {
+    authorization_url: string;
+    access_code: string;
+    reference: string;
+  };
+};
+type PaystackInitErr = { status: false; message: string };
 
-function siteUrl() {
-  const envUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    process.env.VERCEL_PROJECT_PRODUCTION_URL ||
-    process.env.VERCEL_URL;
-  if (!envUrl) return "http://localhost:3000";
-  return envUrl.startsWith("http") ? envUrl : `https://${envUrl}`;
+function getAdmin(): SupabaseClient {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!; // service role for server routes
+  return createClient(url, key, { auth: { persistSession: false } });
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(request: Request) {
   try {
-    const sk = process.env.PAYSTACK_SECRET_KEY;
-    if (!sk) {
-      return Response.json({ ok: false, error: "Missing PAYSTACK_SECRET_KEY" }, { status: 400 });
+    const body = (await request.json()) as InitBody;
+
+    // Basic validation (no "any" warnings)
+    if (!body?.email || typeof body.email !== "string") {
+      return NextResponse.json({ error: "Missing email" }, { status: 400 });
+    }
+    if (
+      typeof body.amountMinor !== "number" ||
+      !Number.isFinite(body.amountMinor) ||
+      body.amountMinor <= 0
+    ) {
+      return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
+    }
+    if (!body.meta || typeof body.meta !== "object" || !("kind" in body.meta)) {
+      return NextResponse.json({ error: "Missing meta" }, { status: 400 });
+    }
+    if (body.meta.kind === "course") {
+      if (!body.meta.user_id || !body.meta.course_id || !body.meta.slug) {
+        return NextResponse.json({ error: "Missing course meta" }, { status: 400 });
+      }
+    } else if (body.meta.kind === "ebook") {
+      if (!body.meta.user_id || !body.meta.ebook_id || !body.meta.slug) {
+        return NextResponse.json({ error: "Missing ebook meta" }, { status: 400 });
+      }
+    } else {
+      return NextResponse.json({ error: "Invalid meta.kind" }, { status: 400 });
     }
 
-    const body = (await req.json()) as InitBody;
-    const { email, amountMinor, amount, currency = "GHS" } = body ?? {};
-    const metaRaw = body?.meta;
+    const secret = process.env.PAYSTACK_SECRET_KEY;
+    if (!secret) return NextResponse.json({ error: "PAYSTACK_SECRET_KEY not set" }, { status: 500 });
 
-    const missing: string[] = [];
-    if (!email) missing.push("email");
-    if (!metaRaw) missing.push("meta");
-    if (!metaRaw?.user_id) missing.push("meta.user_id");
-    if (!metaRaw?.course_id) missing.push("meta.course_id");
-    if (!metaRaw?.slug) missing.push("meta.slug");
+    const origin = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
+    const callback_url = `${origin}/api/payments/paystack/callback`;
 
-    const factor = MINOR_UNIT[currency.toUpperCase()] ?? 100;
-    const minor =
-      typeof amountMinor === "number"
-        ? Math.round(amountMinor)
-        : typeof amount === "number"
-        ? Math.round(amount * factor)
-        : undefined;
-
-    if (!minor || minor <= 0) missing.push("amountMinor (or amount)");
-
-    if (missing.length) {
-      return Response.json(
-        { ok: false, error: `Missing fields: ${missing.join(", ")}` },
-        { status: 400 }
-      );
+    // (Optional) pre-create records so you can track pending states (safe to skip)
+    const admin = getAdmin();
+    const now = new Date().toISOString();
+    if (body.meta.kind === "course") {
+      await admin
+        .from("enrollments")
+        .upsert(
+          {
+            user_id: body.meta.user_id,
+            course_id: body.meta.course_id,
+            paid: false,
+            gateway: "paystack",
+            currency: body.currency ?? "GHS",
+            amount_minor: body.amountMinor,
+            updated_at: now,
+          },
+          { onConflict: "user_id,course_id" }
+        );
+    } else {
+      // create/ensure ebook purchase row exists as pending
+      await admin
+        .from("ebook_purchases")
+        .upsert(
+          {
+            user_id: body.meta.user_id,
+            ebook_id: body.meta.ebook_id,
+            status: "pending",
+            updated_at: now,
+          } as Record<string, unknown>,
+          { onConflict: "user_id,ebook_id" }
+        );
     }
 
-    // meta is now guaranteed
-    const meta = metaRaw as Required<Pick<CourseMeta, "slug" | "user_id" | "course_id">> & CourseMeta;
-
-    const callback_url = `${siteUrl()}/knowledge/${encodeURIComponent(meta.slug)}/enroll?verify=1`;
-
-    const payload = {
-      email,
-      amount: minor,
-      currency: currency.toUpperCase(),
+    // Initialize Paystack
+    const initPayload = {
+      email: body.email,
+      amount: body.amountMinor,                    // minor units (pesewas)
+      currency: body.currency ?? "GHS",
       callback_url,
-      metadata: meta,
+      metadata: body.meta,                         // we’ll read this on callback
     };
 
-    const psRes = await fetch("https://api.paystack.co/transaction/initialize", {
+    const ps = await fetch("https://api.paystack.co/transaction/initialize", {
       method: "POST",
-      headers: { Authorization: `Bearer ${sk}`, "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      headers: {
+        Authorization: `Bearer ${secret}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(initPayload),
     });
 
-    // Parse JSON without `any`
-    let parsed: unknown = null;
-    try {
-      parsed = await psRes.json();
-    } catch {
-      parsed = null;
+    const json = (await ps.json()) as PaystackInitOk | PaystackInitErr;
+    if (!ps.ok || json.status !== true) {
+      return NextResponse.json({ error: json?.message || "Paystack init failed" }, { status: 400 });
     }
 
-    const obj = (parsed && typeof parsed === "object") ? (parsed as Record<string, unknown>) : {};
-    const statusVal = typeof obj["status"] === "boolean" ? (obj["status"] as boolean) : undefined;
-    const message = typeof obj["message"] === "string" ? (obj["message"] as string) : undefined;
-
-    const dataObj =
-      obj["data"] && typeof obj["data"] === "object"
-        ? (obj["data"] as Record<string, unknown>)
-        : undefined;
-
-    const authorization_url =
-      dataObj && typeof dataObj["authorization_url"] === "string"
-        ? (dataObj["authorization_url"] as string)
-        : undefined;
-
-    const access_code =
-      dataObj && typeof dataObj["access_code"] === "string"
-        ? (dataObj["access_code"] as string)
-        : undefined;
-
-    const reference =
-      dataObj && typeof dataObj["reference"] === "string"
-        ? (dataObj["reference"] as string)
-        : undefined;
-
-    if (!psRes.ok || statusVal === false || !authorization_url) {
-      return Response.json(
-        { ok: false, error: message || "Failed to initialize with Paystack", details: obj },
-        { status: 400 }
-      );
-    }
-
-    return Response.json(
-      { ok: true, authorization_url, reference, access_code },
-      { status: 200 }
-    );
-  } catch {
-    return Response.json({ ok: false, error: "Server error initializing payment" }, { status: 500 });
+    // Return hosted checkout URL
+    return NextResponse.json({
+      authorization_url: json.data.authorization_url,
+      reference: json.data.reference,
+    });
+  } catch (e) {
+    return NextResponse.json({ error: (e as Error).message || "Server error" }, { status: 500 });
   }
 }
