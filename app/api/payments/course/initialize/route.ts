@@ -6,8 +6,8 @@ type InitBody = {
   email: string;
   course_id: string;
   slug: string;
-  amount: number;        // major units, e.g. 300 for GHS 300.00
-  currency?: string;     // default "GHS"
+  amount: number;
+  currency?: string;
 };
 
 type EnrollmentUpsert = {
@@ -18,24 +18,23 @@ type EnrollmentUpsert = {
   intent_amount_major?: number | null;
 };
 
+// Optional: make GET return a friendly message instead of a 400 in console
+export async function GET() {
+  return NextResponse.json({
+    ok: false,
+    message: "Use POST with JSON body: { user_id, email, course_id, slug, amount, currency? }",
+  });
+}
+
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as Partial<InitBody>;
-    const {
-      user_id,
-      email,
-      course_id,
-      slug,
-      amount,
-      currency = "GHS",
-    } = body;
-
+    const b = (await req.json()) as Partial<InitBody>;
     const missing: string[] = [];
-    if (!user_id) missing.push("user_id");
-    if (!email) missing.push("email");
-    if (!course_id) missing.push("course_id");
-    if (!slug) missing.push("slug");
-    if (amount === undefined || amount === null || Number.isNaN(Number(amount))) {
+    if (!b.user_id) missing.push("user_id");
+    if (!b.email) missing.push("email");
+    if (!b.course_id) missing.push("course_id");
+    if (!b.slug) missing.push("slug");
+    if (b.amount === undefined || b.amount === null || Number.isNaN(Number(b.amount))) {
       missing.push("amount");
     }
     if (missing.length) {
@@ -53,30 +52,28 @@ export async function POST(req: Request) {
       );
     }
 
-    const amountMinor = Math.round(Number(amount) * 100);
+    const currency = b.currency || "GHS";
+    const amountMinor = Math.round(Number(b.amount) * 100);
 
     const origin =
       process.env.NEXT_PUBLIC_SITE_URL ||
       process.env.NEXT_PUBLIC_BASE_URL ||
       new URL(req.url).origin;
 
-    const callbackUrl = `${origin}/knowledge/${encodeURIComponent(
-      slug!
-    )}/enroll?verify=1`;
+    const callbackUrl = `${origin}/knowledge/${encodeURIComponent(b.slug!)}/enroll?verify=1`;
 
+    // record intent
     const supabase = getSupabaseAdmin();
     const upsertRow: EnrollmentUpsert = {
-      user_id: user_id!,
-      course_id: course_id!,
+      user_id: b.user_id!,
+      course_id: b.course_id!,
       paid: false,
-      intent_currency: currency ?? null,
-      intent_amount_major: Number.isFinite(Number(amount)) ? Number(amount) : null,
+      intent_currency: currency,
+      intent_amount_major: Number(b.amount),
     };
-    await supabase
-      .from("enrollments")
-      .upsert(upsertRow, { onConflict: "user_id,course_id" });
+    await supabase.from("enrollments").upsert(upsertRow, { onConflict: "user_id,course_id" });
 
-    const reference = `pv_${course_id}_${Date.now()}`;
+    const reference = `pv_${b.course_id}_${Date.now()}`;
 
     const initRes = await fetch("https://api.paystack.co/transaction/initialize", {
       method: "POST",
@@ -85,23 +82,19 @@ export async function POST(req: Request) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        email,
+        email: b.email,
         amount: amountMinor,
         currency,
         reference,
         callback_url: callbackUrl,
-        metadata: { user_id, course_id, slug, product: "course" },
+        metadata: { user_id: b.user_id, course_id: b.course_id, slug: b.slug, product: "course" },
       }),
     });
 
     const initJson = await initRes.json();
     if (!initRes.ok || initJson?.status === false) {
       return NextResponse.json(
-        {
-          ok: false,
-          error: initJson?.message || `Paystack init failed (${initRes.status})`,
-          raw: initJson,
-        },
+        { ok: false, error: initJson?.message || "Paystack init failed", raw: initJson },
         { status: 400 }
       );
     }
