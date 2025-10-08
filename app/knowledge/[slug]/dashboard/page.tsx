@@ -1,3 +1,4 @@
+// app/knowledge/[slug]/dashboard/page.tsx
 "use client";
 
 import Image from "next/image";
@@ -173,18 +174,18 @@ export default function CourseDashboard() {
       if (!c) { router.push("/knowledge"); return; }
       setCourse(c);
 
-      // soft paywall
-      try {
-        const { data: enr } = await supabase
-          .from("enrollments")
-          .select("paid")
-          .eq("user_id", userId).eq("course_id", c.id)
-          .maybeSingle();
-        if (enr && enr.paid === false) {
-          router.push(`/knowledge/${c.slug}/enroll`);
-          return;
-        }
-      } catch {}
+      // 🔒 STRICT PAYWALL: must have an enrollment row with paid === true
+      const { data: enr, error: enrErr } = await supabase
+        .from("enrollments")
+        .select("paid")
+        .eq("user_id", userId)
+        .eq("course_id", c.id)
+        .maybeSingle();
+
+      if (enrErr || !enr || enr.paid !== true) {
+        router.replace(`/knowledge/${c.slug}/enroll`);
+        return; // stop here; don't load content
+      }
 
       // chapters (ordered)
       const { data: ch } = await supabase
@@ -223,7 +224,7 @@ export default function CourseDashboard() {
         initializedRef.current = true;
       }
 
-      // slide progress
+      // slide progress (✅ preserves user progress)
       try {
         const { data: prog } = await supabase
           .from("user_slide_progress")
@@ -367,8 +368,7 @@ export default function CourseDashboard() {
     return Math.max(0, orderedIds.length - 1); // all slides done
   }, [orderedIds, completed]);
 
-  // extra lock at chapter boundaries: if an entire chapter's slides are done but its quiz isn't completed,
-  // block the first slide of the *next* chapter.
+  // extra lock at chapter boundaries
   const boundaryLockedIndex = useMemo(() => {
     for (let i = 0; i < chapterOrder.length; i++) {
       const chId = chapterOrder[i];
@@ -379,7 +379,6 @@ export default function CourseDashboard() {
       const quizDone = completedQuizzes.includes(chId);
 
       if (allDone && !quizDone) {
-        // lock at last slide of this chapter (so next chapter is blocked)
         return chapterLastSlideIndex[chId] ?? firstIncompleteIndex;
       }
     }
@@ -398,7 +397,7 @@ export default function CourseDashboard() {
   const done = completed.length;
   const pct = totalSlides === 0 ? 0 : Math.round((done / totalSlides) * 100);
 
-  /** Mark slide as done — instant unlock & optional auto-advance */
+  /** Mark slide as done — preserves progress */
   async function markDone(slide: Slide | null) {
     if (!slide || !userId || !course) return;
     try {
@@ -416,7 +415,7 @@ export default function CourseDashboard() {
 
       setNotice("Marked as done ✓");
 
-      // Re-check access and move if allowed (within same chapter unless boundary-locked)
+      // Re-check access and move if allowed
       const idx = orderedIds.indexOf(slide.id);
       if (idx > -1 && idx + 1 < orderedIds.length) {
         const next = orderedSlides[idx + 1];
@@ -537,7 +536,6 @@ export default function CourseDashboard() {
   }, [orderedIds, completed]);
 
   const allChapterQuizzesDone = useMemo(() => {
-    // if a chapter has a quiz pool, it must be completed
     return chapters.every(ch => {
       const hasQuiz = (quizByChapter[ch.id]?.length ?? 0) > 0;
       return !hasQuiz || completedQuizzes.includes(ch.id);
@@ -573,13 +571,13 @@ export default function CourseDashboard() {
         if (e.key === "PrintScreen") e.preventDefault();
       };
       const onBeforeUnload = (e: BeforeUnloadEvent) => {
-        void submitFinalExam(true); // auto-end
+        void submitFinalExam(true);
         e.preventDefault();
         e.returnValue = "";
       };
       const onVisibility = () => {
         if (document.visibilityState === "hidden") {
-          void submitFinalExam(true); // auto-end on tab hide/switch
+          void submitFinalExam(true);
         }
       };
 
@@ -627,7 +625,6 @@ export default function CourseDashboard() {
   }
 
   function beginFinalExam() {
-    // called only after acceptance
     if (!navigator.onLine) {
       setNotice("You are offline. Please reconnect to a stable internet connection before starting.");
       setTimeout(() => setNotice(""), 2000);
@@ -695,11 +692,9 @@ export default function CourseDashboard() {
         created_at: new Date().toISOString(),
         meta: { autoSubmit: auto, total, correctCount } as Record<string, unknown>,
       });
-      // lock future attempts
       setFinalAttemptExists(true);
     } catch {}
 
-    // close exam modal + show result modal
     setFinalExamOpen(false);
     setFinalTimeLeft(0);
     setFinalAnswers({});
@@ -761,7 +756,6 @@ export default function CourseDashboard() {
   const canGoPrev = activeIndex > 0;
   const canGoNext = activeIndex > -1 && (activeIndex + 1) <= maxAccessibleIndex;
 
-  // is this the last slide of its chapter?
   const isLastSlideOfChapter = useMemo(() => {
     if (!activeSlide) return false;
     const lastIdx = chapterLastSlideIndex[activeSlide.chapter_id];
@@ -788,7 +782,6 @@ export default function CourseDashboard() {
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="text-xl md:text-2xl font-semibold">{course.title}</div>
-          {/* Final Exam CTA appears next to the title once unlocked */}
           {finalExam && finalExamQuestions.length > 0 && (
             <>
               {!canTakeFinal && !finalAttemptExists && (
@@ -829,7 +822,7 @@ export default function CourseDashboard() {
         </div>
       </div>
 
-      {/* Pre-test checklist banner (general reminder) */}
+      {/* Pre-test checklist banner */}
       <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs md:text-sm">
         <div className="font-semibold mb-1">Before starting any test:</div>
         <ul className="list-disc pl-5 grid gap-1">
@@ -1089,9 +1082,7 @@ export default function CourseDashboard() {
       {/* Final Exam Modal */}
       {finalExamOpen && finalExam && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 select-none">
-          {/* backdrop */}
           <div className="absolute inset-0 bg-black/50" />
-          {/* card */}
           <div className="relative z-10 w-full max-w-3xl rounded-2xl bg-white border border-light p-5 max-h-[92vh] overflow-auto">
             <div className="flex items-center justify-between gap-3">
               <div className="text-lg font-semibold">{finalExam.title || "Final Exam"}</div>
@@ -1103,7 +1094,6 @@ export default function CourseDashboard() {
               </div>
             </div>
 
-            {/* Warnings (shown again inside exam) */}
             <div className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2">
               <ul className="list-disc pl-5 grid gap-1">
                 <li>Timer cannot be paused.</li>
@@ -1113,7 +1103,6 @@ export default function CourseDashboard() {
               </ul>
             </div>
 
-            {/* Questions */}
             <div className="mt-4 grid gap-4">
               {finalExamQuestions.map((q, idx) => (
                 <div key={q.id} className="rounded-lg p-3 ring-1 ring-[color:var(--color-light)]">
@@ -1139,14 +1128,12 @@ export default function CourseDashboard() {
               ))}
             </div>
 
-            {/* Internet state */}
             {!isOnline && (
               <div className="mt-3 text-xs text-red-700 bg-red-50 border border-red-200 rounded-md p-2">
                 You are offline. Stay online to ensure your answers are saved.
               </div>
             )}
 
-            {/* Actions */}
             <div className="mt-5 flex items-center justify-end gap-2">
               <button
                 type="button"
@@ -1160,7 +1147,7 @@ export default function CourseDashboard() {
         </div>
       )}
 
-      {/* Results Modal (Final score + all chapter quiz scores) */}
+      {/* Results Modal */}
       {resultOpen && finalResult && finalExam && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50" onClick={() => setResultOpen(false)} />
