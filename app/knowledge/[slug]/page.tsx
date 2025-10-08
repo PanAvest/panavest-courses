@@ -2,8 +2,7 @@
 import "server-only";
 import Image from "next/image";
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { supabase } from "@/lib/supabaseClient";
 
 export const dynamic = "force-dynamic";
 
@@ -12,11 +11,9 @@ export default async function CoursePreview({
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  // Next 15 passes params as a Promise
   const { slug } = await params;
 
-  // Server-side admin client (RLS-safe for published content)
-  const supabase = getSupabaseAdmin();
+  // Use anon client like your index page
   const { data: c, error } = await supabase
     .from("courses")
     .select(
@@ -27,7 +24,11 @@ export default async function CoursePreview({
     .maybeSingle();
 
   if (error || !c) {
-    notFound();
+    return (
+      <div className="mx-auto max-w-screen-lg px-4 py-10">
+        Course not found.
+      </div>
+    );
   }
 
   const price = Number(c.price ?? 0).toFixed(2);
@@ -49,9 +50,7 @@ export default async function CoursePreview({
           <div className="p-5">
             <h1 className="text-2xl font-bold">{c.title}</h1>
             {c.description && (
-              <p className="mt-2 text-muted whitespace-pre-wrap">
-                {c.description}
-              </p>
+              <p className="mt-2 text-muted whitespace-pre-wrap">{c.description}</p>
             )}
           </div>
         </div>
