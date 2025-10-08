@@ -1,31 +1,32 @@
 // app/knowledge/[slug]/page.tsx
+import "server-only";
 import Image from "next/image";
 import Link from "next/link";
-import { supabase } from "@/lib/supabaseClient";
+import { notFound } from "next/navigation";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
 
-type Props = {
-  params: Promise<{ slug: string }>;
-};
+type Params = { slug: string };
+type Props = { params: Params | Promise<Params> };
 
 export default async function CoursePreview({ params }: Props) {
-  const { slug } = await params;
+  // Support both Next 15 "Promise params" and plain object params
+  const p = (typeof (params as any)?.then === "function")
+    ? await (params as Promise<Params>)
+    : (params as Params);
+  const slug = p.slug;
 
-  const { data: c } = await supabase
+  const supabase = getSupabaseAdmin();
+  const { data: c, error } = await supabase
     .from("courses")
-    .select(
-      "id,slug,title,description,img,price,currency,cpd_points,published"
-    )
+    .select("id,slug,title,description,img,price,currency,cpd_points,published")
     .eq("slug", slug)
+    .eq("published", true) // keep consistent with listing
     .maybeSingle();
 
-  if (!c || !c.published) {
-    return (
-      <div className="mx-auto max-w-screen-lg px-4 py-10">
-        Course not found.
-      </div>
-    );
+  if (error || !c) {
+    notFound();
   }
 
   const price = Number(c.price ?? 0).toFixed(2);
@@ -47,9 +48,7 @@ export default async function CoursePreview({ params }: Props) {
           <div className="p-5">
             <h1 className="text-2xl font-bold">{c.title}</h1>
             {c.description && (
-              <p className="mt-2 text-muted whitespace-pre-wrap">
-                {c.description}
-              </p>
+              <p className="mt-2 text-muted whitespace-pre-wrap">{c.description}</p>
             )}
           </div>
         </div>
