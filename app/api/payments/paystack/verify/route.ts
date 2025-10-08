@@ -1,61 +1,104 @@
-// app/api/payments/paystack/verify/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
-type VerifyApiResponse = {
-  status: boolean;
-  message: string;
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+type VerifyPayload = {
+  status?: boolean;
+  message?: string;
   data?: {
-    status: "success" | "failed" | "abandoned" | string;
-    reference: string;
-    amount: number;
-    currency: string;
-    metadata?: {
-      user_id?: string;
-      course_id?: string;
-      slug?: string;
-      purchase_type?: "course" | "ebook";
-      ebook_id?: string;
-      book_slug?: string;
-    } | null;
-    customer?: { email?: string } | null;
+    status?: string;                // "success" | ...
+    reference?: string;
+    amount?: number;                // minor units
+    currency?: string;
+    customer?: { email?: string | null } | null;
+    metadata?: Record<string, unknown> | null;
   };
 };
 
 export async function GET(req: NextRequest) {
-  const secret = process.env.PAYSTACK_SECRET_KEY;
-  if (!secret) return NextResponse.json({ error: "PAYSTACK_SECRET_KEY missing" }, { status: 500 });
-
-  const reference = req.nextUrl.searchParams.get("reference");
-  if (!reference) return NextResponse.json({ error: "reference required" }, { status: 400 });
-
-  const res = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
-    headers: { Authorization: `Bearer ${secret}`, Accept: "application/json" },
-    cache: "no-store",
-  });
-  const data = (await res.json()) as VerifyApiResponse;
-
-  if (!res.ok || !data.status || !data.data) {
-    return NextResponse.json({ ok: false, message: data?.message || "Verify failed" }, { status: 400 });
+  const sk = process.env.PAYSTACK_SECRET_KEY;
+  if (!sk) {
+    return Response.json({ ok: false, error: "Missing PAYSTACK_SECRET_KEY" }, { status: 500 });
   }
 
-  // Only proceed on success
-  if (data.data.status !== "success") {
-    return NextResponse.json({ ok: false, message: `Status: ${data.data.status}` }, { status: 400 });
+  const url = new URL(req.url);
+  // Paystack sometimes returns both; handle either.
+  const reference =
+    url.searchParams.get("reference") || url.searchParams.get("trxref");
+
+  if (!reference) {
+    return Response.json({ ok: false, error: "Missing reference" }, { status: 400 });
   }
 
-  // Mark the user as paid (course)
-  const md = data.data.metadata ?? {};
-  const userId = md.user_id as string | undefined;
-  const courseId = md.course_id as string | undefined;
+  // Verify with Paystack
+  const psRes = await fetch(
+    `https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`,
+    { headers: { Authorization: `Bearer ${sk}` } }
+  );
 
-  if (userId && courseId) {
-    const admin = getSupabaseAdmin();
-    await admin.from("enrollments").upsert(
-      { user_id: userId, course_id: courseId, paid: true },
-      { onConflict: "user_id,course_id" },
+  let parsed: unknown = null;
+  try {
+    parsed = await psRes.json();
+  } catch {
+    // ignore parse errors; leave parsed as null
+  }
+
+  const obj = (parsed && typeof parsed === "object" ? parsed : {}) as VerifyPayload;
+
+  const okFlag = obj.status === true;
+  const data = obj.data ?? {};
+
+  const psStatus = data.status || "";
+  const amountMinor = typeof data.amount === "number" ? data.amount : undefined;
+  const currency = (data.currency || "GHS")!.toUpperCase();
+  const meta = (data.metadata && typeof data.metadata === "object"
+    ? (data.metadata as Record<string, unknown>)
+    : {}) as Record<string, unknown>;
+
+  const user_id = typeof meta.user_id === "string" ? meta.user_id : null;
+  const course_id = typeof meta.course_id === "string" ? meta.course_id : null;
+  const slug = typeof meta.slug === "string" ? meta.slug : null;
+
+  if (!okFlag || psStatus !== "success") {
+    return Response.json(
+      { ok: false, error: obj.message || "Verification failed", data: obj.data },
+      { status: 400 }
     );
   }
 
-  return NextResponse.json({ ok: true });
+  if (!user_id || !course_id || !slug) {
+    return Response.json(
+      { ok: false, error: "Missing metadata (user_id, course_id, slug)" },
+      { status: 400 }
+    );
+  }
+
+  // Mark enrollment as paid (idempotent)
+  const supabase = getSupabaseAdmin();
+  const upsert = await supabase
+    .from("enrollments")
+    .upsert(
+      {
+        user_id,
+        course_id,
+        paid: true,
+        updated_at: new Date().toISOString(),
+        paystack_reference: reference,
+        amount_minor: amountMinor,
+        currency,
+      },
+      { onConflict: "user_id,course_id" }
+    )
+    .select("user_id");
+
+  if (upsert.error) {
+    return Response.json(
+      { ok: false, error: `DB error: ${upsert.error.message}` },
+      { status: 500 }
+    );
+  }
+
+  return Response.json({ ok: true, slug, reference }, { status: 200 });
 }

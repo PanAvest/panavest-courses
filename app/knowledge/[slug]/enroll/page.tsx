@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 type Course = { id: string; slug: string; title: string; price: number; currency?: string };
@@ -9,6 +9,7 @@ type Course = { id: string; slug: string; title: string; price: number; currency
 export default function EnrollPage() {
   const params = useParams<{ slug: string }>();
   const router = useRouter();
+  const search = useSearchParams();
 
   const [userId, setUserId] = useState<string>("");
   const [email, setEmail] = useState<string>("");
@@ -47,6 +48,29 @@ export default function EnrollPage() {
     })();
   }, [params?.slug, router]);
 
+  // If user returned from Paystack, verify immediately (supports ?reference=... or ?trxref=...)
+  useEffect(() => {
+    const ref = search.get("reference") || search.get("trxref");
+    const shouldVerify = search.get("verify") === "1" && !!ref;
+    if (!shouldVerify) return;
+
+    (async () => {
+      try {
+        const res = await fetch(`/api/payments/paystack/verify?reference=${encodeURIComponent(ref!)}`, { cache: "no-store" });
+        const data = await res.json();
+        if (data?.ok) {
+          setNotice("Payment verified. Redirecting…");
+          router.replace(`/knowledge/${params.slug}/dashboard`);
+        } else {
+          setNotice(data?.error || data?.message || "Could not verify payment yet. If you were charged, the webhook will sync shortly.");
+        }
+      } catch {
+        setNotice("Verification failed. If charged, it will auto-resolve via webhook shortly.");
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // run once on mount
+
   // Pay with Paystack
   async function payNow() {
     if (!userId || !email || !course) return;
@@ -67,7 +91,7 @@ export default function EnrollPage() {
             kind: "course",
             user_id: userId,
             course_id: course.id,
-            slug: params.slug, // used by server to redirect back nicely
+            slug: params.slug, // used by server / callback
           },
         }),
       });
@@ -80,7 +104,7 @@ export default function EnrollPage() {
 
       // Send user to hosted checkout
       window.location.href = data.authorization_url;
-    } catch (err) {
+    } catch {
       setNotice("Something went wrong starting the payment. Please try again.");
     }
   }
