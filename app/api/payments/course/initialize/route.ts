@@ -1,27 +1,18 @@
-// app/api/payments/course/initialize/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 type InitBody = {
   user_id: string;
   email: string;
   course_id: string;
   slug: string;
-  amount: number;           // major units (e.g., 120.50 GHS)
-  currency?: string;        // default "GHS"
+  amount: number;        // major units (e.g. 300 for GHS 300.00)
+  currency?: string;     // default "GHS"
 };
 
-type PaystackInitApiResponse = {
-  status: boolean;
-  message: string;
-  data?: {
-    authorization_url: string;
-    access_code: string;
-    reference: string;
-  };
-};
-
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
+    const body = (await req.json()) as Partial<InitBody>;
     const {
       user_id,
       email,
@@ -29,58 +20,111 @@ export async function POST(req: NextRequest) {
       slug,
       amount,
       currency = "GHS",
-    } = (await req.json()) as unknown as InitBody;
+    } = body;
 
-    if (!user_id || !email || !course_id || !slug)
-      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+    // Validate inputs with helpful messages
+    const missing: string[] = [];
+    if (!user_id)  missing.push("user_id");
+    if (!email)    missing.push("email");
+    if (!course_id) missing.push("course_id");
+    if (!slug)     missing.push("slug");
+    if (amount === undefined || amount === null || Number.isNaN(Number(amount)))
+      missing.push("amount");
 
-    const secret = process.env.PAYSTACK_SECRET_KEY;
-    if (!secret) {
-      return NextResponse.json({ error: "PAYSTACK_SECRET_KEY missing" }, { status: 500 });
-    }
-
-    // Paystack wants the amount in the **smallest** currency unit.
-    const amountMinor = Math.round(Number(amount) * 100);
-    const origin = req.nextUrl.origin; // e.g. https://panavest-courses.vercel.app
-
-    const payload = {
-      email,
-      amount: amountMinor,
-      currency,
-      callback_url: `${origin}/knowledge/${slug}/enroll?verify=1`,
-      metadata: {
-        user_id,
-        course_id,
-        slug,
-        purchase_type: "course",
-      } as Record<string, unknown>,
-    };
-
-    const res = await fetch("https://api.paystack.co/transaction/initialize", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${secret}`,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify(payload),
-      cache: "no-store",
-    });
-
-    const data = (await res.json()) as PaystackInitApiResponse;
-
-    if (!res.ok || !data.status || !data.data) {
+    if (missing.length) {
       return NextResponse.json(
-        { error: data?.message || "Failed to create Paystack payment" },
+        { ok: false, error: `Missing or invalid fields: ${missing.join(", ")}` },
         { status: 400 },
       );
     }
 
-    return NextResponse.json({
-      authorization_url: data.data.authorization_url,
-      reference: data.data.reference,
+    const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY;
+    if (!PAYSTACK_SECRET) {
+      return NextResponse.json(
+        { ok: false, error: "Server is missing PAYSTACK_SECRET_KEY env var" },
+        { status: 500 },
+      );
+    }
+
+    // Prepare amounts in minor units (Paystack requirement)
+    const amountMinor = Math.round(Number(amount) * 100);
+
+    // Build redirect back to your enroll page to trigger verification
+    const origin = process.env.NEXT_PUBLIC_SITE_URL
+      || process.env.NEXT_PUBLIC_BASE_URL
+      || new URL(req.url).origin;
+
+    const callbackUrl = `${origin}/knowledge/${encodeURIComponent(
+      slug!,
+    )}/enroll?verify=1`;
+
+    // Optional: pre-create/mark an enrollment row as "pending"
+    const supabase = getSupabaseAdmin();
+    await supabase
+      .from("enrollments")
+      .upsert(
+        {
+          user_id: user_id!,
+          course_id: course_id!,
+          paid: false,
+          // optionally record intent details for debugging
+          intent_currency: currency,
+          intent_amount_major: Number(amount),
+        } as any,
+        { onConflict: "user_id,course_id" },
+      );
+
+    // Generate a unique reference you can also store if you want
+    const reference = `pv_${course_id}_${Date.now()}`;
+
+    // Initialize Paystack
+    const initRes = await fetch("https://api.paystack.co/transaction/initialize", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${PAYSTACK_SECRET}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email,
+        amount: amountMinor,
+        currency,               // e.g. "GHS"
+        reference,
+        callback_url: callbackUrl,
+        metadata: {
+          user_id,
+          course_id,
+          slug,
+          product: "course",
+        },
+      }),
     });
-  } catch {
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+
+    const initJson = await initRes.json();
+    if (!initRes.ok || initJson?.status === false) {
+      // Paystack error bubble up for easier debugging
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            initJson?.message ||
+            `Paystack init failed with ${initRes.status}`,
+          raw: initJson,
+        },
+        { status: 400 },
+      );
+    }
+
+    // Success
+    return NextResponse.json({
+      ok: true,
+      authorization_url: initJson.data.authorization_url as string,
+      access_code: initJson.data.access_code as string,
+      reference: initJson.data.reference as string, // usually same as we sent
+    });
+  } catch (err: unknown) {
+    return NextResponse.json(
+      { ok: false, error: "Malformed request body or server error" },
+      { status: 400 },
+    );
   }
 }
