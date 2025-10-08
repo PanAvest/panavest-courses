@@ -11,23 +11,18 @@ type Params = { slug: string };
 type Props = { params: Params | Promise<Params> };
 
 export default async function CoursePreview({ params }: Props) {
-  // Support both Next 15 "Promise params" and plain object params
-  const p = (typeof (params as any)?.then === "function")
-    ? await (params as Promise<Params>)
-    : (params as Params);
-  const slug = p.slug;
+  // Works whether `params` is a Promise or a plain object (Next 15 compat), no `any`
+  const { slug } = await Promise.resolve(params);
 
   const supabase = getSupabaseAdmin();
   const { data: c, error } = await supabase
     .from("courses")
     .select("id,slug,title,description,img,price,currency,cpd_points,published")
     .eq("slug", slug)
-    .eq("published", true) // keep consistent with listing
+    .eq("published", true)
     .maybeSingle();
 
-  if (error || !c) {
-    notFound();
-  }
+  if (error || !c) notFound();
 
   const price = Number(c.price ?? 0).toFixed(2);
   const currency = c.currency || "GHS";
