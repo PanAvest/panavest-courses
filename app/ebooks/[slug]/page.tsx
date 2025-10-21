@@ -7,6 +7,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import * as pdfjs from "pdfjs-dist";
 
+// Minimal PDF.js typings to avoid any
+type PdfHttpHeaders = Record<string,string>;
+interface PdfLoadingTask<TDoc>{ promise: Promise<TDoc>; }
+interface PdfJsAPI<TDoc>{
+  getDocument:(params:{url:string;withCredentials?:boolean;httpHeaders?:PdfHttpHeaders;})=>PdfLoadingTask<TDoc>;
+  GlobalWorkerOptions:{workerSrc:string};
+}
+
 type Ebook = {
   id: string;
   slug: string;
@@ -236,7 +244,7 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
     }
 
     // Let PDF.js fetch the secure URL itself, including cookies + Authorization header
-    const loadingTask = (pdfjs as any).getDocument({
+    const loadingTask = (pdfjs as unknown as PdfJsAPI<PdfDoc>).getDocument({
       url: `/api/ebooks/secure-pdf?ebookId=${encodeURIComponent(ebook.id)}`,
       withCredentials: true,
       httpHeaders: { Authorization: `Bearer ${accessToken}` },
