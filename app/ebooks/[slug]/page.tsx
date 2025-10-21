@@ -43,7 +43,7 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
 
   const [own, setOwn] = useState<OwnershipState>({ kind: "loading" });
   const [userId, setUserId] = useState<string>("");
-  const [email, setEmail] = useState<string>(""); // Paystack init
+  const [email, setEmail] = useState<string>("");
   const [buying, setBuying] = useState(false);
   const [verifying, setVerifying] = useState<string | null>(null);
 
@@ -151,13 +151,11 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
     setVerifying(ref);
 
     (async () => {
-      // Kick server-side verify (handles ebook now)
       try {
         await fetch(`/api/payments/paystack/verify?reference=${encodeURIComponent(ref)}`, { method: "GET" })
           .then(r => r.json()).catch(()=>null);
       } catch {}
 
-      // Poll Supabase for up to ~30s
       while (!stopped && tries < 15) {
         tries += 1;
         try {
@@ -224,14 +222,28 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
     }
   }
 
-  /** PDF helpers */
+  /** PDF helpers — stream with Authorization header so server can auth */
   async function ensurePdfDoc(): Promise<PdfDoc | null> {
     if (pdfDocRef.current) return pdfDocRef.current;
     if (!ebook?.id) return null;
-    const doc = await pdfjs.getDocument({
+
+    // Get the current access token from Supabase (stored in localStorage)
+    const { data: { session } } = await supabase.auth.getSession();
+    const accessToken = session?.access_token;
+    if (!accessToken) {
+      setRenderError("You must be signed in to read this e-book.");
+      return null;
+    }
+
+    // Let PDF.js fetch the secure URL itself, including cookies + Authorization header
+    const loadingTask = (pdfjs as any).getDocument({
       url: `/api/ebooks/secure-pdf?ebookId=${encodeURIComponent(ebook.id)}`,
-    }).promise;
-    pdfDocRef.current = doc as unknown as PdfDoc;
+      withCredentials: true,
+      httpHeaders: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    const doc = await loadingTask.promise;
+    pdfDocRef.current = doc as PdfDoc;
     return pdfDocRef.current;
   }
 
