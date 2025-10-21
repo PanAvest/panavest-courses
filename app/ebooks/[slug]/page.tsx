@@ -12,9 +12,9 @@ type PdfHttpHeaders = Record<string, string>;
 interface PdfLoadingTask<TDoc> { promise: Promise<TDoc>; }
 interface PdfJsAPI<TDoc> {
   getDocument: (params: {
-    /** we use `data` to avoid PDF.js internal fetch */
-    data?: ArrayBuffer;
-    /** url left optional for future use */
+    /** we prefer bytes to avoid any internal fetch */
+    data?: ArrayBuffer | Uint8Array;
+    /** URL kept for future fallback if needed */
     url?: string;
     withCredentials?: boolean;
     httpHeaders?: PdfHttpHeaders;
@@ -49,12 +49,12 @@ type PdfPage = {
 };
 type PdfDoc = { numPages: number; getPage(n: number): Promise<PdfPage> };
 
-export default function EbookDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+export default function EbookDetailPage({ params }: { params: { slug: string } }) {
   const router = useRouter();
   const search = useSearchParams();
+  const slug = params.slug; // ✅ correct: params is not a Promise
 
   const [ebook, setEbook] = useState<Ebook | null>(null);
-  const [slug, setSlug] = useState("");
   const [err, setErr] = useState<string | null>(null);
 
   const [own, setOwn] = useState<OwnershipState>({ kind: "loading" });
@@ -109,9 +109,6 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
       setPdfReady(false);
     }
   }, []);
-
-  /** Resolve slug */
-  useEffect(() => { (async () => setSlug((await params).slug))(); }, [params]);
 
   /** Auth (view page ok; login required to buy/read) */
   useEffect(() => {
@@ -230,19 +227,15 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
     }
   }
 
-  /** PDF: fetch BYTES with auth, then hand to PDF.js (prevents 401) */
+  /** PDF: fetch BYTES with auth, then hand to PDF.js */
   async function ensurePdfDoc(): Promise<PdfDoc | null> {
     if (pdfDocRef.current) return pdfDocRef.current;
     if (!ebook?.id) return null;
 
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session} } = await supabase.auth.getSession();
     const accessToken = session?.access_token;
-    if (!accessToken) {
-      setRenderError("You must be signed in to read this e-book.");
-      return null;
-    }
+    if (!accessToken) { setRenderError("You must be signed in to read this e-book."); return null; }
 
-    // 1) Fetch the PDF bytes from the secure proxy (headers/cookies honored)
     const res = await fetch(
       `/api/ebooks/secure-pdf?ebookId=${encodeURIComponent(ebook.id)}`,
       {
@@ -257,8 +250,6 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
     if (!res.ok) { setRenderError(`Secure PDF request failed: ${res.status}`); return null; }
 
     const buf = await res.arrayBuffer();
-
-    // 2) Hand raw bytes to PDF.js (no internal network calls)
     const pdfApi = pdfjs as unknown as PdfJsAPI<PdfDoc>;
     const loadingTask = pdfApi.getDocument({ data: buf });
     const doc = await loadingTask.promise;
