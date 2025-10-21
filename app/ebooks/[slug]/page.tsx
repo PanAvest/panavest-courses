@@ -13,8 +13,8 @@ type Ebook = {
   title: string;
   description?: string | null;
   cover_url?: string | null;
-  sample_url?: string | null;      // Full book PDF (we gate this by ownership)
-  price_cents: number;             // minor units (GHS pesewas)
+  sample_url?: string | null;      // Full book PDF (gated by secure proxy)
+  price_cents: number;             // minor units
   published: boolean;
 };
 
@@ -43,9 +43,9 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
 
   const [own, setOwn] = useState<OwnershipState>({ kind: "loading" });
   const [userId, setUserId] = useState<string>("");
-  const [email, setEmail] = useState<string>(""); // needed for Paystack init
+  const [email, setEmail] = useState<string>(""); // Paystack init
   const [buying, setBuying] = useState(false);
-  const [verifying, setVerifying] = useState<string | null>(null); // reference string when verifying
+  const [verifying, setVerifying] = useState<string | null>(null);
 
   // Reader state
   const [pdfReady, setPdfReady] = useState(false);
@@ -60,7 +60,7 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
 
   const dashboardHref = "/dashboard";
 
-  /** Lock copy/print/save */
+  /** Hard-block copy/print */
   useEffect(() => {
     const preventAll = (e: Event) => { e.preventDefault(); e.stopPropagation(); };
     const onKey = (e: KeyboardEvent) => {
@@ -84,29 +84,27 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
     };
   }, []);
 
-  /** PDF worker from /public/vendor */
+  /** PDF worker */
   useEffect(() => {
-  try {
-    // This is properly typed in pdfjs-dist and avoids ts-comments
-    pdfjs.GlobalWorkerOptions.workerSrc = "/vendor/pdf.worker.min.mjs";
-    setPdfReady(true);
-  } catch {
-    setPdfReady(false);
-  }
-}, []);
+    try {
+      pdfjs.GlobalWorkerOptions.workerSrc = "/vendor/pdf.worker.min.mjs";
+      setPdfReady(true);
+    } catch {
+      setPdfReady(false);
+    }
+  }, []);
 
-
-  /** Resolve slug from route params */
+  /** Resolve slug */
   useEffect(() => { (async () => setSlug((await params).slug))(); }, [params]);
 
-  /** Auth (get user + email early) */
+  /** Auth (allows viewing page; login is required to buy/read) */
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setUserId("");
         setEmail("");
-        setOwn({ kind: "signed_out" });  // still allow viewing page, but gated
+        setOwn({ kind: "signed_out" });
         return;
       }
       setUserId(user.id);
@@ -143,7 +141,7 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
     })();
   }, [ebook?.id]);
 
-  /** If Paystack sent us back with a reference, verify and poll until unlocked */
+  /** Handle Paystack return (?reference=...) — verify & poll DB until unlocked */
   useEffect(() => {
     const ref = search.get("reference") || search.get("ref") || null;
     if (!ref || !ebook?.id || !userId) return;
@@ -153,14 +151,13 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
     setVerifying(ref);
 
     (async () => {
-      // 1) Try server-side verify (if route exists)
+      // Kick server-side verify (handles ebook now)
       try {
-        const resp = await fetch(`/api/payments/paystack/verify?reference=${encodeURIComponent(ref)}`, { method: "GET" });
-        // ignore failures; we will poll DB anyway
-        await resp.json().catch(() => null);
-      } catch { /* ignore */ }
+        await fetch(`/api/payments/paystack/verify?reference=${encodeURIComponent(ref)}`, { method: "GET" })
+          .then(r => r.json()).catch(()=>null);
+      } catch {}
 
-      // 2) Poll Supabase for up to ~30s
+      // Poll Supabase for up to ~30s
       while (!stopped && tries < 15) {
         tries += 1;
         try {
@@ -171,11 +168,10 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
           if (paid) {
             setOwn({ kind: "owner" });
             setVerifying(null);
-            // Clean URL (remove ?reference=…)
             router.replace(`/ebooks/${encodeURIComponent(slug)}`);
             return;
           }
-        } catch { /* ignore and keep polling */ }
+        } catch {}
         await new Promise(r => setTimeout(r, 2000));
       }
       setVerifying(null);
@@ -185,13 +181,13 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, ebook?.id, userId, slug]);
 
-  /** Price text */
+  /** Price label */
   const price = useMemo(
     () => (ebook ? `GH₵ ${(ebook.price_cents / 100).toFixed(2)}` : ""),
     [ebook]
   );
 
-  /** Start Paystack checkout (forces sign-in first) */
+  /** Start Paystack */
   async function handleBuy() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -202,9 +198,7 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
 
     setBuying(true);
     try {
-      // price_cents are already minor units (GHS pesewas)
       const amountMinor = Math.round(Number(ebook.price_cents));
-
       const res = await fetch("/api/payments/paystack/init", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -215,17 +209,14 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
             kind: "ebook",
             user_id: user.id,
             ebook_id: ebook.id,
-            slug: ebook.slug, // so server can set callback back to this page
+            slug: ebook.slug,
           },
         }),
       });
-
       const data = await res.json();
       if (!res.ok || !data?.authorization_url) {
         throw new Error(data?.error || "Failed to initialize payment.");
       }
-
-      // Off to Paystack
       window.location.href = data.authorization_url;
     } catch (e) {
       setErr((e as Error).message || "Payment init failed");
@@ -236,9 +227,10 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
   /** PDF helpers */
   async function ensurePdfDoc(): Promise<PdfDoc | null> {
     if (pdfDocRef.current) return pdfDocRef.current;
-    if (!ebook?.sample_url) return null;
-    // Secure proxy route on your server
-    const doc = await pdfjs.getDocument({ url: `/api/secure-pdf?src=${encodeURIComponent(ebook.sample_url)}` }).promise;
+    if (!ebook?.id) return null;
+    const doc = await pdfjs.getDocument({
+      url: `/api/ebooks/secure-pdf?ebookId=${encodeURIComponent(ebook.id)}`,
+    }).promise;
     pdfDocRef.current = doc as unknown as PdfDoc;
     return pdfDocRef.current;
   }
@@ -280,29 +272,29 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
   }
 
   function openReader() {
-    // Reader is only enabled if own.kind === "owner"
+    if (own.kind !== "owner") return; // hard guard
     setShowReader(true);
     queueMicrotask(async () => {
       readerWrapRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      if (pdfReady && ebook?.sample_url) await renderPdf();
+      if (pdfReady) await renderPdf();
     });
   }
 
   // Re-render on zoom
   useEffect(() => {
-    if (showReader && pdfReady && ebook?.sample_url) { void renderPdf(); }
+    if (showReader && pdfReady && ebook?.id) { void renderPdf(); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zoom]);
 
   // Re-render on resize
   useEffect(() => {
-    function onResize() { if (showReader && pdfReady && ebook?.sample_url) void renderPdf(); }
+    function onResize() { if (showReader && pdfReady && ebook?.id) void renderPdf(); }
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showReader, pdfReady, ebook?.sample_url]);
+  }, [showReader, pdfReady, ebook?.id]);
 
-  /** UI states */
+  /** UI */
   if (err) {
     return (
       <main className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 py-10">
