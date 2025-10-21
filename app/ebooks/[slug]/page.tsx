@@ -12,7 +12,7 @@ type PdfHttpHeaders = Record<string, string>;
 interface PdfLoadingTask<TDoc> { promise: Promise<TDoc>; }
 interface PdfJsAPI<TDoc> {
   getDocument: (params: {
-    data?: ArrayBuffer | Uint8Array;
+    data?: ArrayBuffer | Uint8Array; // we feed bytes to avoid internal fetch
     url?: string;
     withCredentials?: boolean;
     httpHeaders?: PdfHttpHeaders;
@@ -51,8 +51,10 @@ export default function EbookDetailPage({ params }: { params: { slug: string } }
   const router = useRouter();
   const search = useSearchParams();
 
+  // ✅ slug is synchronous from route params
+  const slug = params.slug;
+
   const [ebook, setEbook] = useState<Ebook | null>(null);
-  const [slug] = useState<string>(params.slug); // ← params is a plain object
   const [err, setErr] = useState<string | null>(null);
 
   const [own, setOwn] = useState<OwnershipState>({ kind: "loading" });
@@ -305,7 +307,7 @@ export default function EbookDetailPage({ params }: { params: { slug: string } }
   // Re-render on zoom
   useEffect(() => {
     if (showReader && pdfReady && ebook?.id) { void renderPdf(); }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zoom]);
 
   // Re-render on resize
@@ -313,7 +315,7 @@ export default function EbookDetailPage({ params }: { params: { slug: string } }
     function onResize() { if (showReader && pdfReady && ebook?.id) void renderPdf(); }
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showReader, pdfReady, ebook?.id]);
 
   /** UI */
