@@ -7,13 +7,21 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import * as pdfjs from "pdfjs-dist";
 
-// Minimal PDF.js typings to avoid any
-type PdfHttpHeaders = Record<string,string>;
-interface PdfLoadingTask<TDoc>{ promise: Promise<TDoc>; }
-interface PdfJsAPI<TDoc>{
-  getDocument:(params:{url:string;withCredentials?:boolean;httpHeaders?:PdfHttpHeaders;})=>PdfLoadingTask<TDoc>;
-  GlobalWorkerOptions:{workerSrc:string};
+/** ── Minimal PDF.js typings (no any) ─────────────────────────────── */
+type PdfHttpHeaders = Record<string, string>;
+interface PdfLoadingTask<TDoc> { promise: Promise<TDoc>; }
+interface PdfJsAPI<TDoc> {
+  getDocument: (params: {
+    /** we use `data` to avoid PDF.js internal fetch */
+    data?: ArrayBuffer;
+    /** url left optional for future use */
+    url?: string;
+    withCredentials?: boolean;
+    httpHeaders?: PdfHttpHeaders;
+  }) => PdfLoadingTask<TDoc>;
+  GlobalWorkerOptions: { workerSrc: string };
 }
+/** ───────────────────────────────────────────────────────────────── */
 
 type Ebook = {
   id: string;
@@ -21,8 +29,8 @@ type Ebook = {
   title: string;
   description?: string | null;
   cover_url?: string | null;
-  sample_url?: string | null;      // Full book PDF (gated by secure proxy)
-  price_cents: number;             // minor units
+  sample_url?: string | null; // served via secure proxy
+  price_cents: number;
   published: boolean;
 };
 
@@ -95,7 +103,7 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
   /** PDF worker */
   useEffect(() => {
     try {
-      pdfjs.GlobalWorkerOptions.workerSrc = "/vendor/pdf.worker.min.mjs";
+      (pdfjs as unknown as PdfJsAPI<PdfDoc>).GlobalWorkerOptions.workerSrc = "/vendor/pdf.worker.min.mjs";
       setPdfReady(true);
     } catch {
       setPdfReady(false);
@@ -105,15 +113,12 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
   /** Resolve slug */
   useEffect(() => { (async () => setSlug((await params).slug))(); }, [params]);
 
-  /** Auth (allows viewing page; login is required to buy/read) */
+  /** Auth (view page ok; login required to buy/read) */
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        setUserId("");
-        setEmail("");
-        setOwn({ kind: "signed_out" });
-        return;
+        setUserId(""); setEmail(""); setOwn({ kind: "signed_out" }); return;
       }
       setUserId(user.id);
       setEmail(user.email ?? "");
@@ -149,7 +154,7 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
     })();
   }, [ebook?.id]);
 
-  /** Handle Paystack return (?reference=...) — verify & poll DB until unlocked */
+  /** Handle Paystack return (?reference=...) */
   useEffect(() => {
     const ref = search.get("reference") || search.get("ref") || null;
     if (!ref || !ebook?.id || !userId) return;
@@ -211,12 +216,7 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
         body: JSON.stringify({
           email,
           amountMinor,
-          meta: {
-            kind: "ebook",
-            user_id: user.id,
-            ebook_id: ebook.id,
-            slug: ebook.slug,
-          },
+          meta: { kind: "ebook", user_id: user.id, ebook_id: ebook.id, slug: ebook.slug },
         }),
       });
       const data = await res.json();
@@ -230,12 +230,11 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
     }
   }
 
-  /** PDF helpers — stream with Authorization header so server can auth */
+  /** PDF: fetch BYTES with auth, then hand to PDF.js (prevents 401) */
   async function ensurePdfDoc(): Promise<PdfDoc | null> {
     if (pdfDocRef.current) return pdfDocRef.current;
     if (!ebook?.id) return null;
 
-    // Get the current access token from Supabase (stored in localStorage)
     const { data: { session } } = await supabase.auth.getSession();
     const accessToken = session?.access_token;
     if (!accessToken) {
@@ -243,15 +242,28 @@ export default function EbookDetailPage({ params }: { params: Promise<{ slug: st
       return null;
     }
 
-    // Let PDF.js fetch the secure URL itself, including cookies + Authorization header
-    const loadingTask = (pdfjs as unknown as PdfJsAPI<PdfDoc>).getDocument({
-      url: `/api/ebooks/secure-pdf?ebookId=${encodeURIComponent(ebook.id)}`,
-      withCredentials: true,
-      httpHeaders: { Authorization: `Bearer ${accessToken}` },
-    });
+    // 1) Fetch the PDF bytes from the secure proxy (headers/cookies honored)
+    const res = await fetch(
+      `/api/ebooks/secure-pdf?ebookId=${encodeURIComponent(ebook.id)}`,
+      {
+        credentials: "include",
+        cache: "no-store",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
 
+    if (res.status === 401) { setRenderError("Session expired or not signed in. Please sign in again."); return null; }
+    if (res.status === 403) { setRenderError("You haven’t purchased this e-book for this account."); return null; }
+    if (!res.ok) { setRenderError(`Secure PDF request failed: ${res.status}`); return null; }
+
+    const buf = await res.arrayBuffer();
+
+    // 2) Hand raw bytes to PDF.js (no internal network calls)
+    const pdfApi = pdfjs as unknown as PdfJsAPI<PdfDoc>;
+    const loadingTask = pdfApi.getDocument({ data: buf });
     const doc = await loadingTask.promise;
-    pdfDocRef.current = doc as PdfDoc;
+
+    pdfDocRef.current = doc;
     return pdfDocRef.current;
   }
 
