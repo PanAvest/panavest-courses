@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import * as pdfjs from "pdfjs-dist";
 
@@ -51,15 +51,11 @@ type PdfPage = {
 };
 type PdfDoc = { numPages: number; getPage(n: number): Promise<PdfPage> };
 
-export default function EbookDetailPage({
-  params,
-}: {
-  params: { slug: string };
-}) {
+export default function EbookDetailPage() {
   const router = useRouter();
   const search = useSearchParams();
-
-  const slug = params.slug;
+  const params = useParams<{ slug: string }>();
+  const slug = params?.slug ?? "";
 
   const [ebook, setEbook] = useState<Ebook | null>(null);
   const [err, setErr] = useState<string | null>(null);
