@@ -1,26 +1,29 @@
-// @ts-nocheck
 "use client";
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import * as pdfjs from "pdfjs-dist";
 
-/** ── Minimal PDF.js typings (kept for IDE help; ts is disabled) ─── */
+/** ── Minimal PDF.js typings (no `any`) ───────────────────────────── */
 type PdfHttpHeaders = Record<string, string>;
-interface PdfLoadingTask<TDoc> { promise: Promise<TDoc>; }
+interface PdfLoadingTask<TDoc> {
+  promise: Promise<TDoc>;
+}
 interface PdfJsAPI<TDoc> {
   getDocument: (params: {
-    data?: ArrayBuffer | Uint8Array; // we feed bytes to avoid internal fetch
+    /** Prefer bytes to avoid internal fetch */
+    data?: ArrayBuffer | Uint8Array;
+    /** URL kept for possible future fallback */
     url?: string;
     withCredentials?: boolean;
     httpHeaders?: PdfHttpHeaders;
   }) => PdfLoadingTask<TDoc>;
   GlobalWorkerOptions: { workerSrc: string };
 }
-/** ──────────────────────────────────────────────────────────────── */
+/** ───────────────────────────────────────────────────────────────── */
 
 type Ebook = {
   id: string;
@@ -48,11 +51,14 @@ type PdfPage = {
 };
 type PdfDoc = { numPages: number; getPage(n: number): Promise<PdfPage> };
 
-export default function EbookDetailPage({ params }: { params: { slug: string } }) {
+export default function EbookDetailPage({
+  params,
+}: {
+  params: { slug: string };
+}) {
   const router = useRouter();
   const search = useSearchParams();
 
-  // ✅ slug is synchronous in App Router
   const slug = params.slug;
 
   const [ebook, setEbook] = useState<Ebook | null>(null);
@@ -79,10 +85,13 @@ export default function EbookDetailPage({ params }: { params: { slug: string } }
 
   /** Hard-block copy/print */
   useEffect(() => {
-    const preventAll = (e: Event) => { e.preventDefault(); e.stopPropagation(); };
+    const preventAll = (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
     const onKey = (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
-      if ((e.ctrlKey || e.metaKey) && ["p","s","u","c","x","a"].includes(k)) preventAll(e);
+      if ((e.ctrlKey || e.metaKey) && ["p", "s", "u", "c", "x", "a"].includes(k)) preventAll(e);
     };
     const CAPTURE: AddEventListenerOptions = { capture: true };
     document.addEventListener("contextmenu", preventAll, CAPTURE);
@@ -104,7 +113,8 @@ export default function EbookDetailPage({ params }: { params: { slug: string } }
   /** PDF worker */
   useEffect(() => {
     try {
-      (pdfjs as unknown as PdfJsAPI<PdfDoc>).GlobalWorkerOptions.workerSrc = "/vendor/pdf.worker.min.mjs";
+      (pdfjs as unknown as PdfJsAPI<PdfDoc>).GlobalWorkerOptions.workerSrc =
+        "/vendor/pdf.worker.min.mjs";
       setPdfReady(true);
     } catch {
       setPdfReady(false);
@@ -114,9 +124,14 @@ export default function EbookDetailPage({ params }: { params: { slug: string } }
   /** Auth (view page ok; login required to buy/read) */
   useEffect(() => {
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
-        setUserId(""); setEmail(""); setOwn({ kind: "signed_out" }); return;
+        setUserId("");
+        setEmail("");
+        setOwn({ kind: "signed_out" });
+        return;
       }
       setUserId(user.id);
       setEmail(user.email ?? "");
@@ -128,7 +143,9 @@ export default function EbookDetailPage({ params }: { params: { slug: string } }
     if (!slug) return;
     (async () => {
       try {
-        const r = await fetch(`/api/ebooks/${encodeURIComponent(slug)}`, { cache: "no-store" });
+        const r = await fetch(`/api/ebooks/${encodeURIComponent(slug)}`, {
+          cache: "no-store",
+        });
         const j = await r.json();
         if (!r.ok) throw new Error(j?.error || r.statusText);
         setEbook(j as Ebook);
@@ -141,13 +158,27 @@ export default function EbookDetailPage({ params }: { params: { slug: string } }
   /** Ownership check */
   useEffect(() => {
     (async () => {
-      if (!ebook?.id) { setOwn({ kind: "loading" }); return; }
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setOwn({ kind: "signed_out" }); return; }
+      if (!ebook?.id) {
+        setOwn({ kind: "loading" });
+        return;
+      }
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        setOwn({ kind: "signed_out" });
+        return;
+      }
       const { data, error } = await supabase
-        .from("ebook_purchases").select("status")
-        .eq("user_id", user.id).eq("ebook_id", ebook.id).maybeSingle();
-      if (error) { setOwn({ kind: "not_owner" }); return; }
+        .from("ebook_purchases")
+        .select("status")
+        .eq("user_id", user.id)
+        .eq("ebook_id", ebook.id)
+        .maybeSingle();
+      if (error) {
+        setOwn({ kind: "not_owner" });
+        return;
+      }
       setOwn(data?.status === "paid" ? { kind: "owner" } : { kind: "not_owner" });
     })();
   }, [ebook?.id]);
@@ -163,16 +194,23 @@ export default function EbookDetailPage({ params }: { params: { slug: string } }
 
     (async () => {
       try {
-        await fetch(`/api/payments/paystack/verify?reference=${encodeURIComponent(ref)}`, { method: "GET" })
-          .then(r => r.json()).catch(()=>null);
+        await fetch(
+          `/api/payments/paystack/verify?reference=${encodeURIComponent(ref)}`,
+          { method: "GET" }
+        )
+          .then((r) => r.json())
+          .catch(() => null);
       } catch {}
 
       while (!stopped && tries < 15) {
         tries += 1;
         try {
           const { data, error } = await supabase
-            .from("ebook_purchases").select("status")
-            .eq("user_id", userId).eq("ebook_id", ebook.id).maybeSingle();
+            .from("ebook_purchases")
+            .select("status")
+            .eq("user_id", userId)
+            .eq("ebook_id", ebook.id)
+            .maybeSingle();
           const paid = !error && data?.status === "paid";
           if (paid) {
             setOwn({ kind: "owner" });
@@ -181,12 +219,14 @@ export default function EbookDetailPage({ params }: { params: { slug: string } }
             return;
           }
         } catch {}
-        await new Promise(r => setTimeout(r, 2000));
+        await new Promise((r) => setTimeout(r, 2000));
       }
       setVerifying(null);
     })();
 
-    return () => { stopped = true; };
+    return () => {
+      stopped = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, ebook?.id, userId, slug]);
 
@@ -198,7 +238,9 @@ export default function EbookDetailPage({ params }: { params: { slug: string } }
 
   /** Start Paystack */
   async function handleBuy() {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       router.push(`/auth/sign-in?redirect=${encodeURIComponent(`/ebooks/${slug}`)}`);
       return;
@@ -229,13 +271,18 @@ export default function EbookDetailPage({ params }: { params: { slug: string } }
   }
 
   /** PDF: fetch BYTES with auth, then hand to PDF.js */
-  async function ensurePdfDoc(): Promise<PdfDoc | null> {
+  const ensurePdfDoc = useCallback(async (): Promise<PdfDoc | null> => {
     if (pdfDocRef.current) return pdfDocRef.current;
     if (!ebook?.id) return null;
 
-    const { data: { session} } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     const accessToken = session?.access_token;
-    if (!accessToken) { setRenderError("You must be signed in to read this e-book."); return null; }
+    if (!accessToken) {
+      setRenderError("You must be signed in to read this e-book.");
+      return null;
+    }
 
     const res = await fetch(
       `/api/ebooks/secure-pdf?ebookId=${encodeURIComponent(ebook.id)}`,
@@ -246,9 +293,18 @@ export default function EbookDetailPage({ params }: { params: { slug: string } }
       }
     );
 
-    if (res.status === 401) { setRenderError("Session expired or not signed in. Please sign in again."); return null; }
-    if (res.status === 403) { setRenderError("You haven’t purchased this e-book for this account."); return null; }
-    if (!res.ok) { setRenderError(`Secure PDF request failed: ${res.status}`); return null; }
+    if (res.status === 401) {
+      setRenderError("Session expired or not signed in. Please sign in again.");
+      return null;
+    }
+    if (res.status === 403) {
+      setRenderError("You haven’t purchased this e-book for this account.");
+      return null;
+    }
+    if (!res.ok) {
+      setRenderError(`Secure PDF request failed: ${res.status}`);
+      return null;
+    }
 
     const buf = await res.arrayBuffer();
 
@@ -258,9 +314,9 @@ export default function EbookDetailPage({ params }: { params: { slug: string } }
 
     pdfDocRef.current = doc;
     return pdfDocRef.current;
-  }
+  }, [ebook?.id]);
 
-  async function renderPdf() {
+  const renderPdf = useCallback(async () => {
     if (!pdfContainerRef.current) return;
     const container = pdfContainerRef.current;
     setRendering(true);
@@ -294,7 +350,7 @@ export default function EbookDetailPage({ params }: { params: { slug: string } }
     } finally {
       setRendering(false);
     }
-  }
+  }, [ensurePdfDoc, zoom]);
 
   function openReader() {
     if (own.kind !== "owner") return; // hard guard
@@ -307,15 +363,19 @@ export default function EbookDetailPage({ params }: { params: { slug: string } }
 
   // Re-render on zoom
   useEffect(() => {
-    if (showReader && pdfReady && ebook?.id) { void renderPdf(); }
-  }, [zoom]);
+    if (showReader && pdfReady && ebook?.id) {
+      void renderPdf();
+    }
+  }, [showReader, pdfReady, ebook?.id, renderPdf]);
 
   // Re-render on resize
   useEffect(() => {
-    function onResize() { if (showReader && pdfReady && ebook?.id) void renderPdf(); }
+    function onResize() {
+      if (showReader && pdfReady && ebook?.id) void renderPdf();
+    }
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, [showReader, pdfReady, ebook?.id]);
+  }, [showReader, pdfReady, ebook?.id, renderPdf]);
 
   /** UI */
   if (err) {
@@ -323,7 +383,9 @@ export default function EbookDetailPage({ params }: { params: { slug: string } }
       <main className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 py-10">
         <h1 className="text-2xl font-bold">E-Book</h1>
         <p className="mt-3 text-red-600 text-sm">Error: {err}</p>
-        <Link href="/ebooks" className="mt-4 inline-block underline">Back to E-Books</Link>
+        <Link href="/ebooks" className="mt-4 inline-block underline">
+          Back to E-Books
+        </Link>
       </main>
     );
   }
@@ -339,12 +401,27 @@ export default function EbookDetailPage({ params }: { params: { slug: string } }
   return (
     <main
       className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 py-10 select-none"
-      onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
-      onDragStart={(e) => { e.preventDefault(); }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      onDragStart={(e) => {
+        e.preventDefault();
+      }}
     >
       <style jsx global>{`
-        @media print { body { display: none !important; } }
-        html, body, main, .secure-viewer, .secure-viewer * { user-select: none !important; }
+        @media print {
+          body {
+            display: none !important;
+          }
+        }
+        html,
+        body,
+        main,
+        .secure-viewer,
+        .secure-viewer * {
+          user-select: none !important;
+        }
       `}</style>
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
@@ -464,13 +541,17 @@ export default function EbookDetailPage({ params }: { params: { slug: string } }
                 {/* Toolbar */}
                 <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-light bg-white/90 px-3 py-2">
                   <button
-                    onClick={() => setZoom((z) => Math.max(0.5, Math.round((z - 0.1) * 10) / 10))}
+                    onClick={() =>
+                      setZoom((z) => Math.max(0.5, Math.round((z - 0.1) * 10) / 10))
+                    }
                     className="rounded-md px-3 py-1 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50"
                   >
                     −
                   </button>
                   <button
-                    onClick={() => setZoom((z) => Math.min(3, Math.round((z + 0.1) * 10) / 10))}
+                    onClick={() =>
+                      setZoom((z) => Math.min(3, Math.round((z + 0.1) * 10) / 10))
+                    }
                     className="rounded-md px-3 py-1 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50"
                   >
                     +
