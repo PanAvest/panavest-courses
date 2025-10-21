@@ -12,9 +12,7 @@ type PdfHttpHeaders = Record<string, string>;
 interface PdfLoadingTask<TDoc> { promise: Promise<TDoc>; }
 interface PdfJsAPI<TDoc> {
   getDocument: (params: {
-    /** we prefer bytes to avoid any internal fetch */
     data?: ArrayBuffer | Uint8Array;
-    /** URL kept for future fallback if needed */
     url?: string;
     withCredentials?: boolean;
     httpHeaders?: PdfHttpHeaders;
@@ -52,9 +50,9 @@ type PdfDoc = { numPages: number; getPage(n: number): Promise<PdfPage> };
 export default function EbookDetailPage({ params }: { params: { slug: string } }) {
   const router = useRouter();
   const search = useSearchParams();
-  const slug = params.slug; // ✅ correct: params is not a Promise
 
   const [ebook, setEbook] = useState<Ebook | null>(null);
+  const [slug] = useState<string>(params.slug); // ← params is a plain object
   const [err, setErr] = useState<string | null>(null);
 
   const [own, setOwn] = useState<OwnershipState>({ kind: "loading" });
@@ -250,6 +248,7 @@ export default function EbookDetailPage({ params }: { params: { slug: string } }
     if (!res.ok) { setRenderError(`Secure PDF request failed: ${res.status}`); return null; }
 
     const buf = await res.arrayBuffer();
+
     const pdfApi = pdfjs as unknown as PdfJsAPI<PdfDoc>;
     const loadingTask = pdfApi.getDocument({ data: buf });
     const doc = await loadingTask.promise;
@@ -306,7 +305,7 @@ export default function EbookDetailPage({ params }: { params: { slug: string } }
   // Re-render on zoom
   useEffect(() => {
     if (showReader && pdfReady && ebook?.id) { void renderPdf(); }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zoom]);
 
   // Re-render on resize
@@ -314,7 +313,7 @@ export default function EbookDetailPage({ params }: { params: { slug: string } }
     function onResize() { if (showReader && pdfReady && ebook?.id) void renderPdf(); }
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showReader, pdfReady, ebook?.id]);
 
   /** UI */
