@@ -11,9 +11,9 @@ export async function GET() {
   const users = (data?.users ?? []).map((u) => ({
     id: u.id,
     email: u.email ?? undefined,
-    email_confirmed_at: (u as unknown)?.email_confirmed_at ?? null,
+    email_confirmed_at: (u as any)?.email_confirmed_at ?? null,
     created_at: u.created_at ?? null,
-    banned: Boolean((u.app_metadata as unknown)?.banned === true),
+    banned: Boolean((u.app_metadata as any)?.banned === true),
   }));
 
   return NextResponse.json({ users });

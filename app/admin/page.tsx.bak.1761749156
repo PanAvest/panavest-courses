@@ -1,3 +1,5 @@
+// TEMP shim for legacy references (remove later if unused)
+declare const u: any;
 
 
 // Admin action type (includes delete)
