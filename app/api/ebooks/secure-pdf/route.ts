@@ -1,12 +1,13 @@
+// app/api/ebooks/secure-pdf/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
-export const runtime = "nodejs";        // ensure Node runtime (streaming ok)
-export const dynamic = "force-dynamic"; // don’t cache this route
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 function supabaseForToken(accessToken: string) {
-  // Use anon key but forward user's token so RLS runs as the user
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
   return createClient(url, anon, {
@@ -23,14 +24,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "ebookId required" }, { status: 400 });
     }
 
-    // 1) Get access token (Authorization header preferred; fallback to cookie)
+    // Token from header or cookie
     const authHeader = req.headers.get("authorization") || "";
     let token = "";
     if (authHeader.toLowerCase().startsWith("bearer ")) {
       token = authHeader.slice(7).trim();
     }
     if (!token) {
-      // Next 15 cookies() can be async; use await to be safe
       const jar = await cookies();
       token = jar.get("sb-access-token")?.value || "";
     }
@@ -40,17 +40,17 @@ export async function GET(req: NextRequest) {
 
     const sb = supabaseForToken(token);
 
-    // 2) Confirm user identity from token
+    // Confirm user
     const { data: userInfo, error: userErr } = await sb.auth.getUser();
     if (userErr || !userInfo?.user) {
       return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
     const userId = userInfo.user.id;
 
-    // 3) Load ebook (must be published and have a sample_url)
+    // Get ebook metadata, be liberal on fields to avoid breaking
     const { data: ebook, error: ebookErr } = await sb
       .from("ebooks")
-      .select("id, published, sample_url")
+      .select("id, published, bucket, file_path, paid_url, sample_url")
       .eq("id", ebookId)
       .maybeSingle();
 
@@ -60,11 +60,8 @@ export async function GET(req: NextRequest) {
     if (!ebook || ebook.published !== true) {
       return NextResponse.json({ error: "Ebook not found or not published" }, { status: 404 });
     }
-    if (!ebook.sample_url) {
-      return NextResponse.json({ error: "No PDF available for this ebook" }, { status: 404 });
-    }
 
-    // 4) Verify ownership (status must be 'paid')
+    // Ownership
     const { data: purchase, error: pErr } = await sb
       .from("ebook_purchases")
       .select("status")
@@ -72,14 +69,37 @@ export async function GET(req: NextRequest) {
       .eq("ebook_id", ebookId)
       .maybeSingle();
 
-    // If there’s no row or status isn’t 'paid', deny access.
     const isOwner = !pErr && purchase?.status === "paid";
     if (!isOwner) {
       return NextResponse.json({ error: "Not purchased" }, { status: 403 });
     }
 
-    // 5) Fetch the actual PDF bytes from storage/public URL
-    const upstream = await fetch(ebook.sample_url, { cache: "no-store" });
+    // Resolve upstream: prefer private storage signed URL, else paid_url, else sample_url
+    let upstreamUrl: string | null = null;
+
+    if (ebook?.bucket && ebook?.file_path) {
+      const admin = getSupabaseAdmin();
+      const { data: signed, error: signErr } = await admin
+        .storage
+        .from(ebook.bucket as string)
+        .createSignedUrl(ebook.file_path as string, 60);
+      if (!signErr && signed?.signedUrl) {
+        upstreamUrl = signed.signedUrl;
+      }
+    }
+
+    if (!upstreamUrl && ebook?.paid_url) {
+      upstreamUrl = ebook.paid_url as string;
+    }
+    if (!upstreamUrl && ebook?.sample_url) {
+      upstreamUrl = ebook.sample_url as string;
+    }
+
+    if (!upstreamUrl) {
+      return NextResponse.json({ error: "No PDF available for this ebook" }, { status: 404 });
+    }
+
+    const upstream = await fetch(upstreamUrl, { cache: "no-store" });
     if (!upstream.ok) {
       return NextResponse.json(
         { error: `Upstream fetch failed: ${upstream.status}` },
@@ -87,21 +107,14 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // 6) Stream it back
     const headers = new Headers();
     headers.set("Content-Type", "application/pdf");
     headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
     headers.set("Pragma", "no-cache");
-    headers.set("X-Accel-Buffering", "no"); // avoid buffering on proxies
+    headers.set("X-Accel-Buffering", "no");
 
-    return new Response(upstream.body, {
-      status: 200,
-      headers,
-    });
+    return new Response(upstream.body, { status: 200, headers });
   } catch (e) {
-    return NextResponse.json(
-      { error: (e as Error).message || "Server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: (e as Error).message || "Server error" }, { status: 500 });
   }
 }

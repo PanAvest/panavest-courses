@@ -30,26 +30,28 @@ function admin() {
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const reference = url.searchParams.get("reference");
+  const reference = url.searchParams.get("reference") || url.searchParams.get("trxref");
   if (!reference) {
     return NextResponse.json({ error: "Missing reference" }, { status: 400 });
   }
 
   try {
     const secret = process.env.PAYSTACK_SECRET_KEY;
-    if (!secret) return NextResponse.json({ error: "PAYSTACK_SECRET_KEY not set" }, { status: 500 });
+    if (!secret) {
+      return NextResponse.json({ error: "PAYSTACK_SECRET_KEY not set" }, { status: 500 });
+    }
 
     // Verify with Paystack
-    const resp = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
+    const resp = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
       headers: { Authorization: `Bearer ${secret}` },
       cache: "no-store",
     });
     const json = (await resp.json()) as PaystackVerifyOk | PaystackVerifyErr;
     if (!resp.ok || json.status !== true) {
-      return NextResponse.json({ error: json?.message || "Verify failed" }, { status: 400 });
+      return NextResponse.json({ error: (json as PaystackVerifyErr)?.message || "Verify failed" }, { status: 400 });
     }
 
-    const d = json.data;
+    const d = (json as PaystackVerifyOk).data;
     const meta = d.metadata || {};
     const kind = meta.kind;
     const now = new Date().toISOString();
@@ -61,7 +63,7 @@ export async function GET(request: Request) {
     const sb = admin();
 
     if (kind === "course" && meta.user_id && meta.course_id && meta.slug) {
-      // Mark enrollment paid
+      // Mark enrollment
       await sb
         .from("enrollments")
         .upsert(
@@ -82,11 +84,14 @@ export async function GET(request: Request) {
           { onConflict: "user_id,course_id" }
         );
 
-      // Redirect to dashboard (success/failure both land there; UI can show notice)
-      return NextResponse.redirect(new URL(`/knowledge/${meta.slug}/dashboard`, url.origin));
+      // Redirect to course dashboard WITH reference so your page logic can react if needed
+      return NextResponse.redirect(
+        new URL(`/knowledge/${encodeURIComponent(meta.slug)}/dashboard?reference=${encodeURIComponent(reference)}&paid=${isPaid ? "1" : "0"}`, url.origin)
+      );
     }
 
     if (kind === "ebook" && meta.user_id && meta.ebook_id && meta.slug) {
+      // Mark ebook purchase
       await sb
         .from("ebook_purchases")
         .upsert(
@@ -101,10 +106,13 @@ export async function GET(request: Request) {
           { onConflict: "user_id,ebook_id" }
         );
 
-      return NextResponse.redirect(new URL(`/ebooks/${meta.slug}?paid=${isPaid ? "1" : "0"}`, url.origin));
+      // Redirect back to the ebook page WITH reference to trigger your polling
+      return NextResponse.redirect(
+        new URL(`/ebooks/${encodeURIComponent(meta.slug)}?reference=${encodeURIComponent(reference)}&paid=${isPaid ? "1" : "0"}`, url.origin)
+      );
     }
 
-    // Fallback: unknown kind/meta
+    // Fallback
     return NextResponse.redirect(new URL("/", url.origin));
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message || "Server error" }, { status: 500 });

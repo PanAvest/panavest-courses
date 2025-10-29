@@ -1,3 +1,4 @@
+// app/api/payments/paystack/verify/route.ts
 import { NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
@@ -76,7 +77,7 @@ export async function GET(req: NextRequest) {
     if (up.error) {
       return Response.json({ ok: false, error: up.error.message }, { status: 500 });
     }
-    return Response.json({ ok: true, slug: meta.slug, reference }, { status: 200 });
+    return Response.json({ ok: true, kind: "course", slug: meta.slug, reference }, { status: 200 });
   }
 
   // Ebooks
@@ -98,7 +99,7 @@ export async function GET(req: NextRequest) {
     if (up.error) {
       return Response.json({ ok: false, error: up.error.message }, { status: 500 });
     }
-    return Response.json({ ok: true, slug: meta.slug, reference }, { status: 200 });
+    return Response.json({ ok: true, kind: "ebook", slug: meta.slug, reference }, { status: 200 });
   }
 
   return Response.json({ ok: false, error: "Missing or invalid metadata" }, { status: 400 });

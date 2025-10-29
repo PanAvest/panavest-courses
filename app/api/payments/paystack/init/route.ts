@@ -64,7 +64,8 @@ export async function POST(request: Request) {
     if (!secret) return NextResponse.json({ error: "PAYSTACK_SECRET_KEY not set" }, { status: 500 });
 
     const origin = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
-    const callback_url = `${origin}/api/payments/paystack/callback`;
+    // ⬇️ Route back to a PAGE, not an API
+    const callback_url = `${origin}/paystack/callback`;
 
     // (Optional) pre-create records so you can track pending states (safe to skip)
     const admin = getAdmin();
