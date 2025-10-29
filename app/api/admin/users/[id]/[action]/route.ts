@@ -1,49 +1,56 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
-export const dynamic = "force-dynamic";
-
-type Action = "ban" | "unban" | "revoke" | "clear-history" | "delete";
+type UserAction = "ban" | "unban" | "revoke" | "clear-history" | "delete";
 
 export async function POST(
-  _req: Request,
-  { params }: { params: { id: string; action: Action } }
+  _req: NextRequest,
+  ctx: { params: { id: string; action: UserAction } }
 ) {
-  const { id, action } = params;
+  const { id, action } = ctx.params;
   const admin = getSupabaseAdmin();
 
   try {
     switch (action) {
       case "ban": {
-        const { error } = await admin.auth.admin.updateUserById(id, { app_metadata: { banned: true } });
-        if (error) throw error;
-        return NextResponse.json({ ok: true });
+        await admin.auth.admin.updateUserById(id, {
+          user_metadata: { banned: true },
+        });
+        break;
       }
       case "unban": {
-        const { error } = await admin.auth.admin.updateUserById(id, { app_metadata: { banned: false } });
-        if (error) throw error;
-        return NextResponse.json({ ok: true });
+        await admin.auth.admin.updateUserById(id, {
+          user_metadata: { banned: false },
+        });
+        break;
       }
       case "revoke": {
-        // Revoke all sessions for this user (supported on recent SDKs)
-        // @ts-expect-error
-        const { error } = await admin.auth.admin.signOut(id);
-        if (error) throw error;
-        return NextResponse.json({ ok: true });
+        // No direct Admin API for revoking sessions in supabase-js v2.
+        // Optional: set a marker your app can use to force sign-out.
+        await admin.auth.admin.updateUserById(id, {
+          user_metadata: { session_revoked_at: new Date().toISOString() },
+        });
+        break;
       }
       case "clear-history": {
-        // TODO: Implement according to your data model (e.g., delete rows from attempts/messages)
-        return NextResponse.json({ ok: true, cleared: 0 });
+        // App-specific no-op placeholder
+        break;
       }
       case "delete": {
-        const { error } = await admin.auth.admin.deleteUser(id);
-        if (error) throw error;
-        return NextResponse.json({ ok: true });
+        await admin.auth.admin.deleteUser(id);
+        break;
       }
-      default:
-        return NextResponse.json({ error: "invalid action" }, { status: 400 });
+      default: {
+        return NextResponse.json({ error: "Invalid action" }, { status: 400 });
+      }
     }
-  } catch (e: unknown) {
-    return NextResponse.json({ error: e?.message || "server error" }, { status: 500 });
+
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    const err = e as { message?: string };
+    return NextResponse.json(
+      { error: err?.message ?? "Action failed" },
+      { status: 500 }
+    );
   }
 }

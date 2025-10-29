@@ -6,22 +6,18 @@ export async function GET() {
   const { data, error } = await admin.auth.admin.listUsers({ page: 1, perPage: 50 });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Map into a stable shape your Admin UI expects
-  const users = (data?.users ?? []).map((u) => ({
-    id: u.id,
-    email: u.email ?? undefined,
-    email_confirmed_at: u.email_confirmed_at ?? null,
-    created_at: u.created_at ?? null,
-    // read our custom flag from user_metadata
-    banned:
-      typeof u.user_metadata === "object" &&
-      u.user_metadata !== null &&
-      // @ts-expect-error ok: user_metadata is generic object; we only read a boolean flag
-      typeof u.user_metadata.banned === "boolean"
-        ? // @ts-expect-error description: see above
-          (u.user_metadata.banned as boolean)
-        : null,
-  }));
+  const users = (data?.users ?? []).map((u) => {
+    const meta = (u.user_metadata ?? {}) as Record<string, unknown>;
+    const banned = typeof meta.banned === "boolean" ? (meta.banned as boolean) : null;
+
+    return {
+      id: u.id,
+      email: u.email ?? undefined,
+      email_confirmed_at: u.email_confirmed_at ?? null,
+      created_at: u.created_at ?? null,
+      banned,
+    };
+  });
 
   return NextResponse.json({ users });
 }
@@ -29,7 +25,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const body = (await req.json()) as unknown;
 
-  // Narrow & validate
+  // Narrow & validate safely
   if (
     !body ||
     typeof body !== "object" ||
@@ -40,7 +36,6 @@ export async function POST(req: NextRequest) {
   }
 
   const { action, email } = body as { action: string; email?: string };
-
   const admin = getSupabaseAdmin();
 
   if (action === "generate_confirmation_link") {
