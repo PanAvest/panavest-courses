@@ -11,8 +11,6 @@ type VerifyPayload = {
   data?: {
     status?: string; // "success"
     reference?: string;
-    amount?: number; // minor units
-    currency?: string;
     paid_at?: string | null;
     metadata?: {
       kind?: "course" | "ebook";
@@ -56,11 +54,8 @@ export async function GET(req: NextRequest) {
 
     const meta = (data.metadata || {}) as NonNullable<VerifyPayload["data"]>["metadata"];
     const supabase = getSupabaseAdmin();
-    const now = new Date().toISOString();
 
-    // 2) Minimal, schema-safe writes
-
-    // Courses: only write guaranteed columns
+    // 2) Minimal schema-safe writes: ONLY columns guaranteed to exist in your app logic
     if (meta?.kind === "course" && meta.user_id && meta.course_id) {
       const up = await supabase
         .from("enrollments")
@@ -69,25 +64,14 @@ export async function GET(req: NextRequest) {
             user_id: meta.user_id,
             course_id: meta.course_id,
             paid: true,
-            // only set paid_at if your table has it; it's safe to include in most schemas:
-            paid_at: data.paid_at || now,
-            updated_at: now,
           } as Record<string, unknown>,
           { onConflict: "user_id,course_id" }
         );
+      if (up.error) return Response.json({ ok: false, error: up.error.message }, { status: 500 });
 
-      if (up.error) {
-        // expose error to help diagnose schema issues
-        return Response.json({ ok: false, error: up.error.message }, { status: 500 });
-      }
-
-      return Response.json(
-        { ok: true, kind: "course", slug: meta.slug, reference },
-        { status: 200 }
-      );
+      return Response.json({ ok: true, kind: "course", slug: meta.slug, reference }, { status: 200 });
     }
 
-    // Ebooks: only write guaranteed columns
     if (meta?.kind === "ebook" && meta.user_id && meta.ebook_id) {
       const up = await supabase
         .from("ebook_purchases")
@@ -96,20 +80,12 @@ export async function GET(req: NextRequest) {
             user_id: meta.user_id,
             ebook_id: meta.ebook_id,
             status: "paid",
-            paid_at: data.paid_at || now, // safe if your table has paid_at
-            updated_at: now,
           } as Record<string, unknown>,
           { onConflict: "user_id,ebook_id" }
         );
+      if (up.error) return Response.json({ ok: false, error: up.error.message }, { status: 500 });
 
-      if (up.error) {
-        return Response.json({ ok: false, error: up.error.message }, { status: 500 });
-      }
-
-      return Response.json(
-        { ok: true, kind: "ebook", slug: meta.slug, reference },
-        { status: 200 }
-      );
+      return Response.json({ ok: true, kind: "ebook", slug: meta.slug, reference }, { status: 200 });
     }
 
     return Response.json({ ok: false, error: "Missing or invalid metadata" }, { status: 400 });
