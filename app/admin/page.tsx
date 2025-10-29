@@ -16,7 +16,6 @@ type Knowledge = {
   accredited?: string[] | null;
   published?: boolean | null;
 };
-
 type AdminUser = {
   id: string;
   email?: string;
@@ -24,7 +23,6 @@ type AdminUser = {
   created_at?: string | null;
   banned?: boolean | null;
 };
-
 type Chapter = {
   id?: string;
   course_id: string;
@@ -32,7 +30,6 @@ type Chapter = {
   order_index: number;
   created_at?: string | null;
 };
-
 type Slide = {
   id?: string;
   chapter_id: string;
@@ -43,13 +40,11 @@ type Slide = {
   body?: string | null;
   created_at?: string | null;
 };
-
 type QuizSettings = {
   chapter_id: string;
   time_limit_seconds: number | null;
   num_questions: number | null;
 };
-
 type QuizQuestion = {
   id?: string;
   chapter_id: string;
@@ -58,7 +53,6 @@ type QuizQuestion = {
   correct_index: number;
   created_at?: string | null;
 };
-
 type Ebook = {
   id?: string;
   slug: string;
@@ -71,7 +65,6 @@ type Ebook = {
   published: boolean;
   created_at?: string | null;
 };
-
 type Stats = {
   users_total: number;
   users_new_7d: number;
@@ -223,20 +216,36 @@ export default function AdminPage() {
 
   /* ---------------- Overview (Stats) ---------------- */
   const [stats, setStats] = useState<Stats | null>(null);
+  const [statsError, setStatsError] = useState<string | null>(null);
+  const loadStatsAbort = useRef<AbortController | null>(null);
+
   const loadStats = useCallback(async () => {
-    const r = await fetch("/api/admin/stats", { cache: "no-store" });
-    if (!r.ok) return;
-    const d = (await r.json()) as Stats;
-    setStats({
-      users_total: num(d?.users_total, 0),
-      users_new_7d: num(d?.users_new_7d, 0),
-      courses_total: num(d?.courses_total, 0),
-      ebooks_total: num(d?.ebooks_total, 0),
-      orders_total: num(d?.orders_total, 0),
-      revenue_30d_usd: num(d?.revenue_30d_usd, 0),
-      top_courses: Array.isArray(d?.top_courses) ? d.top_courses : [],
-      top_ebooks: Array.isArray(d?.top_ebooks) ? d.top_ebooks : [],
-    });
+    loadStatsAbort.current?.abort();
+    const ac = new AbortController();
+    loadStatsAbort.current = ac;
+    setStatsError(null);
+    try {
+      const r = await fetch("/api/admin/stats", { cache: "no-store", signal: ac.signal });
+      if (!r.ok) {
+        // Graceful: 404 means endpoint not wired yet
+        setStats(null);
+        if (r.status !== 404) setStatsError(`Stats error: ${r.status}`);
+        return;
+      }
+      const d = (await r.json()) as Partial<Stats>;
+      setStats({
+        users_total: num(d?.users_total, 0),
+        users_new_7d: num(d?.users_new_7d, 0),
+        courses_total: num(d?.courses_total, 0),
+        ebooks_total: num(d?.ebooks_total, 0),
+        orders_total: num(d?.orders_total, 0),
+        revenue_30d_usd: num(d?.revenue_30d_usd, 0),
+        top_courses: Array.isArray(d?.top_courses) ? d.top_courses : [],
+        top_ebooks: Array.isArray(d?.top_ebooks) ? d.top_ebooks : [],
+      });
+    } catch (e) {
+      if ((e as any)?.name !== "AbortError") setStatsError("Failed to load stats");
+    }
   }, []);
   useEffect(() => { if (tab === "overview") void loadStats(); }, [tab, loadStats]);
 
@@ -246,12 +255,19 @@ export default function AdminPage() {
     slug: "", title: "", description: "", level: "", price: null, cpd_points: null, img: "", accredited: [], published: true
   });
   const [savingK, setSavingK] = useState(false);
+
+  const refreshKnowledgeAbort = useRef<AbortController | null>(null);
   const refreshKnowledge = useCallback(async () => {
-    const r = await fetch("/api/admin/knowledge", { cache: "no-store" });
+    refreshKnowledgeAbort.current?.abort();
+    const ac = new AbortController();
+    refreshKnowledgeAbort.current = ac;
+    const r = await fetch("/api/admin/knowledge", { cache: "no-store", signal: ac.signal });
     const d = await r.json();
     setKnowledge(asKnowledgeArray(d));
   }, []);
-  useEffect(() => { if (tab === "catalog" || tab === "content" || tab === "prices") void refreshKnowledge(); }, [tab, refreshKnowledge]);
+  useEffect(() => {
+    if (tab === "catalog" || tab === "content" || tab === "prices") void refreshKnowledge();
+  }, [tab, refreshKnowledge]);
 
   async function saveKnowledge() {
     setSavingK(true);
@@ -261,8 +277,12 @@ export default function AdminPage() {
       body: JSON.stringify(payload)
     });
     setSavingK(false);
-    if (r.ok) { setKForm({ slug:"", title:"", description:"", level:"", price:null, cpd_points:null, img:"", accredited:[], published:true }); await refreshKnowledge(); }
-    else { alert("Save failed"); }
+    if (r.ok) {
+      setKForm({ slug:"", title:"", description:"", level:"", price:null, cpd_points:null, img:"", accredited:[], published:true });
+      await refreshKnowledge();
+    } else {
+      alert("Save failed");
+    }
   }
 
   /* ---------------- Content Builder (Course → Chapter → Slide → Quiz) ---------------- */
@@ -284,54 +304,105 @@ export default function AdminPage() {
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [qForm, setQForm] = useState<QuizQuestion>({ chapter_id: "", question: "", options: [], correct_index: 0 });
 
+  // For inline edit per-question
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
+  const [editingQ, setEditingQ] = useState<QuizQuestion | null>(null);
+
+  // Abort controllers to prevent races/flicker
+  const chaptersAbort = useRef<AbortController | null>(null);
+  const slidesAbort = useRef<AbortController | null>(null);
+  const quizAbort = useRef<AbortController | null>(null);
+
   const refreshChapters = useCallback(async (courseId: string) => {
-    if (!courseId) { setChapters([]); return; }
-    const r = await fetch(`/api/admin/chapters?course_id=${encodeURIComponent(courseId)}`, { cache: "no-store" });
+    chaptersAbort.current?.abort();
+    const ac = new AbortController();
+    chaptersAbort.current = ac;
+
+    if (!courseId) { setChapters([]); setChForm({ ...emptyChapter, course_id: "" }); return; }
+
+    const r = await fetch(`/api/admin/chapters?course_id=${encodeURIComponent(courseId)}`, { cache: "no-store", signal: ac.signal });
     const d = await r.json();
     const rows = asChapters(d);
+
+    // Only apply if this course is still selected
+    if (courseId !== selectedCourseId) return;
+
     setChapters(rows);
-    if (rows.length && (!chForm.id || chForm.course_id !== courseId)) {
-      setChForm({ ...rows[0] });
-      setSlForm(s => ({ ...s, chapter_id: rows[0].id ?? "" }));
+    // Keep current selection if still exists; otherwise select first
+    const kept = rows.find(c => c.id === chForm.id);
+    if (kept) {
+      setChForm(kept);
+    } else if (rows[0]) {
+      setChForm(rows[0]);
+    } else {
+      setChForm({ ...emptyChapter, course_id: courseId });
+      setSlides([]); // clear slides if no chapter
+      setQuizSettings({ chapter_id: "", time_limit_seconds: 120, num_questions: null });
+      setQuestions([]);
+      setQForm({ chapter_id: "", question: "", options: [], correct_index: 0 });
     }
-  }, [chForm.id, chForm.course_id]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCourseId, chForm.id]);
 
   const refreshSlides = useCallback(async (chapterId: string) => {
+    slidesAbort.current?.abort();
+    const ac = new AbortController();
+    slidesAbort.current = ac;
+
     if (!chapterId) { setSlides([]); return; }
-    const r = await fetch(`/api/admin/slides?chapter_id=${encodeURIComponent(chapterId)}`, { cache: "no-store" });
+    const r = await fetch(`/api/admin/slides?chapter_id=${encodeURIComponent(chapterId)}`, { cache: "no-store", signal: ac.signal });
     const d = await r.json();
+    // Only apply if this chapter is still active
+    if (chapterId !== (chForm.id ?? "")) return;
     setSlides(asSlides(d));
-  }, []);
+  }, [chForm.id]);
 
   const refreshQuiz = useCallback(async (chapterId: string) => {
+    quizAbort.current?.abort();
+    const ac = new AbortController();
+    quizAbort.current = ac;
+
     if (!chapterId) {
       setQuizSettings({ chapter_id: "", time_limit_seconds: 120, num_questions: null });
       setQuestions([]);
       setQForm({ chapter_id: "", question: "", options: [], correct_index: 0 });
       return;
     }
-    const r1 = await fetch(`/api/admin/quiz-settings?chapter_id=${encodeURIComponent(chapterId)}`, { cache: "no-store" });
+    const r1 = await fetch(`/api/admin/quiz-settings?chapter_id=${encodeURIComponent(chapterId)}`, { cache: "no-store", signal: ac.signal });
     const d1 = r1.ok ? await r1.json() : {};
-    setQuizSettings(asQuizSettings(d1 ?? {}, chapterId));
+    if (chapterId === (chForm.id ?? "")) setQuizSettings(asQuizSettings(d1 ?? {}, chapterId));
 
-    const r2 = await fetch(`/api/admin/quiz-questions?chapter_id=${encodeURIComponent(chapterId)}`, { cache: "no-store" });
+    const r2 = await fetch(`/api/admin/quiz-questions?chapter_id=${encodeURIComponent(chapterId)}`, { cache: "no-store", signal: ac.signal });
     const d2 = r2.ok ? await r2.json() : [];
-    setQuestions(asQuizQuestions(d2));
-    setQForm(f => ({ ...f, chapter_id: chapterId }));
-  }, []);
+    if (chapterId === (chForm.id ?? "")) {
+      setQuestions(asQuizQuestions(d2));
+      setQForm(f => ({ ...f, chapter_id: chapterId }));
+      setEditingQuestionId(null);
+      setEditingQ(null);
+    }
+  }, [chForm.id]);
 
+  // When course changes: clear dependent state first, then fetch
   useEffect(() => {
-    if (!selectedCourseId) return;
-    setChForm({ ...emptyChapter, course_id: selectedCourseId });
-    setSlForm({ ...emptySlide, chapter_id: "" });
+    if (!selectedCourseId) {
+      setChapters([]);
+      setChForm({ ...emptyChapter, course_id: "" });
+      setSlides([]);
+      setSlForm({ ...emptySlide, chapter_id: "" });
+      setQuizSettings({ chapter_id: "", time_limit_seconds: 120, num_questions: null });
+      setQuestions([]);
+      setQForm({ chapter_id: "", question: "", options: [], correct_index: 0 });
+      return;
+    }
     void refreshChapters(selectedCourseId);
   }, [selectedCourseId, refreshChapters]);
 
+  // When chapter changes: fetch slides + quiz for that chapter, but guard with aborts
   useEffect(() => {
-    if (!chForm.id) return;
-    void refreshSlides(chForm.id ?? "");
-    void refreshQuiz(chForm.id ?? "");
-    setSlForm(s => ({ ...s, chapter_id: chForm.id ?? "" }));
+    const id = chForm.id ?? "";
+    void refreshSlides(id);
+    void refreshQuiz(id);
+    setSlForm(s => ({ ...s, chapter_id: id }));
   }, [chForm.id, refreshSlides, refreshQuiz]);
 
   async function saveChapter() {
@@ -394,7 +465,7 @@ export default function AdminPage() {
     setUploadedUrl(url);
   }
 
-  /* Quiz settings + questions */
+  /* Quiz settings + questions (inline editor) */
   const [quizSaving, setQuizSaving] = useState(false);
   async function saveQuizSettings() {
     if (!quizSettings.chapter_id) { alert("Pick a chapter"); return; }
@@ -421,12 +492,36 @@ export default function AdminPage() {
     await refreshQuiz(qForm.chapter_id);
     setQForm({ chapter_id: qForm.chapter_id, question: "", options: [], correct_index: 0, id: undefined });
   }
+
   async function deleteQuestion(id?: string) {
     if (!id) return;
     if (!confirm("Delete this question?")) return;
     const r = await fetch(`/api/admin/quiz-questions?id=${encodeURIComponent(id)}`, { method: "DELETE" });
     if (!r.ok) { alert("Delete failed"); return; }
     await refreshQuiz(quizSettings.chapter_id);
+  }
+
+  // Inline edit handlers
+  function startEditQuestion(q: QuizQuestion) {
+    setEditingQuestionId(q.id ?? null);
+    setEditingQ({ ...q });
+  }
+  function cancelEditQuestion() {
+    setEditingQuestionId(null);
+    setEditingQ(null);
+  }
+  async function commitEditQuestion() {
+    if (!editingQ) return;
+    if (!editingQ.chapter_id || !editingQ.question.trim()) { alert("Chapter & Question required"); return; }
+    if ((editingQ.options?.length ?? 0) < 2) { alert("At least 2 options"); return; }
+    if (editingQ.correct_index < 0 || editingQ.correct_index >= editingQ.options.length) { alert("Correct index out of range"); return; }
+    const r = await fetch("/api/admin/quiz-questions", {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(editingQ)
+    });
+    if (!r.ok) { alert("Update failed"); return; }
+    await refreshQuiz(editingQ.chapter_id);
+    setEditingQuestionId(null);
+    setEditingQ(null);
   }
 
   /* ---------------- Ebooks (Catalog) ---------------- */
@@ -437,10 +532,14 @@ export default function AdminPage() {
   const [savingEbook, setSavingEbook] = useState(false);
   const [loadingEbooks, setLoadingEbooks] = useState(false);
 
+  const refreshEbooksAbort = useRef<AbortController | null>(null);
   const refreshEbooks = useCallback(async () => {
+    refreshEbooksAbort.current?.abort();
+    const ac = new AbortController();
+    refreshEbooksAbort.current = ac;
     setLoadingEbooks(true);
     try {
-      const r = await fetch("/api/admin/ebooks", { cache: "no-store" });
+      const r = await fetch("/api/admin/ebooks", { cache: "no-store", signal: ac.signal });
       const d = await r.json();
       setEbooks(asEbooks(d));
     } finally { setLoadingEbooks(false); }
@@ -488,13 +587,18 @@ export default function AdminPage() {
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [selectedPurchases, setSelectedPurchases] = useState<{ courses: Array<{ title: string }>; ebooks: Array<{ title: string }> } | null>(null);
 
+  const refreshUsersAbort = useRef<AbortController | null>(null);
   const refreshUsers = useCallback(async () => {
+    refreshUsersAbort.current?.abort();
+    const ac = new AbortController();
+    refreshUsersAbort.current = ac;
     setUsersLoading(true);
-    const r = await fetch("/api/admin/users", { cache: "no-store" });
-    const d = await r.json();
-    const arr = Array.isArray(d?.users) ? d.users : [];
-    setUsers(arr.map(asAdminUser));
-    setUsersLoading(false);
+    try {
+      const r = await fetch("/api/admin/users", { cache: "no-store", signal: ac.signal });
+      const d = await r.json();
+      const arr = Array.isArray(d?.users) ? d.users : [];
+      setUsers(arr.map(asAdminUser));
+    } finally { setUsersLoading(false); }
   }, []);
   useEffect(() => { if (tab === "users") void refreshUsers(); }, [tab, refreshUsers]);
 
@@ -515,12 +619,17 @@ export default function AdminPage() {
     if (isStr(link)) { await navigator.clipboard.writeText(link); alert("Confirmation link copied"); }
     else { alert("Could not generate link"); }
   }
+
+  const [userActionBusy, setUserActionBusy] = useState<string | null>(null);
   async function act(userId: string, endpoint: "ban" | "unban" | "revoke" | "clear-history") {
+    setUserActionBusy(`${endpoint}:${userId}`);
     const r = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/${endpoint}`, { method: "POST" });
+    setUserActionBusy(null);
     if (!r.ok) { alert(`Failed to ${endpoint.replace("-", " ")}`); return; }
     await refreshUsers();
     if (selectedUser?.id === userId) setSelectedUser(u => (u ? { ...u, banned: endpoint === "ban" ? true : endpoint === "unban" ? false : u.banned ?? null } : u));
   }
+
   async function loadPurchases(userId: string) {
     const r = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/purchases`, { cache: "no-store" });
     if (!r.ok) { setSelectedPurchases({ courses: [], ebooks: [] }); return; }
@@ -592,6 +701,12 @@ export default function AdminPage() {
       {/* ================= Overview ================= */}
       {tab==="overview" && (
         <div className="mt-6 grid gap-6">
+          {!stats && !statsError && (
+            <div className="text-sm text-muted">Loading stats…</div>
+          )}
+          {statsError && (
+            <div className="text-sm text-red-600">Stats unavailable. If you haven’t created <code>/api/admin/stats</code>, the page will still work without it.</div>
+          )}
           <div className="grid gap-3 grid-cols-2 md:grid-cols-3">
             <StatCard label="Total Users" value={stats?.users_total ?? "—"} foot={`+${stats?.users_new_7d ?? 0} in last 7 days`} />
             <StatCard label="Courses" value={stats?.courses_total ?? "—"} />
@@ -742,7 +857,6 @@ export default function AdminPage() {
                 </label>
               </div>
 
-              {/* URLs + Uploaders */}
               {[
                 ["cover_url","Cover URL","image/*"] as const,
                 ["sample_url","Sample URL (image/pdf)","image/*,application/pdf"] as const,
@@ -790,7 +904,7 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* ================= Content Builder (simplified flow) ================= */}
+      {/* ================= Content Builder ================= */}
       {tab==="content" && (
         <div className="mt-6 grid gap-6 xl:grid-cols-[320px_1fr]">
           {/* Picker */}
@@ -804,7 +918,6 @@ export default function AdminPage() {
               {knowledge.map(k=>(<option key={k.id ?? k.slug} value={k.id}>{k.title}</option>))}
             </select>
 
-            {/* Chapters list quick nav */}
             {selectedCourse && (
               <div className="mt-4 grid gap-2">
                 <div className="text-sm font-semibold">Chapters</div>
@@ -932,25 +1045,55 @@ export default function AdminPage() {
                     <div className="grid gap-2">
                       {questions.map((q, i)=>(
                         <div key={q.id ?? i} className="rounded-lg p-3 ring-1 ring-[color:var(--color-light)]">
-                          <div className="text-sm font-medium">{q.question}</div>
-                          <ol className="text-xs text-muted mt-1 list-decimal ms-5">
-                            {q.options.map((opt, idx)=>(
-                              <li key={idx} className={idx===q.correct_index ? "text-ink" : ""}>
-                                {opt}{idx===q.correct_index ? "  ← correct" : ""}
-                              </li>
-                            ))}
-                          </ol>
-                          <div className="mt-2 flex gap-2">
-                            <button onClick={()=>setQForm(q)} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-sm">Edit</button>
-                            <button onClick={()=>void deleteQuestion(q.id)} className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm">Delete</button>
-                          </div>
+                          {editingQuestionId === (q.id ?? null) && editingQ ? (
+                            <div className="grid gap-2">
+                              <input
+                                value={editingQ.question}
+                                onChange={(e)=>setEditingQ(prev => prev ? ({ ...prev, question: (e.target as HTMLInputElement).value }) : prev)}
+                                className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)] text-sm"
+                              />
+                              <input
+                                value={toCsv(editingQ.options)}
+                                onChange={(e)=>setEditingQ(prev => prev ? ({ ...prev, options: fromCsv((e.target as HTMLInputElement).value) }) : prev)}
+                                className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)] text-sm"
+                                placeholder="Options (comma separated)"
+                              />
+                              <input
+                                type="number"
+                                value={editingQ.correct_index}
+                                onChange={(e)=>setEditingQ(prev => prev ? ({ ...prev, correct_index: Number((e.target as HTMLInputElement).value||0) }) : prev)}
+                                className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)] text-sm"
+                                placeholder="Correct index (0-based)"
+                              />
+                              <div className="flex gap-2">
+                                <button onClick={commitEditQuestion} className="px-3 py-1.5 rounded-lg bg-[color:#0a1156] text-white text-sm">Save</button>
+                                <button onClick={cancelEditQuestion} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-sm">Cancel</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="text-sm font-medium">{q.question}</div>
+                              <ol className="text-xs text-muted mt-1 list-decimal ms-5">
+                                {q.options.map((opt, idx)=>(
+                                  <li key={idx} className={idx===q.correct_index ? "text-ink" : ""}>
+                                    {opt}{idx===q.correct_index ? "  ← correct" : ""}
+                                  </li>
+                                ))}
+                              </ol>
+                              <div className="mt-2 flex gap-2">
+                                <button onClick={()=>startEditQuestion(q)} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-sm">Edit</button>
+                                <button onClick={()=>void deleteQuestion(q.id)} className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm">Delete</button>
+                              </div>
+                            </>
+                          )}
                         </div>
                       ))}
                       {questions.length===0 && <div className="text-xs text-muted">No questions yet.</div>}
                     </div>
 
+                    {/* Quick add new */}
                     <div className="mt-2 grid gap-3">
-                      <div className="text-sm font-semibold">Add / Edit Question</div>
+                      <div className="text-sm font-semibold">Add New Question</div>
                       <label className="grid gap-1">
                         <span className="text-xs text-muted">Question</span>
                         <input value={qForm.question} onChange={(e)=>setQForm(f=>({ ...f, chapter_id: chForm.id ?? "", question: (e.target as HTMLInputElement).value }))} className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"/>
@@ -1062,7 +1205,7 @@ export default function AdminPage() {
                     <th className="py-2 pr-3">Created</th>
                     <th className="py-2 pr-3">Confirmed</th>
                     <th className="py-2 pr-3">Status</th>
-                    <th className="py-2 pr-3 w-[420px]">Actions</th>
+                    <th className="py-2 pr-3 w-[460px]">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1077,12 +1220,12 @@ export default function AdminPage() {
                           <button onClick={()=>{ setSelectedUser(u); setSelectedPurchases(null); void loadPurchases(u.id); }} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-xs">View</button>
                           <button onClick={()=>void generateConfirmLink(u.email)} disabled={!u.email} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-xs">Confirm Link</button>
                           {u.banned ? (
-                            <button onClick={()=>void act(u.id,"unban")} className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-xs">Unban</button>
+                            <button onClick={()=>void act(u.id,"unban")} disabled={userActionBusy === `unban:${u.id}`} className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-xs disabled:opacity-50">Unban</button>
                           ) : (
-                            <button onClick={()=>void act(u.id,"ban")} className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs">Ban</button>
+                            <button onClick={()=>void act(u.id,"ban")} disabled={userActionBusy === `ban:${u.id}`} className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs disabled:opacity-50">Ban</button>
                           )}
-                          <button onClick={()=>void act(u.id,"revoke")} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-xs">Revoke Sessions</button>
-                          <button onClick={()=>void act(u.id,"clear-history")} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-xs">Clear History</button>
+                          <button onClick={()=>void act(u.id,"revoke")} disabled={userActionBusy === `revoke:${u.id}`} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-xs disabled:opacity-50">Revoke Sessions</button>
+                          <button onClick={()=>void act(u.id,"clear-history")} disabled={userActionBusy === `clear-history:${u.id}`} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-xs disabled:opacity-50">Clear History</button>
                         </div>
                       </td>
                     </tr>
@@ -1130,11 +1273,11 @@ export default function AdminPage() {
 
                   <div className="mt-4 flex flex-wrap gap-2">
                     {selectedUser.banned
-                      ? <button onClick={()=>void act(selectedUser.id,"unban")} className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-sm">Unban</button>
-                      : <button onClick={()=>void act(selectedUser.id,"ban")} className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm">Ban</button>}
-                    <button onClick={()=>void act(selectedUser.id,"revoke")} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-sm">Revoke Sessions</button>
-                    <button onClick={()=>void act(selectedUser.id,"clear-history")} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-sm">Clear History</button>
-                    <button onClick={()=>void generateConfirmLink(selectedUser.email)} disabled={!selectedUser.email} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-sm">Confirm Link</button>
+                      ? <button onClick={()=>void act(selectedUser.id,"unban")} disabled={userActionBusy === `unban:${selectedUser.id}`} className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-sm disabled:opacity-50">Unban</button>
+                      : <button onClick={()=>void act(selectedUser.id,"ban")} disabled={userActionBusy === `ban:${selectedUser.id}`} className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm disabled:opacity-50">Ban</button>}
+                    <button onClick={()=>void act(selectedUser.id,"revoke")} disabled={userActionBusy === `revoke:${selectedUser.id}`} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-sm disabled:opacity-50">Revoke Sessions</button>
+                    <button onClick={()=>void act(selectedUser.id,"clear-history")} disabled={userActionBusy === `clear-history:${selectedUser.id}`} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-sm disabled:opacity-50">Clear History</button>
+                    <button onClick={()=>void generateConfirmLink(selectedUser.email)} disabled={!selectedUser.email} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-sm disabled:opacity-50">Confirm Link</button>
                   </div>
                 </div>
               </div>
