@@ -7,22 +7,26 @@ import { useRouter, useSearchParams, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import * as pdfjs from "pdfjs-dist";
 
-/** ── Minimal PDF.js typings (no `any`) ───────────────────────────── */
+/** ── Minimal PDF.js typings ──────────────────────────────────────── */
 type PdfHttpHeaders = Record<string, string>;
-interface PdfLoadingTask<TDoc> {
-  promise: Promise<TDoc>;
-}
+interface PdfLoadingTask<TDoc> { promise: Promise<TDoc>; }
 interface PdfJsAPI<TDoc> {
   getDocument: (params: {
-    /** Prefer bytes to avoid internal fetch */
     data?: ArrayBuffer | Uint8Array;
-    /** URL kept for possible future fallback */
     url?: string;
     withCredentials?: boolean;
     httpHeaders?: PdfHttpHeaders;
   }) => PdfLoadingTask<TDoc>;
   GlobalWorkerOptions: { workerSrc: string };
 }
+type PdfPage = {
+  getViewport: (opts: { scale: number }) => { width: number; height: number };
+  render: (opts: {
+    canvasContext: CanvasRenderingContext2D;
+    viewport: { width: number; height: number };
+  }) => { promise: Promise<void> };
+};
+type PdfDoc = { numPages: number; getPage(n: number): Promise<PdfPage> };
 /** ───────────────────────────────────────────────────────────────── */
 
 type Ebook = {
@@ -31,7 +35,7 @@ type Ebook = {
   title: string;
   description?: string | null;
   cover_url?: string | null;
-  sample_url?: string | null; // served via secure proxy
+  sample_url?: string | null;
   price_cents: number;
   published: boolean;
 };
@@ -42,14 +46,7 @@ type OwnershipState =
   | { kind: "owner" }
   | { kind: "not_owner" };
 
-type PdfPage = {
-  getViewport: (opts: { scale: number }) => { width: number; height: number };
-  render: (opts: {
-    canvasContext: CanvasRenderingContext2D;
-    viewport: { width: number; height: number };
-  }) => { promise: Promise<void> };
-};
-type PdfDoc = { numPages: number; getPage(n: number): Promise<PdfPage> };
+type FitMode = "fit-width" | "fixed";
 
 export default function EbookDetailPage() {
   const router = useRouter();
@@ -71,23 +68,28 @@ export default function EbookDetailPage() {
   const [showReader, setShowReader] = useState(false);
   const [rendering, setRendering] = useState(false);
   const [renderError, setRenderError] = useState<string | null>(null);
-  const [zoom, setZoom] = useState<number>(1);
 
+  // Zoom and layout
+  const [fitMode, setFitMode] = useState<FitMode>("fit-width");
+  const [zoom, setZoom] = useState<number>(1); // multiplier applied on top of base fit scale
+  const MIN_ZOOM = 0.5;
+  const MAX_ZOOM = 3;
+
+  // Refs
   const readerWrapRef = useRef<HTMLDivElement | null>(null);
-  const pdfContainerRef = useRef<HTMLDivElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null); // scrollable frame
+  const pagesRef = useRef<HTMLDivElement | null>(null);  // canvases live here
   const pdfDocRef = useRef<PdfDoc | null>(null);
+  const lastContainerWidthRef = useRef<number>(0);
 
   const dashboardHref = "/dashboard";
 
-  /** Hard-block copy/print */
+  /** Block basic copying/printing (best-effort) */
   useEffect(() => {
-    const preventAll = (e: Event) => {
-      e.preventDefault();
-      e.stopPropagation();
-    };
+    const preventAll = (e: Event) => { e.preventDefault(); e.stopPropagation(); };
     const onKey = (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
-      if ((e.ctrlKey || e.metaKey) && ["p", "s", "u", "c", "x", "a"].includes(k)) preventAll(e);
+      if ((e.ctrlKey || e.metaKey) && ["p","s","u","c","x","a"].includes(k)) preventAll(e);
     };
     const CAPTURE: AddEventListenerOptions = { capture: true };
     document.addEventListener("contextmenu", preventAll, CAPTURE);
@@ -109,8 +111,7 @@ export default function EbookDetailPage() {
   /** PDF worker */
   useEffect(() => {
     try {
-      (pdfjs as unknown as PdfJsAPI<PdfDoc>).GlobalWorkerOptions.workerSrc =
-        "/vendor/pdf.worker.min.mjs";
+      (pdfjs as unknown as PdfJsAPI<PdfDoc>).GlobalWorkerOptions.workerSrc = "/vendor/pdf.worker.min.mjs";
       setPdfReady(true);
     } catch {
       setPdfReady(false);
@@ -120,13 +121,9 @@ export default function EbookDetailPage() {
   /** Auth (view page ok; login required to buy/read) */
   useEffect(() => {
     (async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        setUserId("");
-        setEmail("");
-        setOwn({ kind: "signed_out" });
+        setUserId(""); setEmail(""); setOwn({ kind: "signed_out" });
         return;
       }
       setUserId(user.id);
@@ -139,9 +136,7 @@ export default function EbookDetailPage() {
     if (!slug) return;
     (async () => {
       try {
-        const r = await fetch(`/api/ebooks/${encodeURIComponent(slug)}`, {
-          cache: "no-store",
-        });
+        const r = await fetch(`/api/ebooks/${encodeURIComponent(slug)}`, { cache: "no-store" });
         const j = await r.json();
         if (!r.ok) throw new Error(j?.error || r.statusText);
         setEbook(j as Ebook);
@@ -154,32 +149,21 @@ export default function EbookDetailPage() {
   /** Ownership check */
   useEffect(() => {
     (async () => {
-      if (!ebook?.id) {
-        setOwn({ kind: "loading" });
-        return;
-      }
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        setOwn({ kind: "signed_out" });
-        return;
-      }
+      if (!ebook?.id) { setOwn({ kind: "loading" }); return; }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setOwn({ kind: "signed_out" }); return; }
       const { data, error } = await supabase
         .from("ebook_purchases")
         .select("status")
         .eq("user_id", user.id)
         .eq("ebook_id", ebook.id)
         .maybeSingle();
-      if (error) {
-        setOwn({ kind: "not_owner" });
-        return;
-      }
+      if (error) { setOwn({ kind: "not_owner" }); return; }
       setOwn(data?.status === "paid" ? { kind: "owner" } : { kind: "not_owner" });
     })();
   }, [ebook?.id]);
 
-  /** Handle Paystack return (?reference=...) */
+  /** Handle Paystack return (?reference=...) + polling */
   useEffect(() => {
     const ref = search.get("reference") || search.get("ref") || null;
     if (!ref || !ebook?.id || !userId) return;
@@ -190,10 +174,7 @@ export default function EbookDetailPage() {
 
     (async () => {
       try {
-        await fetch(
-          `/api/payments/paystack/verify?reference=${encodeURIComponent(ref)}`,
-          { method: "GET" }
-        )
+        await fetch(`/api/payments/paystack/verify?reference=${encodeURIComponent(ref)}`, { method: "GET" })
           .then((r) => r.json())
           .catch(() => null);
       } catch {}
@@ -220,9 +201,7 @@ export default function EbookDetailPage() {
       setVerifying(null);
     })();
 
-    return () => {
-      stopped = true;
-    };
+    return () => { stopped = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, ebook?.id, userId, slug]);
 
@@ -234,31 +213,22 @@ export default function EbookDetailPage() {
 
   /** Start Paystack */
   async function handleBuy() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      router.push(`/auth/sign-in?redirect=${encodeURIComponent(`/ebooks/${slug}`)}`);
-      return;
-    }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { router.push(`/auth/sign-in?redirect=${encodeURIComponent(`/ebooks/${slug}`)}`); return; }
     if (!ebook || !email) return;
 
     setBuying(true);
     try {
       const amountMinor = Math.round(Number(ebook.price_cents));
       const res = await fetch("/api/payments/paystack/init", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email,
-          amountMinor,
+          email, amountMinor,
           meta: { kind: "ebook", user_id: user.id, ebook_id: ebook.id, slug: ebook.slug },
         }),
       });
       const data = await res.json();
-      if (!res.ok || !data?.authorization_url) {
-        throw new Error(data?.error || "Failed to initialize payment.");
-      }
+      if (!res.ok || !data?.authorization_url) throw new Error(data?.error || "Failed to initialize payment.");
       window.location.href = data.authorization_url;
     } catch (e) {
       setErr((e as Error).message || "Payment init failed");
@@ -266,90 +236,83 @@ export default function EbookDetailPage() {
     }
   }
 
-  /** PDF: fetch BYTES with auth, then hand to PDF.js */
+  /** Load PDF bytes via secure route */
   const ensurePdfDoc = useCallback(async (): Promise<PdfDoc | null> => {
     if (pdfDocRef.current) return pdfDocRef.current;
     if (!ebook?.id) return null;
-
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    const { data: { session } } = await supabase.auth.getSession();
     const accessToken = session?.access_token;
-    if (!accessToken) {
-      setRenderError("You must be signed in to read this e-book.");
-      return null;
-    }
+    if (!accessToken) { setRenderError("You must be signed in to read this e-book."); return null; }
 
-    const res = await fetch(
-      `/api/ebooks/secure-pdf?ebookId=${encodeURIComponent(ebook.id)}`,
-      {
-        credentials: "include",
-        cache: "no-store",
-        headers: { Authorization: `Bearer ${accessToken}` },
-      }
-    );
+    const res = await fetch(`/api/ebooks/secure-pdf?ebookId=${encodeURIComponent(ebook.id)}`, {
+      credentials: "include", cache: "no-store",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
 
-    if (res.status === 401) {
-      setRenderError("Session expired or not signed in. Please sign in again.");
-      return null;
-    }
-    if (res.status === 403) {
-      setRenderError("You haven’t purchased this e-book for this account.");
-      return null;
-    }
-    if (!res.ok) {
-      setRenderError(`Secure PDF request failed: ${res.status}`);
-      return null;
-    }
+    if (res.status === 401) { setRenderError("Session expired or not signed in. Please sign in again."); return null; }
+    if (res.status === 403) { setRenderError("You haven’t purchased this e-book for this account."); return null; }
+    if (!res.ok) { setRenderError(`Secure PDF request failed: ${res.status}`); return null; }
 
     const buf = await res.arrayBuffer();
-
     const pdfApi = pdfjs as unknown as PdfJsAPI<PdfDoc>;
     const loadingTask = pdfApi.getDocument({ data: buf });
     const doc = await loadingTask.promise;
-
     pdfDocRef.current = doc;
-    return pdfDocRef.current;
+    return doc;
   }, [ebook?.id]);
 
+  /** Core renderer with correct scaling and scroll behavior */
   const renderPdf = useCallback(async () => {
-    if (!pdfContainerRef.current) return;
-    const container = pdfContainerRef.current;
+    if (!pagesRef.current || !scrollRef.current) return;
+    const pagesEl = pagesRef.current;
+    const scroller = scrollRef.current;
+
     setRendering(true);
     setRenderError(null);
     try {
       const doc = await ensurePdfDoc();
       if (!doc) throw new Error("PDF not available");
-      container.innerHTML = "";
 
-      const width = container.clientWidth * zoom;
+      // containerWidth is the inner width the canvases should fit into
+      const containerWidth = pagesEl.clientWidth;
+      lastContainerWidthRef.current = containerWidth;
+      pagesEl.innerHTML = "";
+
       for (let i = 1; i <= doc.numPages; i++) {
         const page = await doc.getPage(i);
         const base = page.getViewport({ scale: 1 });
-        const scale = Math.max(0.25, Math.min(width / base.width, 4));
+        // baseFitScale fills the width; zoom multiplies that if fit-width mode
+        const baseFitScale = containerWidth / base.width;
+        const scale =
+          fitMode === "fit-width"
+            ? Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, baseFitScale * zoom))
+            : Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom)); // fixed mode uses raw zoom (1 = 100%)
+
         const viewport = page.getViewport({ scale });
 
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d");
         canvas.width = Math.floor(viewport.width);
         canvas.height = Math.floor(viewport.height);
-        canvas.style.width = "100%";
-        canvas.style.height = `${Math.floor(viewport.height)}px`;
+        canvas.style.width = "100%"; // fill available width
+        canvas.style.height = "auto";
         canvas.style.display = "block";
 
         if (ctx) await page.render({ canvasContext: ctx, viewport }).promise;
-        container.appendChild(canvas);
+        pagesEl.appendChild(canvas);
       }
-      container.scrollTop = 0;
+      // keep scroll top on re-render for predictable behavior
+      scroller.scrollTop = 0;
     } catch (e) {
       setRenderError((e as Error).message || "Failed to load PDF");
     } finally {
       setRendering(false);
     }
-  }, [ensurePdfDoc, zoom]);
+  }, [ensurePdfDoc, fitMode, zoom]);
 
+  /** Open reader and render */
   function openReader() {
-    if (own.kind !== "owner") return; // hard guard
+    if (own.kind !== "owner") return;
     setShowReader(true);
     queueMicrotask(async () => {
       readerWrapRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -357,21 +320,47 @@ export default function EbookDetailPage() {
     });
   }
 
-  // Re-render on zoom
+  /** Re-render on zoom or mode change */
   useEffect(() => {
-    if (showReader && pdfReady && ebook?.id) {
-      void renderPdf();
-    }
+    if (showReader && pdfReady && ebook?.id) void renderPdf();
   }, [showReader, pdfReady, ebook?.id, renderPdf]);
 
-  // Re-render on resize
+  /** Resize handling with ResizeObserver for snappy fit-width reflow */
   useEffect(() => {
-    function onResize() {
-      if (showReader && pdfReady && ebook?.id) void renderPdf();
-    }
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    if (!pagesRef.current) return;
+    const target = pagesRef.current.parentElement; // the padding container inside scroller
+    if (!target) return;
+
+    const ro = new ResizeObserver(() => {
+      if (!showReader || !pdfReady || !ebook?.id) return;
+      // Only re-render if width actually changed (prevents loops)
+      const w = pagesRef.current?.clientWidth || 0;
+      if (w && w !== lastContainerWidthRef.current) {
+        lastContainerWidthRef.current = w;
+        void renderPdf();
+      }
+    });
+    ro.observe(target);
+    return () => ro.disconnect();
   }, [showReader, pdfReady, ebook?.id, renderPdf]);
+
+  /** Keyboard zoom shortcuts (+ / -) */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!showReader) return;
+      if ((e.ctrlKey || e.metaKey) && (e.key === "+" || e.key === "=")) {
+        e.preventDefault();
+        setFitMode("fit-width");
+        setZoom((z) => Math.min(MAX_ZOOM, Math.round((z + 0.1) * 10) / 10));
+      } else if ((e.ctrlKey || e.metaKey) && e.key === "-") {
+        e.preventDefault();
+        setFitMode("fit-width");
+        setZoom((z) => Math.max(MIN_ZOOM, Math.round((z - 0.1) * 10) / 10));
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [showReader]);
 
   /** UI */
   if (err) {
@@ -379,9 +368,7 @@ export default function EbookDetailPage() {
       <main className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 py-10">
         <h1 className="text-2xl font-bold">E-Book</h1>
         <p className="mt-3 text-red-600 text-sm">Error: {err}</p>
-        <Link href="/ebooks" className="mt-4 inline-block underline">
-          Back to E-Books
-        </Link>
+        <Link href="/ebooks" className="mt-4 inline-block underline">Back to E-Books</Link>
       </main>
     );
   }
@@ -397,27 +384,12 @@ export default function EbookDetailPage() {
   return (
     <main
       className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 py-10 select-none"
-      onContextMenu={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      }}
-      onDragStart={(e) => {
-        e.preventDefault();
-      }}
+      onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
+      onDragStart={(e) => { e.preventDefault(); }}
     >
       <style jsx global>{`
-        @media print {
-          body {
-            display: none !important;
-          }
-        }
-        html,
-        body,
-        main,
-        .secure-viewer,
-        .secure-viewer * {
-          user-select: none !important;
-        }
+        @media print { body { display: none !important; } }
+        html, body, main, .secure-viewer, .secure-viewer * { user-select: none !important; }
       `}</style>
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
@@ -448,9 +420,7 @@ export default function EbookDetailPage() {
               <div className="text-xl font-semibold">{price}</div>
 
               <div className="mt-4 grid gap-3">
-                {own.kind === "loading" && (
-                  <div className="text-sm text-muted">Checking access…</div>
-                )}
+                {own.kind === "loading" && (<div className="text-sm text-muted">Checking access…</div>)}
 
                 {verifying && (
                   <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2">
@@ -522,7 +492,7 @@ export default function EbookDetailPage() {
         <section className="md:col-span-8">
           <div ref={readerWrapRef} className="rounded-2xl bg-white border border-light secure-viewer">
             {own.kind !== "owner" ? (
-              <div className="w-full h-[75vh] grid place-items-center bg-[color:var(--color-light)]/40">
+              <div className="w-full h-[70vh] md:h-[80vh] grid place-items-center bg-[color:var(--color-light)]/40">
                 <div className="text-center px-6">
                   <div className="text-lg font-semibold">Access locked</div>
                   <p className="text-sm text-muted mt-1">
@@ -535,61 +505,57 @@ export default function EbookDetailPage() {
             ) : (
               <div className="relative">
                 {/* Toolbar */}
-                <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-light bg-white/90 px-3 py-2">
+                <div className="sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b border-light bg-white/90 px-3 py-2">
                   <button
-                    onClick={() =>
-                      setZoom((z) => Math.max(0.5, Math.round((z - 0.1) * 10) / 10))
-                    }
+                    onClick={() => { setFitMode("fit-width"); setZoom((z) => Math.max(MIN_ZOOM, Math.round((z - 0.1) * 10) / 10)); }}
                     className="rounded-md px-3 py-1 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                    aria-label="Zoom out"
                   >
                     −
                   </button>
                   <button
-                    onClick={() =>
-                      setZoom((z) => Math.min(3, Math.round((z + 0.1) * 10) / 10))
-                    }
+                    onClick={() => { setFitMode("fit-width"); setZoom((z) => Math.min(MAX_ZOOM, Math.round((z + 0.1) * 10) / 10)); }}
                     className="rounded-md px-3 py-1 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                    aria-label="Zoom in"
                   >
                     +
                   </button>
                   <button
-                    onClick={() => setZoom(1)}
+                    onClick={() => { setFitMode("fit-width"); setZoom(1); }}
                     className="rounded-md px-3 py-1 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                    aria-label="Fit width"
                   >
                     Fit width
                   </button>
                   <button
-                    onClick={() => setZoom(1.0)}
+                    onClick={() => { setFitMode("fixed"); setZoom(1.0); }}
                     className="rounded-md px-3 py-1 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                    aria-label="100 percent"
                   >
                     100%
                   </button>
-                  <span className="ml-2 text-sm text-muted">Zoom: {(zoom * 100).toFixed(0)}%</span>
+                  <span className="ml-2 text-sm text-muted">Mode: {fitMode === "fit-width" ? "Fit width" : "Fixed"} · Zoom: {(zoom * 100).toFixed(0)}%</span>
                   <div className="ml-auto flex gap-2">
                     <button
-                      onClick={() => {
-                        const c = pdfContainerRef.current;
-                        if (c) c.scrollTo({ top: 0, behavior: "smooth" });
-                      }}
+                      onClick={() => { const s = scrollRef.current; if (s) s.scrollTo({ top: 0, behavior: "smooth" }); }}
                       className="rounded-md px-3 py-1 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                      aria-label="Scroll to top"
                     >
                       Top
                     </button>
                     <button
-                      onClick={() => {
-                        const c = pdfContainerRef.current;
-                        if (c) c.scrollTo({ top: c.scrollHeight, behavior: "smooth" });
-                      }}
+                      onClick={() => { const s = scrollRef.current; if (s) s.scrollTo({ top: s.scrollHeight, behavior: "smooth" }); }}
                       className="rounded-md px-3 py-1 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                      aria-label="Scroll to bottom"
                     >
                       Bottom
                     </button>
                   </div>
                 </div>
 
-                {/* Fixed-height scrollable frame */}
-                <div className="relative z-0 h-[75vh] overflow-auto px-2 py-4">
-                  <div ref={pdfContainerRef} aria-label="Secure PDF Reader" />
+                {/* Scrollable frame (mobile friendly heights) */}
+                <div ref={scrollRef} className="relative z-0 h-[70vh] md:h-[80vh] overflow-auto px-2 py-4">
+                  <div ref={pagesRef} aria-label="Secure PDF Reader" className="w-full" />
                   {rendering && (
                     <div className="absolute inset-0 grid place-items-center bg-white/40">
                       <div className="text-sm">Loading pages…</div>
@@ -613,9 +579,7 @@ export default function EbookDetailPage() {
             {ebook.description ?? "No description provided."}
           </p>
           <div className="mt-6">
-            <Link href="/ebooks" className="underline">
-              ← Back to E-Books
-            </Link>
+            <Link href="/ebooks" className="underline">← Back to E-Books</Link>
           </div>
         </div>
       </section>
