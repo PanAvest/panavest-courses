@@ -419,7 +419,7 @@ export default function CourseDashboard() {
   async function markDone(slide: Slide | null) {
     if (!slide || !userId || !course) return;
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from("user_slide_progress")
         .upsert(
           {
@@ -462,8 +462,9 @@ export default function CourseDashboard() {
       }
 
       setTimeout(() => setNotice(""), 1500);
-    } catch (e: any) {
-      setNotice(`Save failed. ${e?.message ?? ""}`.trim());
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Unknown error";
+      setNotice(`Save failed. ${msg}`.trim());
       setTimeout(() => setNotice(""), 2500);
     }
   }
@@ -906,7 +907,7 @@ export default function CourseDashboard() {
                           type="button"
                           disabled={isLocked}
                           className={[
-                            "w-full text-left text-xs px-2 py-1.5 rounded-md",
+                            "w-full text-left text-sm md:text-xs px-3 md:px-2 py-2 md:py-1.5 rounded-md",
                             isActive ? "bg-[color:var(--color-light)]" : "hover:bg-[color:var(--color-light)]/70",
                             isLocked ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
                           ].join(" ")}
@@ -927,17 +928,18 @@ export default function CourseDashboard() {
         </aside>
 
         {/* Main */}
-        <main className="rounded-2xl bg-white border border-light p-4">
+        <main className="rounded-2xl bg-white border border-light p-4 pb-24 md:pb-4">
           {activeSlide ? (
             <>
               <div className="flex items-start justify-between gap-3">
                 <div className="text-base md:text-lg font-semibold">{activeSlide.title}</div>
-                <div className="flex gap-2">
+                <div className="hidden sm:flex gap-2">
                   <button
                     type="button"
                     onClick={() => { if (canGoPrev) setActiveSlide(orderedSlides[activeIndex - 1]); }}
                     disabled={!canGoPrev}
                     className={`rounded-lg border px-3 py-1.5 text-sm ${canGoPrev ? "hover:bg-[color:var(--color-light)]/70" : "opacity-50 cursor-not-allowed"}`}
+                    aria-label="Previous slide"
                   >
                     Prev
                   </button>
@@ -949,6 +951,7 @@ export default function CourseDashboard() {
                     }}
                     disabled={!canGoNext}
                     className={`rounded-lg border px-3 py-1.5 text-sm ${canGoNext ? "hover:bg-[color:var(--color-light)]/70" : "opacity-50 cursor-not-allowed"}`}
+                    aria-label="Next slide"
                   >
                     Next
                   </button>
@@ -958,7 +961,7 @@ export default function CourseDashboard() {
               {renderMedia(activeSlide)}
 
               {(activeSlide.body ?? activeSlide.content) && (
-                <div className="prose max-w-none mt-4 text-sm whitespace-pre-wrap">
+                <div className="prose max-w-none mt-4 text-[0.95rem] leading-relaxed whitespace-pre-wrap">
                   {activeSlide.body ?? activeSlide.content}
                 </div>
               )}
@@ -967,7 +970,7 @@ export default function CourseDashboard() {
                 <button
                   type="button"
                   onClick={() => markDone(activeSlide)}
-                  className="rounded-lg bg-[color:#0a1156] text-white px-4 py-2 font-semibold hover:opacity-90"
+                  className="rounded-xl bg-[color:#0a1156] text-white px-5 py-2.5 font-semibold hover:opacity-90"
                 >
                   Mark as Done
                 </button>
@@ -980,7 +983,7 @@ export default function CourseDashboard() {
                   <button
                     type="button"
                     onClick={() => beginQuiz(activeSlide.chapter_id)}
-                    className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                    className="rounded-xl px-5 py-2.5 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50"
                   >
                     Take Chapter Quiz
                   </button>
@@ -1004,6 +1007,43 @@ export default function CourseDashboard() {
           )}
         </main>
       </div>
+
+      {/* Sticky mobile action bar */}
+      {activeSlide && (
+        <div className="sm:hidden fixed inset-x-0 bottom-0 z-40 bg-white/95 backdrop-blur border-t border-light">
+          <div className="mx-auto max-w-screen-2xl px-4 py-2 grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={() => { if (canGoPrev) setActiveSlide(orderedSlides[activeIndex - 1]); }}
+              disabled={!canGoPrev}
+              className={`rounded-lg border px-3 py-3 text-sm ${canGoPrev ? "active:scale-[0.98]" : "opacity-50 cursor-not-allowed"}`}
+              aria-label="Previous slide"
+            >
+              Prev
+            </button>
+            <button
+              type="button"
+              onClick={() => markDone(activeSlide)}
+              className="rounded-lg bg-[color:#0a1156] text-white px-3 py-3 text-sm font-semibold active:scale-[0.98]"
+              aria-label="Mark current slide as done"
+            >
+              Done
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (canGoNext) setActiveSlide(orderedSlides[activeIndex + 1]);
+                else setNotice("Complete this slide or the chapter quiz first.");
+              }}
+              disabled={!canGoNext}
+              className={`rounded-lg border px-3 py-3 text-sm ${canGoNext ? "active:scale-[0.98]" : "opacity-50 cursor-not-allowed"}`}
+              aria-label="Next slide"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Chapter Quiz Modal */}
       {quizOpen && (
