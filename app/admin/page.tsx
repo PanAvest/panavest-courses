@@ -1,9 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-/* ---------------- Types ---------------- */
+/* ============================== Types ============================== */
 type Knowledge = {
   id?: string;
   slug: string;
@@ -22,6 +22,7 @@ type AdminUser = {
   email?: string;
   email_confirmed_at?: string | null;
   created_at?: string | null;
+  banned?: boolean | null;
 };
 
 type Chapter = {
@@ -29,7 +30,7 @@ type Chapter = {
   course_id: string;
   title: string;
   order_index: number;
-  created_at?: string;
+  created_at?: string | null;
 };
 
 type Slide = {
@@ -40,7 +41,7 @@ type Slide = {
   intro_video_url?: string | null;
   asset_url?: string | null;
   body?: string | null;
-  created_at?: string;
+  created_at?: string | null;
 };
 
 type QuizSettings = {
@@ -55,93 +56,101 @@ type QuizQuestion = {
   question: string;
   options: string[];
   correct_index: number;
-  created_at?: string;
+  created_at?: string | null;
 };
 
-/* ---------- E-Books Admin Types ---------- */
 type Ebook = {
   id?: string;
   slug: string;
   title: string;
   description?: string | null;
   cover_url?: string | null;
-  sample_url?: string | null;   // image or pdf for web preview
-  kpf_url?: string | null;      // downloadable KPF
-  price_cents: number;          // stored in cents
+  sample_url?: string | null;
+  kpf_url?: string | null;
+  price_cents: number;
   published: boolean;
   created_at?: string | null;
 };
 
-/* -------------- Small helpers -------------- */
-function toCsv(v: string[] | null | undefined) { return (v ?? []).join(", "); }
-function fromCsv(v: string) { return v.split(",").map(s => s.trim()).filter(Boolean); }
-function isString(x: unknown): x is string { return typeof x === "string"; }
-function asNumber(n: unknown, fallback = 0): number {
-  if (typeof n === "number" && Number.isFinite(n)) return n;
-  const num = Number(n);
-  return Number.isFinite(num) ? num : fallback;
-}
+type Stats = {
+  users_total: number;
+  users_new_7d: number;
+  courses_total: number;
+  ebooks_total: number;
+  orders_total: number;
+  revenue_30d_usd: number;
+  top_courses: Array<{ title: string; sales: number }>;
+  top_ebooks: Array<{ title: string; sales: number }>;
+};
 
+/* ============================== Utils ============================== */
+const isStr = (x: unknown): x is string => typeof x === "string";
+const num = (x: unknown, d = 0): number => {
+  if (typeof x === "number" && Number.isFinite(x)) return x;
+  const n = Number(x);
+  return Number.isFinite(n) ? n : d;
+};
+const toCsv = (v: string[] | null | undefined) => (v ?? []).join(", ");
+const fromCsv = (v: string) => v.split(",").map(s => s.trim()).filter(Boolean);
+
+/* ========================== Adapters (safe) ======================== */
 function asAdminUser(x: unknown): AdminUser {
   const r = (x && typeof x === "object") ? (x as Record<string, unknown>) : {};
   return {
     id: String(r["id"] ?? ""),
-    email: isString(r["email"]) ? r["email"] : undefined,
-    email_confirmed_at: isString(r["email_confirmed_at"]) ? r["email_confirmed_at"] : null,
-    created_at: isString(r["created_at"]) ? r["created_at"] : null,
+    email: isStr(r["email"]) ? r["email"] : undefined,
+    email_confirmed_at: isStr(r["email_confirmed_at"]) ? r["email_confirmed_at"] : null,
+    created_at: isStr(r["created_at"]) ? r["created_at"] : null,
+    banned: typeof r["banned"] === "boolean" ? r["banned"] : null,
   };
 }
-
 function asKnowledgeArray(x: unknown): Knowledge[] {
   if (!Array.isArray(x)) return [];
   return x.map((k) => {
     const r = (k && typeof k === "object") ? (k as Record<string, unknown>) : {};
     return {
-      id: isString(r["id"]) ? r["id"] : undefined,
+      id: isStr(r["id"]) ? r["id"] : undefined,
       slug: String(r["slug"] ?? ""),
       title: String(r["title"] ?? ""),
-      description: isString(r["description"]) ? r["description"] : null,
-      level: isString(r["level"]) ? r["level"] : null,
+      description: isStr(r["description"]) ? r["description"] : null,
+      level: isStr(r["level"]) ? r["level"] : null,
       price: typeof r["price"] === "number" ? r["price"] : null,
       cpd_points: typeof r["cpd_points"] === "number" ? r["cpd_points"] : null,
-      img: isString(r["img"]) ? r["img"] : null,
+      img: isStr(r["img"]) ? r["img"] : null,
       accredited: Array.isArray(r["accredited"]) ? (r["accredited"] as string[]) : null,
       published: typeof r["published"] === "boolean" ? r["published"] : null,
     };
   });
 }
-
 function asChapters(x: unknown): Chapter[] {
   if (!Array.isArray(x)) return [];
   return x.map((c) => {
     const r = (c && typeof c === "object") ? (c as Record<string, unknown>) : {};
     return {
-      id: isString(r["id"]) ? r["id"] : undefined,
+      id: isStr(r["id"]) ? r["id"] : undefined,
       course_id: String(r["course_id"] ?? ""),
       title: String(r["title"] ?? ""),
       order_index: Number(r["order_index"] ?? 0),
-      created_at: isString(r["created_at"]) ? r["created_at"] : undefined,
+      created_at: isStr(r["created_at"]) ? r["created_at"] : null,
     };
   });
 }
-
 function asSlides(x: unknown): Slide[] {
   if (!Array.isArray(x)) return [];
   return x.map((s) => {
     const r = (s && typeof s === "object") ? (s as Record<string, unknown>) : {};
     return {
-      id: isString(r["id"]) ? r["id"] : undefined,
+      id: isStr(r["id"]) ? r["id"] : undefined,
       chapter_id: String(r["chapter_id"] ?? ""),
       title: String(r["title"] ?? ""),
       order_index: Number(r["order_index"] ?? 0),
-      intro_video_url: isString(r["intro_video_url"]) ? r["intro_video_url"] : null,
-      asset_url: isString(r["asset_url"]) ? r["asset_url"] : null,
-      body: isString(r["body"]) ? r["body"] : null,
-      created_at: isString(r["created_at"]) ? r["created_at"] : undefined,
+      intro_video_url: isStr(r["intro_video_url"]) ? r["intro_video_url"] : null,
+      asset_url: isStr(r["asset_url"]) ? r["asset_url"] : null,
+      body: isStr(r["body"]) ? r["body"] : null,
+      created_at: isStr(r["created_at"]) ? r["created_at"] : null,
     };
   });
 }
-
 function asQuizSettings(x: unknown, chapterId: string): QuizSettings {
   const r = (x && typeof x === "object") ? (x as Record<string, unknown>) : {};
   return {
@@ -150,63 +159,118 @@ function asQuizSettings(x: unknown, chapterId: string): QuizSettings {
     num_questions: typeof r["num_questions"] === "number" ? r["num_questions"] : null,
   };
 }
-
 function asQuizQuestions(x: unknown): QuizQuestion[] {
   if (!Array.isArray(x)) return [];
   return x.map((q) => {
     const r = (q && typeof q === "object") ? (q as Record<string, unknown>) : {};
     const opts = Array.isArray(r["options"]) ? (r["options"] as unknown[]).map(String) : [];
     return {
-      id: isString(r["id"]) ? r["id"] : undefined,
+      id: isStr(r["id"]) ? r["id"] : undefined,
       chapter_id: String(r["chapter_id"] ?? ""),
       question: String(r["question"] ?? ""),
       options: opts,
       correct_index: Number(r["correct_index"] ?? 0),
-      created_at: isString(r["created_at"]) ? r["created_at"] : undefined,
+      created_at: isStr(r["created_at"]) ? r["created_at"] : undefined,
+    };
+  });
+}
+function asEbooks(x: unknown): Ebook[] {
+  if (!Array.isArray(x)) return [];
+  return x.map((e) => {
+    const r = (e && typeof e === "object") ? (e as Record<string, unknown>) : {};
+    return {
+      id: isStr(r["id"]) ? r["id"] : undefined,
+      slug: String(r["slug"] ?? ""),
+      title: String(r["title"] ?? ""),
+      description: isStr(r["description"]) ? r["description"] : "",
+      cover_url: isStr(r["cover_url"]) ? r["cover_url"] : "",
+      sample_url: isStr(r["sample_url"]) ? r["sample_url"] : "",
+      kpf_url: isStr(r["kpf_url"]) ? r["kpf_url"] : "",
+      price_cents: num(r["price_cents"], 0),
+      published: Boolean(r["published"] ?? true),
+      created_at: isStr(r["created_at"]) ? r["created_at"] : null,
     };
   });
 }
 
-/* ---------------- Component ---------------- */
+/* ============================ UI Helpers =========================== */
+function StatCard({ label, value, foot }: { label: string; value: string | number; foot?: string }) {
+  return (
+    <div className="rounded-2xl bg-white border border-light p-4">
+      <div className="text-xs text-muted">{label}</div>
+      <div className="mt-1 text-2xl font-semibold">{value}</div>
+      {foot && <div className="mt-1 text-xs text-muted">{foot}</div>}
+    </div>
+  );
+}
+function Section({ title, children, right }: { title: string; children: React.ReactNode; right?: React.ReactNode }) {
+  return (
+    <div className="rounded-2xl bg-white border border-light p-5">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="font-semibold">{title}</h2>
+        {right}
+      </div>
+      <div className="mt-4">{children}</div>
+    </div>
+  );
+}
+
+/* ============================== Component ============================== */
 export default function AdminPage() {
-  const [tab, setTab] = useState<"knowledge"|"ebooks"|"structure"|"media"|"users"|"deploy">("knowledge");
+  /* ---------------- Tabs ---------------- */
+  type Tab = "overview" | "catalog" | "content" | "prices" | "media" | "users" | "deploy";
+  const [tab, setTab] = useState<Tab>("overview");
 
-  /* ---------- Knowledge ---------- */
-  const emptyK: Knowledge = {
-    slug: "", title: "", description: "", level: "",
-    price: null, cpd_points: null, img: "", accredited: [], published: true
-  };
-  const [list, setList] = useState<Knowledge[]>([]);
-  const [form, setForm] = useState<Knowledge>(emptyK);
-  const [saving, setSaving] = useState(false);
+  /* ---------------- Overview (Stats) ---------------- */
+  const [stats, setStats] = useState<Stats | null>(null);
+  const loadStats = useCallback(async () => {
+    const r = await fetch("/api/admin/stats", { cache: "no-store" });
+    if (!r.ok) return;
+    const d = (await r.json()) as Stats;
+    setStats({
+      users_total: num(d?.users_total, 0),
+      users_new_7d: num(d?.users_new_7d, 0),
+      courses_total: num(d?.courses_total, 0),
+      ebooks_total: num(d?.ebooks_total, 0),
+      orders_total: num(d?.orders_total, 0),
+      revenue_30d_usd: num(d?.revenue_30d_usd, 0),
+      top_courses: Array.isArray(d?.top_courses) ? d.top_courses : [],
+      top_ebooks: Array.isArray(d?.top_ebooks) ? d.top_ebooks : [],
+    });
+  }, []);
+  useEffect(() => { if (tab === "overview") void loadStats(); }, [tab, loadStats]);
 
+  /* ---------------- Catalog (Courses + Ebooks) ---------------- */
+  const [knowledge, setKnowledge] = useState<Knowledge[]>([]);
+  const [kForm, setKForm] = useState<Knowledge>({
+    slug: "", title: "", description: "", level: "", price: null, cpd_points: null, img: "", accredited: [], published: true
+  });
+  const [savingK, setSavingK] = useState(false);
   const refreshKnowledge = useCallback(async () => {
     const r = await fetch("/api/admin/knowledge", { cache: "no-store" });
     const d = await r.json();
-    setList(asKnowledgeArray(d));
+    setKnowledge(asKnowledgeArray(d));
   }, []);
-  useEffect(() => { void refreshKnowledge(); }, [refreshKnowledge]);
+  useEffect(() => { if (tab === "catalog" || tab === "content" || tab === "prices") void refreshKnowledge(); }, [tab, refreshKnowledge]);
 
   async function saveKnowledge() {
-    setSaving(true);
-    const payload: Knowledge = { ...form, accredited: fromCsv(toCsv(form.accredited ?? [])) };
+    setSavingK(true);
+    const payload: Knowledge = { ...kForm, accredited: fromCsv(toCsv(kForm.accredited ?? [])) };
     const r = await fetch("/api/admin/knowledge", {
       method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify(payload)
     });
-    setSaving(false);
-    if (r.ok) { setForm(emptyK); await refreshKnowledge(); } else { alert("Save failed"); }
+    setSavingK(false);
+    if (r.ok) { setKForm({ slug:"", title:"", description:"", level:"", price:null, cpd_points:null, img:"", accredited:[], published:true }); await refreshKnowledge(); }
+    else { alert("Save failed"); }
   }
 
-  /* ---------- Structure: chapters + slides + quiz ---------- */
-  const emptyChapter: Chapter = { course_id: "", title: "", order_index: 0 };
-  const emptySlide:  Slide   = { chapter_id: "", title: "", order_index: 0, intro_video_url: "", asset_url: "", body: "" };
-
+  /* ---------------- Content Builder (Course → Chapter → Slide → Quiz) ---------------- */
   const [selectedCourseId, setSelectedCourseId] = useState<string>("");
-  const selectedCourse = useMemo(
-    () => list.find(k => (k.id ?? "") === selectedCourseId),
-    [list, selectedCourseId]
-  );
+  const selectedCourse = useMemo(() => knowledge.find(k => (k.id ?? "") === selectedCourseId) ?? null, [knowledge, selectedCourseId]);
+
+  const emptyChapter: Chapter = { course_id: "", title: "", order_index: 0 };
+  const emptySlide: Slide = { chapter_id: "", title: "", order_index: 0, intro_video_url: "", asset_url: "", body: "" };
 
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [chForm, setChForm] = useState<Chapter>(emptyChapter);
@@ -216,280 +280,160 @@ export default function AdminPage() {
   const [slForm, setSlForm] = useState<Slide>(emptySlide);
   const [savingSlide, setSavingSlide] = useState(false);
 
-  // Quiz state (per selected chapter)
-  const [quizSettings, setQuizSettings] = useState<QuizSettings>({ chapter_id: "", time_limit_seconds: null, num_questions: null });
-  const [quizSaving, setQuizSaving] = useState(false);
+  const [quizSettings, setQuizSettings] = useState<QuizSettings>({ chapter_id: "", time_limit_seconds: 120, num_questions: null });
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [qForm, setQForm] = useState<QuizQuestion>({ chapter_id: "", question: "", options: [], correct_index: 0 });
 
-  async function refreshChapters(courseId: string) {
+  const refreshChapters = useCallback(async (courseId: string) => {
     if (!courseId) { setChapters([]); return; }
     const r = await fetch(`/api/admin/chapters?course_id=${encodeURIComponent(courseId)}`, { cache: "no-store" });
     const d = await r.json();
-    setChapters(asChapters(d));
-  }
-  async function refreshSlides(chapterId: string) {
+    const rows = asChapters(d);
+    setChapters(rows);
+    if (rows.length && (!chForm.id || chForm.course_id !== courseId)) {
+      setChForm({ ...rows[0] });
+      setSlForm(s => ({ ...s, chapter_id: rows[0].id ?? "" }));
+    }
+  }, [chForm.id, chForm.course_id]);
+
+  const refreshSlides = useCallback(async (chapterId: string) => {
     if (!chapterId) { setSlides([]); return; }
     const r = await fetch(`/api/admin/slides?chapter_id=${encodeURIComponent(chapterId)}`, { cache: "no-store" });
     const d = await r.json();
     setSlides(asSlides(d));
-  }
-  async function refreshQuiz(chapterId: string) {
+  }, []);
+
+  const refreshQuiz = useCallback(async (chapterId: string) => {
     if (!chapterId) {
-      setQuizSettings({ chapter_id: "", time_limit_seconds: null, num_questions: null });
+      setQuizSettings({ chapter_id: "", time_limit_seconds: 120, num_questions: null });
       setQuestions([]);
       setQForm({ chapter_id: "", question: "", options: [], correct_index: 0 });
       return;
     }
-    {
-      const r = await fetch(`/api/admin/quiz-settings?chapter_id=${encodeURIComponent(chapterId)}`, { cache: "no-store" });
-      const d = r.ok ? await r.json() : {};
-      setQuizSettings(asQuizSettings(d ?? {}, chapterId));
-    }
-    {
-      const r = await fetch(`/api/admin/quiz-questions?chapter_id=${encodeURIComponent(chapterId)}`, { cache: "no-store" });
-      const d = r.ok ? await r.json() : [];
-      setQuestions(asQuizQuestions(d));
-    }
+    const r1 = await fetch(`/api/admin/quiz-settings?chapter_id=${encodeURIComponent(chapterId)}`, { cache: "no-store" });
+    const d1 = r1.ok ? await r1.json() : {};
+    setQuizSettings(asQuizSettings(d1 ?? {}, chapterId));
+
+    const r2 = await fetch(`/api/admin/quiz-questions?chapter_id=${encodeURIComponent(chapterId)}`, { cache: "no-store" });
+    const d2 = r2.ok ? await r2.json() : [];
+    setQuestions(asQuizQuestions(d2));
     setQForm(f => ({ ...f, chapter_id: chapterId }));
-  }
+  }, []);
 
   useEffect(() => {
-    void refreshChapters(selectedCourseId);
+    if (!selectedCourseId) return;
     setChForm({ ...emptyChapter, course_id: selectedCourseId });
     setSlForm({ ...emptySlide, chapter_id: "" });
-    setSlides([]);
-    setQuizSettings({ chapter_id: "", time_limit_seconds: null, num_questions: null });
-    setQuestions([]);
-    setQForm({ chapter_id: "", question: "", options: [], correct_index: 0 });
-  }, [selectedCourseId]);
+    void refreshChapters(selectedCourseId);
+  }, [selectedCourseId, refreshChapters]);
+
+  useEffect(() => {
+    if (!chForm.id) return;
+    void refreshSlides(chForm.id ?? "");
+    void refreshQuiz(chForm.id ?? "");
+    setSlForm(s => ({ ...s, chapter_id: chForm.id ?? "" }));
+  }, [chForm.id, refreshSlides, refreshQuiz]);
 
   async function saveChapter() {
-    if (!selectedCourseId) return;
-    if (!chForm.title) { alert("Title is required"); return; }
+    if (!selectedCourseId || !chForm.title.trim()) { alert("Course & Title required"); return; }
     setSavingChapter(true);
     const payload = {
       id: chForm.id,
       course_id: selectedCourseId,
-      title: chForm.title,
+      title: chForm.title.trim(),
       order_index: Number.isFinite(chForm.order_index) ? chForm.order_index : 0,
     };
     const r = await fetch("/api/admin/chapters", {
-      method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload)
     });
     setSavingChapter(false);
-    if (!r.ok) {
-      let msg = "";
-      try { const j = await r.json(); msg = (j as { error?: string })?.error || r.statusText; } catch { msg = await r.text(); }
-      alert(`Save chapter failed: ${msg}`);
-      return;
-    }
+    if (!r.ok) { alert("Save chapter failed"); return; }
     await refreshChapters(selectedCourseId);
-    const out = await r.json();
-    const updated = Array.isArray(out) ? asChapters(out)[0] : (asChapters([out])[0] ?? payload);
-    setChForm(updated);
-    const newChapterId = updated.id ?? "";
-    setSlForm(f => ({ ...f, chapter_id: newChapterId }));
-    await refreshSlides(newChapterId);
-    await refreshQuiz(newChapterId);
   }
 
   async function saveSlide() {
-    if (!slForm.chapter_id) { alert("Pick a chapter first"); return; }
-    if (!slForm.title) { alert("Title is required"); return; }
+    if (!slForm.chapter_id || !slForm.title.trim()) { alert("Chapter & Title required"); return; }
     setSavingSlide(true);
-
     const payload = {
       id: slForm.id || undefined,
       chapter_id: slForm.chapter_id,
-      title: slForm.title,
+      title: slForm.title.trim(),
       order_index: Number.isFinite(slForm.order_index) ? Number(slForm.order_index) : 0,
-      intro_video_url: slForm.intro_video_url || null,
-      asset_url: slForm.asset_url || null,
-      body: slForm.body || null,
+      intro_video_url: slForm.intro_video_url?.trim() || null,
+      asset_url: slForm.asset_url?.trim() || null,
+      body: slForm.body?.trim() || null,
     };
-
     const r = await fetch("/api/admin/slides", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload)
     });
-
     setSavingSlide(false);
-
-    if (!r.ok) {
-      let msg = "";
-      try { const j = await r.json(); msg = (j as { error?: string })?.error || r.statusText; } catch { msg = await r.text(); }
-      alert(`Save slide failed: ${msg}`);
-      return;
-    }
-
-    const saved = await r.json();
-    setSlForm((prev) => ({ ...prev, ...saved, chapter_id: prev.chapter_id }));
+    if (!r.ok) { alert("Save slide failed"); return; }
     await refreshSlides(slForm.chapter_id);
   }
 
-  // Uploads → /api/admin/upload (returns { publicUrl })
+  /* Uploads (Media & Slide helpers) */
+  const [uploading, setUploading] = useState(false);
+  const [uploadedUrl, setUploadedUrl] = useState<string>("");
   async function uploadToStorage(file: File): Promise<string | null> {
     const fd = new FormData();
     fd.append("file", file);
     fd.append("name", file.name);
     const r = await fetch("/api/admin/upload", { method: "POST", body: fd });
+    if (!r.ok) return null;
     const d = await r.json();
     const url = (d && typeof d === "object") ? (d as Record<string, unknown>)["publicUrl"] : null;
-    return isString(url) ? url : null;
+    return isStr(url) ? url : null;
   }
-  async function onPickVideo(file: File) {
+  async function onPick(file: File, target: "intro" | "asset") {
+    setUploading(true);
     const url = await uploadToStorage(file);
-    if (url) setSlForm(f => ({ ...f, intro_video_url: url }));
-    else alert("Video upload failed");
-  }
-  async function onPickAsset(file: File) {
-    const url = await uploadToStorage(file);
-    if (url) setSlForm(f => ({ ...f, asset_url: url }));
-    else alert("Asset upload failed");
+    setUploading(false);
+    if (!url) { alert("Upload failed"); return; }
+    if (target === "intro") setSlForm(f => ({ ...f, intro_video_url: url }));
+    if (target === "asset") setSlForm(f => ({ ...f, asset_url: url }));
+    setUploadedUrl(url);
   }
 
-  /* ---------- Quiz: save settings & questions ---------- */
+  /* Quiz settings + questions */
+  const [quizSaving, setQuizSaving] = useState(false);
   async function saveQuizSettings() {
-    if (!quizSettings.chapter_id) { alert("Pick a chapter first"); return; }
+    if (!quizSettings.chapter_id) { alert("Pick a chapter"); return; }
     setQuizSaving(true);
-    const payload = {
-      chapter_id: quizSettings.chapter_id,
-      time_limit_seconds: quizSettings.time_limit_seconds,
-      num_questions: quizSettings.num_questions,
-    };
     const r = await fetch("/api/admin/quiz-settings", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(quizSettings),
     });
     setQuizSaving(false);
-    if (!r.ok) {
-      let msg = "";
-      try { const j = await r.json(); msg = (j as { error?: string })?.error || r.statusText; } catch { msg = await r.text(); }
-      alert(`Save quiz settings failed: ${msg}`);
-      return;
-    }
+    if (!r.ok) { alert("Save quiz settings failed"); return; }
     const saved = await r.json();
-    setQuizSettings(asQuizSettings(saved, payload.chapter_id));
-    alert("Quiz settings saved");
+    setQuizSettings(asQuizSettings(saved, quizSettings.chapter_id));
   }
 
   async function saveQuestion() {
-    if (!qForm.chapter_id) { alert("Pick a chapter first"); return; }
-    if (!qForm.question.trim()) { alert("Question text is required"); return; }
-    if (qForm.options.length < 2) { alert("At least 2 options required"); return; }
-    if (qForm.correct_index < 0 || qForm.correct_index >= qForm.options.length) {
-      alert("Correct index out of range"); return;
-    }
-
-    const payload = {
-      id: qForm.id,
-      chapter_id: qForm.chapter_id,
-      question: qForm.question,
-      options: qForm.options,
-      correct_index: Number(qForm.correct_index),
-    };
-
+    if (!qForm.chapter_id || !qForm.question.trim()) { alert("Chapter & Question required"); return; }
+    if ((qForm.options?.length ?? 0) < 2) { alert("At least 2 options"); return; }
+    if (qForm.correct_index < 0 || qForm.correct_index >= qForm.options.length) { alert("Correct index out of range"); return; }
     const r = await fetch("/api/admin/quiz-questions", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(qForm)
     });
-
-    if (!r.ok) {
-      let msg = "";
-      try { const j = await r.json(); msg = (j as { error?: string })?.error || r.statusText; } catch { msg = await r.text(); }
-      alert(`Save question failed: ${msg}`);
-      return;
-    }
-
+    if (!r.ok) { alert("Save question failed"); return; }
     await refreshQuiz(qForm.chapter_id);
     setQForm({ chapter_id: qForm.chapter_id, question: "", options: [], correct_index: 0, id: undefined });
   }
-
   async function deleteQuestion(id?: string) {
     if (!id) return;
     if (!confirm("Delete this question?")) return;
     const r = await fetch(`/api/admin/quiz-questions?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-    if (!r.ok) {
-      let msg = "";
-      try { const j = await r.json(); msg = (j as { error?: string })?.error || r.statusText; } catch { msg = await r.text(); }
-      alert(`Delete failed: ${msg}`);
-      return;
-    }
+    if (!r.ok) { alert("Delete failed"); return; }
     await refreshQuiz(quizSettings.chapter_id);
   }
 
-  /* ---------- Media ---------- */
-  const [uploading, setUploading] = useState(false);
-  const [uploadedUrl, setUploadedUrl] = useState<string>("");
-
-  async function handleUpload(file: File) {
-    setUploading(true);
-    const fd = new FormData();
-    fd.append("file", file);
-    fd.append("name", file.name);
-    const r = await fetch("/api/admin/upload", { method: "POST", body: fd });
-    setUploading(false);
-    const d = await r.json();
-    const url = (d && typeof d === "object") ? (d as Record<string, unknown>)["publicUrl"] : null;
-    if (isString(url)) setUploadedUrl(url); else alert("Upload failed");
-  }
-
-  /* ---------- Users ---------- */
-  const [users, setUsers] = useState<AdminUser[]>([]);
-  const refreshUsers = useCallback(async () => {
-    const r = await fetch("/api/admin/users", { cache: "no-store" });
-    const d = await r.json();
-    const usersField = (d && typeof d === "object") ? (d as Record<string, unknown>)["users"] : null;
-    const arr = Array.isArray(usersField) ? usersField : [];
-    setUsers(arr.map(asAdminUser));
-  }, []);
-  useEffect(() => { if (tab==="users") void refreshUsers(); }, [tab, refreshUsers]);
-
-  async function deleteUser(id: string) {
-    if (!confirm("Delete this user?")) return;
-    const r = await fetch(`/api/admin/users/${id}`, { method: "DELETE" });
-    if (r.ok) await refreshUsers(); else alert("Delete failed");
-  }
-  async function generateLink(email?: string) {
-    if (!email) return;
-    const r = await fetch("/api/admin/users", {
-      method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "generate_confirmation_link", email })
-    });
-    const d = await r.json();
-    const link = (d && typeof d === "object") ? (d as Record<string, unknown>)["link"] : null;
-    if (isString(link)) { await navigator.clipboard.writeText(link); alert("Confirmation link copied"); }
-    else { alert("Could not generate link"); }
-  }
-
-  /* ---------- Deploy ---------- */
-  async function triggerDeploy() {
-    const r = await fetch("/api/admin/deploy", { method: "POST" });
-    const d = await r.json();
-    const ok   = (d && typeof d === "object") ? (d as Record<string, unknown>)["ok"]   : null;
-    const text = (d && typeof d === "object") ? (d as Record<string, unknown>)["text"] : null;
-    alert(ok ? "Deploy triggered" : `Failed: ${String(text ?? "Unknown error")}`);
-  }
-
-  /* ================== E-BOOKS ADMIN ================== */
-  const emptyEbook: Ebook = {
-    slug: "",
-    title: "",
-    description: "",
-    cover_url: "",
-    sample_url: "",
-    kpf_url: "",
-    price_cents: 0,
-    published: true,
-  };
-
+  /* ---------------- Ebooks (Catalog) ---------------- */
   const [ebooks, setEbooks] = useState<Ebook[]>([]);
-  const [ebookForm, setEbookForm] = useState<Ebook>(emptyEbook);
+  const [ebookForm, setEbookForm] = useState<Ebook>({
+    slug: "", title: "", description: "", cover_url: "", sample_url: "", kpf_url: "", price_cents: 0, published: true
+  });
   const [savingEbook, setSavingEbook] = useState(false);
   const [loadingEbooks, setLoadingEbooks] = useState(false);
 
@@ -498,121 +442,196 @@ export default function AdminPage() {
     try {
       const r = await fetch("/api/admin/ebooks", { cache: "no-store" });
       const d = await r.json();
-      const arr = Array.isArray(d) ? d : [];
-      const rows: Ebook[] = arr.map((e) => {
-        const r = (e && typeof e === "object") ? (e as Record<string, unknown>) : {};
-        return {
-          id: isString(r["id"]) ? r["id"] : undefined,
-          slug: String(r["slug"] ?? ""),
-          title: String(r["title"] ?? ""),
-          description: isString(r["description"]) ? r["description"] : "",
-          cover_url: isString(r["cover_url"]) ? r["cover_url"] : "",
-          sample_url: isString(r["sample_url"]) ? r["sample_url"] : "",
-          kpf_url: isString(r["kpf_url"]) ? r["kpf_url"] : "",
-          price_cents: asNumber(r["price_cents"], 0),
-          published: Boolean(r["published"] ?? true),
-          created_at: isString(r["created_at"]) ? r["created_at"] : null,
-        };
-      });
-      setEbooks(rows);
-    } catch (err) {
-      alert(`Load e-books failed: ${(err as Error).message}`);
-    } finally {
-      setLoadingEbooks(false);
-    }
+      setEbooks(asEbooks(d));
+    } finally { setLoadingEbooks(false); }
   }, []);
-  useEffect(() => { if (tab==="ebooks") void refreshEbooks(); }, [tab, refreshEbooks]);
+  useEffect(() => { if (tab === "catalog" || tab === "prices") void refreshEbooks(); }, [tab, refreshEbooks]);
 
   async function saveEbook() {
-    if (!ebookForm.slug.trim() || !ebookForm.title.trim()) {
-      alert("Slug and Title are required");
-      return;
-    }
+    if (!ebookForm.slug.trim() || !ebookForm.title.trim()) { alert("Slug & Title required"); return; }
     setSavingEbook(true);
-    try {
-      const payload: Ebook = {
-        ...ebookForm,
-        price_cents: asNumber(ebookForm.price_cents, 0),
-        cover_url: ebookForm.cover_url?.trim() ? ebookForm.cover_url : null,
-        sample_url: ebookForm.sample_url?.trim() ? ebookForm.sample_url : null,
-        kpf_url: ebookForm.kpf_url?.trim() ? ebookForm.kpf_url : null,
-      };
-      const r = await fetch("/api/admin/ebooks", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!r.ok) {
-        let msg = "";
-        try { const j = await r.json(); msg = (j as { error?: string })?.error || r.statusText; } catch { msg = await r.text(); }
-        throw new Error(msg);
-      }
-      setEbookForm(emptyEbook);
-      await refreshEbooks();
-    } catch (e) {
-      alert(`Save e-book failed: ${(e as Error).message}`);
-    } finally {
-      setSavingEbook(false);
-    }
+    const payload: Ebook = {
+      ...ebookForm,
+      price_cents: num(ebookForm.price_cents, 0),
+      cover_url: ebookForm.cover_url?.trim() || null,
+      sample_url: ebookForm.sample_url?.trim() || null,
+      kpf_url: ebookForm.kpf_url?.trim() || null,
+    };
+    const r = await fetch("/api/admin/ebooks", {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload)
+    });
+    setSavingEbook(false);
+    if (!r.ok) { alert("Save e-book failed"); return; }
+    setEbookForm({ slug:"", title:"", description:"", cover_url:"", sample_url:"", kpf_url:"", price_cents:0, published:true });
+    await refreshEbooks();
   }
-
   async function deleteEbook(id?: string) {
     if (!id) return;
-    if (!confirm("Delete this e-book?")) return;
-    try {
-      const r = await fetch(`/api/admin/ebooks/${encodeURIComponent(id)}`, { method: "DELETE" });
-      if (!r.ok) {
-        let msg = "";
-        try { const j = await r.json(); msg = (j as { error?: string })?.error || r.statusText; } catch { msg = await r.text(); }
-        throw new Error(msg);
-      }
-      if (ebookForm.id === id) setEbookForm(emptyEbook);
+    if (!confirm("Delete e-book?")) return;
+    const r = await fetch(`/api/admin/ebooks/${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (!r.ok) { alert("Delete failed"); return; }
+    if (ebookForm.id === id) setEbookForm({ slug:"", title:"", description:"", cover_url:"", sample_url:"", kpf_url:"", price_cents:0, published:true });
+    await refreshEbooks();
+  }
+  async function onPickEbook(file: File, field: "cover_url" | "sample_url" | "kpf_url") {
+    setUploading(true);
+    const url = await uploadToStorage(file);
+    setUploading(false);
+    if (!url) { alert("Upload failed"); return; }
+    setEbookForm(f => ({ ...f, [field]: url }));
+  }
+
+  /* ---------------- Users ---------------- */
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [userQuery, setUserQuery] = useState("");
+  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+  const [selectedPurchases, setSelectedPurchases] = useState<{ courses: Array<{ title: string }>; ebooks: Array<{ title: string }> } | null>(null);
+
+  const refreshUsers = useCallback(async () => {
+    setUsersLoading(true);
+    const r = await fetch("/api/admin/users", { cache: "no-store" });
+    const d = await r.json();
+    const arr = Array.isArray(d?.users) ? d.users : [];
+    setUsers(arr.map(asAdminUser));
+    setUsersLoading(false);
+  }, []);
+  useEffect(() => { if (tab === "users") void refreshUsers(); }, [tab, refreshUsers]);
+
+  const filteredUsers = useMemo(() => {
+    const q = userQuery.trim().toLowerCase();
+    if (!q) return users;
+    return users.filter(u => (u.email ?? u.id).toLowerCase().includes(q));
+  }, [userQuery, users]);
+
+  async function generateConfirmLink(email?: string) {
+    if (!email) return;
+    const r = await fetch("/api/admin/users", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "generate_confirmation_link", email })
+    });
+    const d = await r.json();
+    const link = (d && typeof d === "object") ? (d as Record<string, unknown>)["link"] : null;
+    if (isStr(link)) { await navigator.clipboard.writeText(link); alert("Confirmation link copied"); }
+    else { alert("Could not generate link"); }
+  }
+  async function act(userId: string, endpoint: "ban" | "unban" | "revoke" | "clear-history") {
+    const r = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/${endpoint}`, { method: "POST" });
+    if (!r.ok) { alert(`Failed to ${endpoint.replace("-", " ")}`); return; }
+    await refreshUsers();
+    if (selectedUser?.id === userId) setSelectedUser(u => (u ? { ...u, banned: endpoint === "ban" ? true : endpoint === "unban" ? false : u.banned ?? null } : u));
+  }
+  async function loadPurchases(userId: string) {
+    const r = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/purchases`, { cache: "no-store" });
+    if (!r.ok) { setSelectedPurchases({ courses: [], ebooks: [] }); return; }
+    const d = await r.json();
+    const courses = Array.isArray(d?.courses) ? d.courses : [];
+    const ebooks = Array.isArray(d?.ebooks) ? d.ebooks : [];
+    setSelectedPurchases({ courses, ebooks });
+  }
+
+  /* ---------------- Quick Prices ---------------- */
+  const [priceSearch, setPriceSearch] = useState("");
+  const priceRows = useMemo(() => {
+    const rows: Array<{ kind: "course" | "ebook"; id: string; title: string; price: number; currency: "GHS" | "USD" }> = [];
+    knowledge.forEach(k => rows.push({ kind: "course", id: k.id ?? k.slug, title: k.title, price: k.price ?? 0, currency: "GHS" }));
+    ebooks.forEach(e => rows.push({ kind: "ebook", id: e.id ?? e.slug, title: e.title, price: (e.price_cents / 100), currency: "USD" }));
+    const q = priceSearch.trim().toLowerCase();
+    return q ? rows.filter(r => r.title.toLowerCase().includes(q)) : rows;
+  }, [knowledge, ebooks, priceSearch]);
+
+  async function savePrice(row: { kind: "course" | "ebook"; id: string; price: number }) {
+    if (row.kind === "course") {
+      const item = knowledge.find(k => (k.id ?? k.slug) === row.id);
+      if (!item) return;
+      const payload = { ...item, price: row.price };
+      const r = await fetch("/api/admin/knowledge", {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload)
+      });
+      if (!r.ok) { alert("Save course price failed"); return; }
+      await refreshKnowledge();
+    } else {
+      const item = ebooks.find(e => (e.id ?? e.slug) === row.id);
+      if (!item) return;
+      const payload = { ...item, price_cents: Math.round(row.price * 100) };
+      const r = await fetch("/api/admin/ebooks", {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload)
+      });
+      if (!r.ok) { alert("Save e-book price failed"); return; }
       await refreshEbooks();
-    } catch (e) {
-      alert(`Delete failed: ${(e as Error).message}`);
     }
   }
 
-  async function onPickCover(file: File) {
-    const url = await uploadToStorage(file);
-    if (url) setEbookForm(f => ({ ...f, cover_url: url }));
-    else alert("Cover upload failed");
-  }
-  async function onPickSample(file: File) {
-    const url = await uploadToStorage(file);
-    if (url) setEbookForm(f => ({ ...f, sample_url: url }));
-    else alert("Sample upload failed");
-  }
-  async function onPickKpf(file: File) {
-    const url = await uploadToStorage(file);
-    if (url) setEbookForm(f => ({ ...f, kpf_url: url }));
-    else alert("KPF upload failed");
+  /* ---------------- Deploy ---------------- */
+  async function triggerDeploy() {
+    const r = await fetch("/api/admin/deploy", { method: "POST" });
+    const d = await r.json();
+    const ok   = (d && typeof d === "object") ? (d as Record<string, unknown>)["ok"]   : null;
+    const text = (d && typeof d === "object") ? (d as Record<string, unknown>)["text"] : null;
+    alert(ok ? "Deploy triggered" : `Failed: ${String(text ?? "Unknown error")}`);
   }
 
-  /* ---------------- Render ---------------- */
+  /* ============================== Render ============================== */
   return (
-    <div className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 py-10">
-      <h1 className="text-3xl font-bold">Master Admin Dashboard</h1>
-      <p className="text-muted mt-1">Manage knowledge, e-books, structure, media, users, and deployments.</p>
-
-      <div className="mt-6 flex gap-2 flex-wrap">
-        {(["knowledge","ebooks","structure","media","users","deploy"] as const).map(t => (
-          <button
-            key={t}
-            onClick={()=>setTab(t)}
-            className={`px-3 py-2 rounded-lg ring-1 ring-[color:var(--color-light)] ${tab===t?"bg-brand text-white":"bg-white"}`}
-          >
-            {t[0].toUpperCase()+t.slice(1)}
-          </button>
-        ))}
+    <div className="mx-auto max-w-screen-2xl px-4 md:px-6 py-6">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-2xl md:text-3xl font-bold">Master Admin</h1>
+        <div className="flex flex-wrap gap-2">
+          {(["overview","catalog","content","prices","media","users","deploy"] as const).map(t => (
+            <button
+              key={t}
+              onClick={()=>setTab(t)}
+              className={`px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-sm ${tab===t?"bg-[color:#0a1156] text-white":"bg-white"}`}
+            >
+              {t[0].toUpperCase()+t.slice(1)}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Knowledge */}
-      {tab==="knowledge" && (
-        <div className="mt-8 grid gap-6 md:grid-cols-2">
-          <div className="rounded-2xl bg-white border border-light p-5">
-            <h2 className="font-semibold">Edit / Create Knowledge</h2>
-            <div className="mt-4 grid gap-3">
+      {/* ================= Overview ================= */}
+      {tab==="overview" && (
+        <div className="mt-6 grid gap-6">
+          <div className="grid gap-3 grid-cols-2 md:grid-cols-3">
+            <StatCard label="Total Users" value={stats?.users_total ?? "—"} foot={`+${stats?.users_new_7d ?? 0} in last 7 days`} />
+            <StatCard label="Courses" value={stats?.courses_total ?? "—"} />
+            <StatCard label="E-Books" value={stats?.ebooks_total ?? "—"} />
+            <StatCard label="Orders" value={stats?.orders_total ?? "—"} />
+            <StatCard label="Revenue (30d)" value={`$${(stats?.revenue_30d_usd ?? 0).toLocaleString()}`} />
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Section title="Top Courses (by sales)">
+              <div className="grid gap-2">
+                {(stats?.top_courses ?? []).map((c, i) => (
+                  <div key={i} className="flex items-center justify-between rounded-lg p-3 ring-1 ring-[color:var(--color-light)]">
+                    <div className="text-sm">{c.title}</div>
+                    <div className="text-xs text-muted">{c.sales} sales</div>
+                  </div>
+                ))}
+                {(stats?.top_courses?.length ?? 0) === 0 && <div className="text-sm text-muted">No data.</div>}
+              </div>
+            </Section>
+            <Section title="Top E-Books (by sales)">
+              <div className="grid gap-2">
+                {(stats?.top_ebooks ?? []).map((e, i) => (
+                  <div key={i} className="flex items-center justify-between rounded-lg p-3 ring-1 ring-[color:var(--color-light)]">
+                    <div className="text-sm">{e.title}</div>
+                    <div className="text-xs text-muted">{e.sales} sales</div>
+                  </div>
+                ))}
+                {(stats?.top_ebooks?.length ?? 0) === 0 && <div className="text-sm text-muted">No data.</div>}
+              </div>
+            </Section>
+          </div>
+        </div>
+      )}
+
+      {/* ================= Catalog ================= */}
+      {tab==="catalog" && (
+        <div className="mt-6 grid gap-6 lg:grid-cols-2">
+          <Section title="Course (Knowledge) – Create / Edit">
+            <div className="grid gap-3">
               {[
                 ["slug","Slug"],
                 ["title","Title"],
@@ -620,416 +639,302 @@ export default function AdminPage() {
                 ["level","Level"],
               ].map(([k,label])=>(
                 <label key={k} className="grid gap-1">
-                  <span className="text-sm text-muted">{label}</span>
+                  <span className="text-xs text-muted">{label}</span>
                   <input
-                    value={(form as Record<string, unknown>)[k] as string ?? ""}
-                    onChange={(e)=>setForm(f=>({ ...f, [k]: (e.target as HTMLInputElement).value }))}
+                    value={(kForm as Record<string, unknown>)[k] as string ?? ""}
+                    onChange={(e)=>setKForm(f=>({ ...f, [k]: (e.target as HTMLInputElement).value }))}
                     className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
                   />
                 </label>
               ))}
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="grid gap-1">
+                  <span className="text-xs text-muted">Price (GH₵)</span>
+                  <input
+                    type="number"
+                    value={kForm.price ?? ""}
+                    onChange={(e)=>setKForm(f=>({ ...f, price: (e.target as HTMLInputElement).value===""?null:Number((e.target as HTMLInputElement).value) }))}
+                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]" />
+                </label>
+                <label className="grid gap-1">
+                  <span className="text-xs text-muted">CPPD Points</span>
+                  <input
+                    type="number"
+                    value={kForm.cpd_points ?? ""}
+                    onChange={(e)=>setKForm(f=>({ ...f, cpd_points: (e.target as HTMLInputElement).value===""?null:Number((e.target as HTMLInputElement).value) }))}
+                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]" />
+                </label>
+              </div>
               <label className="grid gap-1">
-                <span className="text-sm text-muted">Price (GH₵)</span>
+                <span className="text-xs text-muted">Image URL</span>
                 <input
-                  type="number"
-                  value={form.price ?? ""}
-                  onChange={(e)=>setForm(f=>({ ...f, price: (e.target as HTMLInputElement).value===""?null:Number((e.target as HTMLInputElement).value) }))}
+                  value={kForm.img ?? ""}
+                  onChange={(e)=>setKForm(f=>({ ...f, img: (e.target as HTMLInputElement).value }))}
                   className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]" />
               </label>
               <label className="grid gap-1">
-                <span className="text-sm text-muted">CPPD Points</span>
+                <span className="text-xs text-muted">Accredited (comma separated)</span>
                 <input
-                  type="number"
-                  value={form.cpd_points ?? ""}
-                  onChange={(e)=>setForm(f=>({ ...f, cpd_points: (e.target as HTMLInputElement).value===""?null:Number((e.target as HTMLInputElement).value) }))}
-                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]" />
-              </label>
-              <label className="grid gap-1">
-                <span className="text-sm text-muted">Image URL</span>
-                <input
-                  value={form.img ?? ""}
-                  onChange={(e)=>setForm(f=>({ ...f, img: (e.target as HTMLInputElement).value }))}
-                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]" />
-              </label>
-              <label className="grid gap-1">
-                <span className="text-sm text-muted">Accredited (comma separated)</span>
-                <input
-                  value={toCsv(form.accredited ?? [])}
-                  onChange={(e)=>setForm(f=>({ ...f, accredited: fromCsv((e.target as HTMLInputElement).value) }))}
+                  value={toCsv(kForm.accredited ?? [])}
+                  onChange={(e)=>setKForm(f=>({ ...f, accredited: fromCsv((e.target as HTMLInputElement).value) }))}
                   className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]" />
               </label>
               <label className="inline-flex items-center gap-2">
-                <input type="checkbox" checked={form.published ?? true} onChange={(e)=>setForm(f=>({ ...f, published: (e.target as HTMLInputElement).checked }))} />
+                <input type="checkbox" checked={kForm.published ?? true} onChange={(e)=>setKForm(f=>({ ...f, published: (e.target as HTMLInputElement).checked }))} />
                 <span className="text-sm">Published</span>
               </label>
               <div className="flex items-center gap-2">
-                <button onClick={saveKnowledge} disabled={saving} className="rounded-lg bg-brand text-white px-4 py-2 font-semibold hover:opacity-90 disabled:opacity-50">
-                  {saving ? "Saving…" : "Save"}
+                <button onClick={saveKnowledge} disabled={savingK} className="rounded-lg bg-[color:#0a1156] text-white px-4 py-2 font-semibold hover:opacity-90 disabled:opacity-50">
+                  {savingK ? "Saving…" : "Save"}
                 </button>
-                <button onClick={()=>setForm(emptyK)} className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]">Reset</button>
+                <button onClick={()=>setKForm({ slug:"", title:"", description:"", level:"", price:null, cpd_points:null, img:"", accredited:[], published:true })} className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]">Reset</button>
               </div>
             </div>
-          </div>
+          </Section>
 
-          <div className="rounded-2xl bg-white border border-light p-5">
-            <h2 className="font-semibold">Knowledge List</h2>
-            <div className="mt-3 grid gap-3">
-              {list.map(k=>(
+          <Section title="Courses List" right={<button onClick={refreshKnowledge} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-sm">Refresh</button>}>
+            <div className="grid gap-2">
+              {knowledge.map(k=>(
                 <div key={k.id ?? k.slug} className="flex items-start justify-between gap-3 rounded-lg p-3 ring-1 ring-[color:var(--color-light)]">
                   <div className="text-sm">
                     <div className="font-semibold">{k.title}</div>
-                    <div className="text-muted">/{k.slug} · {k.level ?? "—"} · {k.cpd_points ?? 0} CPPD</div>
+                    <div className="text-muted text-xs">/{k.slug} · {k.level ?? "—"} · GH₵{k.price ?? 0} · {k.published ? "Published" : "Draft"}</div>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={()=>setForm(k)} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)]">Edit</button>
-                    {/* Knowledge delete available at /api/admin/knowledge/[id] if you choose */}
+                    <button onClick={()=>setKForm(k)} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-sm">Edit</button>
                   </div>
                 </div>
               ))}
-              {list.length===0 && <div className="text-muted text-sm">No items yet.</div>}
+              {knowledge.length===0 && <div className="text-muted text-sm">No courses yet.</div>}
             </div>
-          </div>
-        </div>
-      )}
+          </Section>
 
-      {/* ================== E-Books ================== */}
-      {tab==="ebooks" && (
-        <div className="mt-8 grid gap-6 md:grid-cols-2">
-          {/* Form */}
-          <div className="rounded-2xl bg-white border border-light p-5">
-            <h2 className="font-semibold">Edit / Create E-Book</h2>
-            <div className="mt-4 grid gap-3">
-              {/* Slug / Title */}
+          <Section title="E-book – Create / Edit">
+            <div className="grid gap-3">
               <label className="grid gap-1">
-                <span className="text-sm text-muted">Slug</span>
-                <input
-                  value={ebookForm.slug}
-                  onChange={(e)=>setEbookForm(f=>({ ...f, slug: (e.target as HTMLInputElement).value }))}
-                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
-                />
+                <span className="text-xs text-muted">Slug</span>
+                <input value={ebookForm.slug} onChange={(e)=>setEbookForm(f=>({ ...f, slug: (e.target as HTMLInputElement).value }))} className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"/>
               </label>
               <label className="grid gap-1">
-                <span className="text-sm text-muted">Title</span>
-                <input
-                  value={ebookForm.title}
-                  onChange={(e)=>setEbookForm(f=>({ ...f, title: (e.target as HTMLInputElement).value }))}
-                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
-                />
-              </label>
-
-              {/* Description */}
-              <label className="grid gap-1">
-                <span className="text-sm text-muted">Description</span>
-                <textarea
-                  value={ebookForm.description ?? ""}
-                  onChange={(e)=>setEbookForm(f=>({ ...f, description: (e.target as HTMLTextAreaElement).value }))}
-                  className="min-h-[100px] rounded-lg bg-white px-3 py-2 ring-1 ring-[color:var(--color-light)]"
-                />
-              </label>
-
-              {/* Price (USD) */}
-              <label className="grid gap-1">
-                <span className="text-sm text-muted">Price (USD)</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={(ebookForm.price_cents/100).toString()}
-                  onChange={(e)=> {
-                    const dollars = (e.target as HTMLInputElement).value;
-                    const cents = Math.round(Number(dollars || 0) * 100);
-                    setEbookForm(f=>({ ...f, price_cents: Number.isFinite(cents) ? cents : 0 }));
-                  }}
-                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
-                />
-              </label>
-
-              {/* URLs */}
-              <label className="grid gap-1">
-                <span className="text-sm text-muted">Cover URL</span>
-                <input
-                  value={ebookForm.cover_url ?? ""}
-                  onChange={(e)=>setEbookForm(f=>({ ...f, cover_url: (e.target as HTMLInputElement).value }))}
-                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
-                />
+                <span className="text-xs text-muted">Title</span>
+                <input value={ebookForm.title} onChange={(e)=>setEbookForm(f=>({ ...f, title: (e.target as HTMLInputElement).value }))} className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"/>
               </label>
               <label className="grid gap-1">
-                <span className="text-sm text-muted">Sample URL (image or PDF)</span>
-                <input
-                  value={ebookForm.sample_url ?? ""}
-                  onChange={(e)=>setEbookForm(f=>({ ...f, sample_url: (e.target as HTMLInputElement).value }))}
-                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
-                />
+                <span className="text-xs text-muted">Description</span>
+                <textarea value={ebookForm.description ?? ""} onChange={(e)=>setEbookForm(f=>({ ...f, description: (e.target as HTMLTextAreaElement).value }))} className="min-h-[90px] rounded-lg bg-white px-3 py-2 ring-1 ring-[color:var(--color-light)]"/>
               </label>
-              <label className="grid gap-1">
-                <span className="text-sm text-muted">KPF URL</span>
-                <input
-                  value={ebookForm.kpf_url ?? ""}
-                  onChange={(e)=>setEbookForm(f=>({ ...f, kpf_url: (e.target as HTMLInputElement).value }))}
-                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
-                />
-              </label>
-
-              {/* Upload helpers */}
-              <div className="grid gap-2">
+              <div className="grid gap-3 sm:grid-cols-2">
                 <label className="grid gap-1">
-                  <span className="text-sm text-muted">Upload Cover</span>
-                  <input type="file" accept="image/*" onChange={(e)=>{ const f=(e.target as HTMLInputElement).files?.[0]; if (f) void onPickCover(f); }} />
+                  <span className="text-xs text-muted">Price (USD)</span>
+                  <input
+                    type="number" step="0.01"
+                    value={(ebookForm.price_cents/100).toString()}
+                    onChange={(e)=> {
+                      const cents = Math.round(Number((e.target as HTMLInputElement).value || 0) * 100);
+                      setEbookForm(f=>({ ...f, price_cents: Number.isFinite(cents)?cents:0 }));
+                    }}
+                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                  />
                 </label>
-                <label className="grid gap-1">
-                  <span className="text-sm text-muted">Upload Sample (image/pdf)</span>
-                  <input type="file" accept="image/*,application/pdf" onChange={(e)=>{ const f=(e.target as HTMLInputElement).files?.[0]; if (f) void onPickSample(f); }} />
-                </label>
-                <label className="grid gap-1">
-                  <span className="text-sm text-muted">Upload KPF</span>
-                  <input type="file" accept=".kpf,application/octet-stream" onChange={(e)=>{ const f=(e.target as HTMLInputElement).files?.[0]; if (f) void onPickKpf(f); }} />
+                <label className="inline-flex items-center gap-2 mt-6 sm:mt-0">
+                  <input type="checkbox" checked={ebookForm.published} onChange={(e)=>setEbookForm(f=>({ ...f, published: (e.target as HTMLInputElement).checked }))}/>
+                  <span className="text-sm">Published</span>
                 </label>
               </div>
 
-              {/* Published */}
-              <label className="inline-flex items-center gap-2">
-                <input type="checkbox" checked={ebookForm.published} onChange={(e)=>setEbookForm(f=>({ ...f, published: (e.target as HTMLInputElement).checked }))} />
-                <span className="text-sm">Published</span>
-              </label>
-
+              {/* URLs + Uploaders */}
+              {[
+                ["cover_url","Cover URL","image/*"] as const,
+                ["sample_url","Sample URL (image/pdf)","image/*,application/pdf"] as const,
+                ["kpf_url","KPF URL",".kpf,application/octet-stream"] as const,
+              ].map(([field,label,accept])=>(
+                <div key={field} className="grid gap-1">
+                  <span className="text-xs text-muted">{label}</span>
+                  <input
+                    value={(ebookForm as Record<string, unknown>)[field] as string ?? ""}
+                    onChange={(e)=>setEbookForm(f=>({ ...f, [field]: (e.target as HTMLInputElement).value }))}
+                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                  />
+                  <input type="file" accept={accept} onChange={(e)=>{ const file=(e.target as HTMLInputElement).files?.[0]; if (file) void onPickEbook(file, field as "cover_url"|"sample_url"|"kpf_url"); }} />
+                </div>
+              ))}
               <div className="flex items-center gap-2">
-                <button onClick={saveEbook} disabled={savingEbook} className="rounded-lg bg-brand text-white px-4 py-2 font-semibold hover:opacity-90 disabled:opacity-50">
-                  {savingEbook ? "Saving…" : "Save E-Book"}
+                <button onClick={saveEbook} disabled={savingEbook} className="rounded-lg bg-[color:#0a1156] text-white px-4 py-2 font-semibold hover:opacity-90 disabled:opacity-50">
+                  {savingEbook ? "Saving…" : "Save E-book"}
                 </button>
-                <button onClick={()=>setEbookForm(emptyEbook)} className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]">Reset</button>
+                <button onClick={()=>setEbookForm({ slug:"", title:"", description:"", cover_url:"", sample_url:"", kpf_url:"", price_cents:0, published:true })} className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]">Reset</button>
               </div>
             </div>
-          </div>
+          </Section>
 
-          {/* List */}
-          <div className="rounded-2xl bg-white border border-light p-5">
-            <h2 className="font-semibold">E-Books List</h2>
-            <button onClick={refreshEbooks} className="mt-2 px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)]">
-              {loadingEbooks ? "Refreshing…" : "Refresh"}
-            </button>
-            <div className="mt-3 grid gap-3">
-              {ebooks.map(e => (
+          <Section title="E-books List" right={<button onClick={refreshEbooks} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-sm">{loadingEbooks ? "Refreshing…" : "Refresh"}</button>}>
+            <div className="grid gap-2">
+              {ebooks.map(e=>(
                 <div key={e.id ?? e.slug} className="flex items-start justify-between gap-3 rounded-lg p-3 ring-1 ring-[color:var(--color-light)]">
                   <div className="flex items-start gap-3">
-                    {e.cover_url ? (
-                      <Image src={e.cover_url} alt={e.title} width={56} height={56} className="rounded-md ring-1 ring-[color:var(--color-light)] object-cover" />
-                    ) : (
-                      <div className="h-14 w-14 rounded-md bg-[color:var(--color-light)]/40" />
-                    )}
+                    {e.cover_url ? <Image src={e.cover_url} alt={e.title} width={56} height={56} className="rounded-md ring-1 ring-[color:var(--color-light)] object-cover"/> : <div className="h-14 w-14 rounded-md bg-[color:var(--color-light)]/40" />}
                     <div className="text-sm">
                       <div className="font-semibold">{e.title}</div>
-                      <div className="text-muted">/{e.slug} · {(e.price_cents/100).toLocaleString(undefined,{style:"currency",currency:"USD"})} · {e.published ? "Published" : "Draft"}</div>
+                      <div className="text-xs text-muted">/{e.slug} · {(e.price_cents/100).toLocaleString(undefined,{style:"currency",currency:"USD"})} · {e.published ? "Published" : "Draft"}</div>
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={()=>setEbookForm(e)} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)]">Edit</button>
-                    <button onClick={()=>void deleteEbook(e.id)} className="px-3 py-1.5 rounded-lg bg-red-600 text-white">Delete</button>
+                    <button onClick={()=>setEbookForm(e)} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-sm">Edit</button>
+                    <button onClick={()=>void deleteEbook(e.id)} className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm">Delete</button>
                   </div>
                 </div>
               ))}
               {ebooks.length===0 && <div className="text-muted text-sm">No e-books yet.</div>}
             </div>
-          </div>
+          </Section>
         </div>
       )}
 
-      {/* Structure */}
-      {tab==="structure" && (
-        <div className="mt-8 grid gap-6 lg:grid-cols-3">
-          {/* Left: pick knowledge and chapter list */}
-          <div className="rounded-2xl bg-white border border-light p-5 lg:col-span-1">
-            <h2 className="font-semibold">Select Knowledge</h2>
+      {/* ================= Content Builder (simplified flow) ================= */}
+      {tab==="content" && (
+        <div className="mt-6 grid gap-6 xl:grid-cols-[320px_1fr]">
+          {/* Picker */}
+          <Section title="Pick Course">
             <select
-              className="mt-3 h-10 w-full rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+              className="h-10 w-full rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
               value={selectedCourseId}
-              onChange={(e)=>{ setSelectedCourseId((e.target as HTMLSelectElement).value); }}
+              onChange={(e)=>setSelectedCourseId((e.target as HTMLSelectElement).value)}
             >
-              <option value="">— Choose —</option>
-              {list.map(k => (<option key={k.id ?? k.slug} value={k.id}>{k.title}</option>))}
+              <option value="">— Choose a course —</option>
+              {knowledge.map(k=>(<option key={k.id ?? k.slug} value={k.id}>{k.title}</option>))}
             </select>
 
-            <h3 className="mt-5 font-semibold">Chapters</h3>
-            <div className="mt-2 grid gap-2">
-              {chapters.map(ch => (
-                <button
-                  key={ch.id ?? ch.title}
-                  onClick={()=>{
-                    setChForm(ch);
-                    setSlForm(s => ({ ...s, chapter_id: ch.id ?? "" }));
-                    void refreshSlides(ch.id ?? "");
-                    void refreshQuiz(ch.id ?? "");
-                  }}
-                  className={`text-left rounded-lg px-3 py-2 ring-1 ring-[color:var(--color-light)] ${slForm.chapter_id===(ch.id??"") ? "bg-[color:var(--color-light)]/40" : "bg-white"}`}
-                >
-                  <div className="font-medium">{ch.title}</div>
-                  <div className="text-xs text-muted">Order: {ch.order_index}</div>
-                </button>
-              ))}
-              {selectedCourse && chapters.length===0 && <div className="text-xs text-muted">No chapters yet.</div>}
-            </div>
-          </div>
+            {/* Chapters list quick nav */}
+            {selectedCourse && (
+              <div className="mt-4 grid gap-2">
+                <div className="text-sm font-semibold">Chapters</div>
+                {chapters.map(ch => (
+                  <button
+                    key={ch.id ?? ch.title}
+                    onClick={()=>setChForm(ch)}
+                    className={`text-left rounded-lg px-3 py-2 ring-1 ring-[color:var(--color-light)] ${chForm.id===(ch.id??"")?"bg-[color:var(--color-light)]/40":"bg-white"}`}
+                  >
+                    <div className="font-medium">{ch.title}</div>
+                    <div className="text-xs text-muted">Order: {ch.order_index}</div>
+                  </button>
+                ))}
+                {chapters.length===0 && <div className="text-xs text-muted">No chapters yet.</div>}
+              </div>
+            )}
+          </Section>
 
-          {/* Middle: chapter form */}
-          <div className="rounded-2xl bg-white border border-light p-5">
-            <h2 className="font-semibold">Edit / Create Chapter</h2>
-            <div className="mt-3 grid gap-3">
-              <label className="grid gap-1">
-                <span className="text-sm text-muted">Title</span>
-                <input
-                  value={chForm.title}
-                  onChange={(e)=>setChForm(f=>({ ...f, title: (e.target as HTMLInputElement).value }))}
-                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
-                />
-              </label>
-              <label className="grid gap-1">
-                <span className="text-sm text-muted">Order</span>
-                <input
-                  type="number"
-                  value={chForm.order_index}
-                  onChange={(e)=>setChForm(f=>({ ...f, order_index: Number((e.target as HTMLInputElement).value || 0) }))}
-                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
-                />
-              </label>
-              <div className="flex gap-2">
-                <button onClick={saveChapter} disabled={savingChapter || !selectedCourseId || !chForm.title} className="rounded-lg bg-brand text-white px-4 py-2 font-semibold hover:opacity-90 disabled:opacity-50">
+          {/* Builder */}
+          <div className="grid gap-6">
+            <Section title="Chapter">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="grid gap-1">
+                  <span className="text-xs text-muted">Title</span>
+                  <input value={chForm.title} onChange={(e)=>setChForm(f=>({ ...f, title: (e.target as HTMLInputElement).value }))} className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"/>
+                </label>
+                <label className="grid gap-1">
+                  <span className="text-xs text-muted">Order</span>
+                  <input type="number" value={chForm.order_index} onChange={(e)=>setChForm(f=>({ ...f, order_index: Number((e.target as HTMLInputElement).value||0) }))} className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"/>
+                </label>
+              </div>
+              <div className="mt-3 flex gap-2">
+                <button onClick={saveChapter} disabled={!selectedCourseId || !chForm.title.trim() || savingChapter} className="rounded-lg bg-[color:#0a1156] text-white px-4 py-2 font-semibold hover:opacity-90 disabled:opacity-50">
                   {savingChapter ? "Saving…" : "Save Chapter"}
                 </button>
-                <button onClick={()=>setChForm({ ...emptyChapter, course_id: selectedCourseId })} className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]">Reset</button>
-                <button onClick={()=>alert("Delete chapter not wired yet.")} disabled className="rounded-lg px-4 py-2 bg-red-600 text-white disabled:opacity-50" title="Delete endpoint not wired yet">Delete</button>
+                <button onClick={()=>setChForm({ ...emptyChapter, course_id: selectedCourseId })} className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]">New Chapter</button>
               </div>
-            </div>
-          </div>
+            </Section>
 
-          {/* Right: slides list + form + quiz */}
-          <div className="rounded-2xl bg-white border border-light p-5">
-            <h2 className="font-semibold">Slides (for selected chapter)</h2>
-
-            <div className="mt-3 grid gap-2">
-              {slides.map(s => (
-                <button
-                  key={s.id ?? s.title}
-                  onClick={()=>setSlForm(s)}
-                  className={`text-left rounded-lg px-3 py-2 ring-1 ring-[color:var(--color-light)] ${slForm.id===(s.id??"") ? "bg-[color:var(--color-light)]/40" : "bg-white"}`}
-                >
-                  <div className="font-medium">{s.title}</div>
-                  <div className="text-xs text-muted">Order: {s.order_index}</div>
-                </button>
-              ))}
-              {slForm.chapter_id && slides.length===0 && <div className="text-xs text-muted">No slides in this chapter yet.</div>}
-            </div>
-
-            <div className="mt-4 grid gap-3">
-              <label className="grid gap-1">
-                <span className="text-sm text-muted">Title</span>
-                <input
-                  value={slForm.title}
-                  onChange={(e)=>setSlForm(f=>({ ...f, title: (e.target as HTMLInputElement).value }))}
-                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
-                />
-              </label>
-              <label className="grid gap-1">
-                <span className="text-sm text-muted">Order</span>
-                <input
-                  type="number"
-                  value={slForm.order_index}
-                  onChange={(e)=>setSlForm(f=>({ ...f, order_index: Number((e.target as HTMLInputElement).value || 0) }))}
-                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
-                />
-              </label>
-
-              {/* URL inputs */}
-              <label className="grid gap-1">
-                <span className="text-sm text-muted">Intro video URL (optional)</span>
-                <input
-                  value={slForm.intro_video_url ?? ""}
-                  onChange={(e)=>setSlForm(f=>({ ...f, intro_video_url: (e.target as HTMLInputElement).value }))}
-                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
-                />
-              </label>
-              <label className="grid gap-1">
-                <span className="text-sm text-muted">Asset URL (image/pdf/slide, optional)</span>
-                <input
-                  value={slForm.asset_url ?? ""}
-                  onChange={(e)=>setSlForm(f=>({ ...f, asset_url: (e.target as HTMLInputElement).value }))}
-                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
-                />
-              </label>
-
-              {/* Direct upload inputs */}
+            <Section title="Slides (for this chapter)">
               <div className="grid gap-2">
-                <label className="grid gap-1">
-                  <span className="text-sm text-muted">Upload intro video (optional)</span>
-                  <input type="file" accept="video/*" onChange={(e)=>{ const f=(e.target as HTMLInputElement).files?.[0]; if (f) void onPickVideo(f); }} />
-                </label>
-                <label className="grid gap-1">
-                  <span className="text-sm text-muted">Upload asset (image/pdf/slide, optional)</span>
-                  <input type="file" accept="image/*,application/pdf" onChange={(e)=>{ const f=(e.target as HTMLInputElement).files?.[0]; if (f) void onPickAsset(f); }} />
-                </label>
+                {slides.map(s=>(
+                  <button key={s.id ?? s.title} onClick={()=>setSlForm(s)} className={`text-left rounded-lg px-3 py-2 ring-1 ring-[color:var(--color-light)] ${slForm.id===(s.id??"")?"bg-[color:var(--color-light)]/40":"bg-white"}`}>
+                    <div className="font-medium">{s.title}</div>
+                    <div className="text-xs text-muted">Order: {s.order_index}</div>
+                  </button>
+                ))}
+                {slides.length===0 && <div className="text-xs text-muted">No slides yet.</div>}
               </div>
 
-              <label className="grid gap-1">
-                <span className="text-sm text-muted">Body / Notes (optional)</span>
-                <textarea
-                  value={slForm.body ?? ""}
-                  onChange={(e)=>setSlForm(f=>({ ...f, body: (e.target as HTMLTextAreaElement).value }))}
-                  className="min-h-[90px] rounded-lg bg-white px-3 py-2 ring-1 ring-[color:var(--color-light)]"
-                />
-              </label>
+              <div className="mt-4 grid gap-3">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="grid gap-1">
+                    <span className="text-xs text-muted">Title</span>
+                    <input value={slForm.title} onChange={(e)=>setSlForm(f=>({ ...f, title: (e.target as HTMLInputElement).value }))} className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"/>
+                  </label>
+                  <label className="grid gap-1">
+                    <span className="text-xs text-muted">Order</span>
+                    <input type="number" value={slForm.order_index} onChange={(e)=>setSlForm(f=>({ ...f, order_index: Number((e.target as HTMLInputElement).value||0) }))} className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"/>
+                  </label>
+                </div>
 
-              <div className="flex gap-2">
-                <button onClick={saveSlide} disabled={savingSlide || !slForm.chapter_id || !slForm.title} className="rounded-lg bg-brand text-white px-4 py-2 font-semibold hover:opacity-90 disabled:opacity-50">
-                  {savingSlide ? "Saving…" : "Save Slide"}
-                </button>
-                <button onClick={()=>setSlForm({ ...emptySlide, chapter_id: slForm.chapter_id })} className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]">Reset</button>
-                <button onClick={()=>alert("Delete slide not wired yet.")} disabled className="rounded-lg px-4 py-2 bg-red-600 text-white disabled:opacity-50" title="Delete endpoint not wired yet">Delete</button>
+                <label className="grid gap-1">
+                  <span className="text-xs text-muted">Body / Notes (optional)</span>
+                  <textarea value={slForm.body ?? ""} onChange={(e)=>setSlForm(f=>({ ...f, body: (e.target as HTMLTextAreaElement).value }))} className="min-h-[100px] rounded-lg bg-white px-3 py-2 ring-1 ring-[color:var(--color-light)]"/>
+                </label>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="grid gap-1">
+                    <span className="text-xs text-muted">Intro video URL</span>
+                    <input value={slForm.intro_video_url ?? ""} onChange={(e)=>setSlForm(f=>({ ...f, intro_video_url: (e.target as HTMLInputElement).value }))} className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"/>
+                  </label>
+                  <label className="grid gap-1">
+                    <span className="text-xs text-muted">Asset URL (image/pdf)</span>
+                    <input value={slForm.asset_url ?? ""} onChange={(e)=>setSlForm(f=>({ ...f, asset_url: (e.target as HTMLInputElement).value }))} className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"/>
+                  </label>
+                </div>
+
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <label className="grid gap-1">
+                    <span className="text-xs text-muted">Upload Intro Video</span>
+                    <input type="file" accept="video/*" onChange={(e)=>{ const f=(e.target as HTMLInputElement).files?.[0]; if (f) void onPick(f,"intro"); }} />
+                  </label>
+                  <label className="grid gap-1">
+                    <span className="text-xs text-muted">Upload Asset (image/pdf)</span>
+                    <input type="file" accept="image/*,application/pdf" onChange={(e)=>{ const f=(e.target as HTMLInputElement).files?.[0]; if (f) void onPick(f,"asset"); }} />
+                  </label>
+                </div>
+                {uploading && <div className="text-xs text-muted">Uploading…</div>}
+                {!!uploadedUrl && <div className="text-xs break-all">Last upload: {uploadedUrl}</div>}
+
+                <div className="flex gap-2">
+                  <button onClick={saveSlide} disabled={!slForm.chapter_id || !slForm.title.trim() || savingSlide} className="rounded-lg bg-[color:#0a1156] text-white px-4 py-2 font-semibold hover:opacity-90 disabled:opacity-50">
+                    {savingSlide ? "Saving…" : "Save Slide"}
+                  </button>
+                  <button onClick={()=>setSlForm({ ...emptySlide, chapter_id: chForm.id ?? "" })} className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]">New Slide</button>
+                </div>
               </div>
-            </div>
+            </Section>
 
-            {/* -------- Quiz editor -------- */}
-            <div className="mt-8 pt-6 border-t border-light">
-              <h2 className="font-semibold">Quiz (end of chapter)</h2>
-              {slForm.chapter_id ? (
+            <Section title="Chapter Quiz">
+              {chForm.id ? (
                 <>
-                  {/* Settings */}
-                  <div className="mt-3 grid gap-3">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <label className="grid gap-1">
-                        <span className="text-sm text-muted">Time limit (seconds)</span>
-                        <input
-                          type="number"
-                          value={quizSettings.time_limit_seconds ?? ""}
-                          onChange={(e)=>setQuizSettings(s=>({ ...s, chapter_id: slForm.chapter_id, time_limit_seconds: (e.target as HTMLInputElement).value===""?null:Number((e.target as HTMLInputElement).value) }))}
-                          className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
-                        />
-                      </label>
-                      <label className="grid gap-1">
-                        <span className="text-sm text-muted"># of randomized questions</span>
-                        <input
-                          type="number"
-                          value={quizSettings.num_questions ?? ""}
-                          onChange={(e)=>setQuizSettings(s=>({ ...s, chapter_id: slForm.chapter_id, num_questions: (e.target as HTMLInputElement).value===""?null:Number((e.target as HTMLInputElement).value) }))}
-                          className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
-                        />
-                      </label>
-                    </div>
-                    <div className="flex gap-2">
-                      <button onClick={saveQuizSettings} disabled={quizSaving || !slForm.chapter_id} className="rounded-lg bg-brand text-white px-4 py-2 font-semibold hover:opacity-90 disabled:opacity-50">
-                        {quizSaving ? "Saving…" : "Save Settings"}
-                      </button>
-                      <button onClick={()=>void refreshQuiz(slForm.chapter_id)} className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]">
-                        Refresh
-                      </button>
-                    </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="grid gap-1">
+                      <span className="text-xs text-muted">Time limit (seconds)</span>
+                      <input type="number" value={quizSettings.time_limit_seconds ?? ""} onChange={(e)=>setQuizSettings(s=>({ ...s, chapter_id: chForm.id ?? "", time_limit_seconds: (e.target as HTMLInputElement).value===""?null:Number((e.target as HTMLInputElement).value) }))} className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"/>
+                    </label>
+                    <label className="grid gap-1">
+                      <span className="text-xs text-muted"># randomized questions</span>
+                      <input type="number" value={quizSettings.num_questions ?? ""} onChange={(e)=>setQuizSettings(s=>({ ...s, chapter_id: chForm.id ?? "", num_questions: (e.target as HTMLInputElement).value===""?null:Number((e.target as HTMLInputElement).value) }))} className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"/>
+                    </label>
+                  </div>
+                  <div className="mt-2 flex gap-2">
+                    <button onClick={saveQuizSettings} disabled={quizSaving} className="rounded-lg bg-[color:#0a1156] text-white px-4 py-2 font-semibold hover:opacity-90 disabled:opacity-50">
+                      {quizSaving ? "Saving…" : "Save Settings"}
+                    </button>
+                    <button onClick={()=>void refreshQuiz(chForm.id ?? "")} className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]">
+                      Refresh
+                    </button>
                   </div>
 
-                  {/* Questions list */}
-                  <div className="mt-6">
-                    <div className="text-sm font-semibold mb-2">Questions</div>
+                  <div className="mt-6 grid gap-3">
+                    <div className="text-sm font-semibold">Questions</div>
                     <div className="grid gap-2">
-                      {questions.map((q, i) => (
+                      {questions.map((q, i)=>(
                         <div key={q.id ?? i} className="rounded-lg p-3 ring-1 ring-[color:var(--color-light)]">
                           <div className="text-sm font-medium">{q.question}</div>
                           <ol className="text-xs text-muted mt-1 list-decimal ms-5">
-                            {q.options.map((opt, idx) => (
+                            {q.options.map((opt, idx)=>(
                               <li key={idx} className={idx===q.correct_index ? "text-ink" : ""}>
                                 {opt}{idx===q.correct_index ? "  ← correct" : ""}
                               </li>
@@ -1043,101 +948,253 @@ export default function AdminPage() {
                       ))}
                       {questions.length===0 && <div className="text-xs text-muted">No questions yet.</div>}
                     </div>
-                  </div>
 
-                  {/* Question form */}
-                  <div className="mt-6 grid gap-3">
-                    <div className="text-sm font-semibold">Add / Edit Question</div>
-                    <label className="grid gap-1">
-                      <span className="text-sm text-muted">Question</span>
-                      <input
-                        value={qForm.question}
-                        onChange={(e)=>setQForm(f=>({ ...f, chapter_id: slForm.chapter_id, question: (e.target as HTMLInputElement).value }))}
-                        className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
-                      />
-                    </label>
-                    <label className="grid gap-1">
-                      <span className="text-sm text-muted">Options (comma separated)</span>
-                      <input
-                        value={toCsv(qForm.options)}
-                        onChange={(e)=>setQForm(f=>({ ...f, chapter_id: slForm.chapter_id, options: fromCsv((e.target as HTMLInputElement).value) }))}
-                        className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
-                      />
-                    </label>
-                    <label className="grid gap-1">
-                      <span className="text-sm text-muted">Correct index (0-based)</span>
-                      <input
-                        type="number"
-                        value={qForm.correct_index}
-                        onChange={(e)=>setQForm(f=>({ ...f, chapter_id: slForm.chapter_id, correct_index: Number((e.target as HTMLInputElement).value || 0) }))}
-                        className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
-                      />
-                    </label>
-                    <div className="flex gap-2">
-                      <button onClick={saveQuestion} className="rounded-lg bg-brand text-white px-4 py-2 font-semibold hover:opacity-90">Save Question</button>
-                      <button onClick={()=>setQForm({ chapter_id: slForm.chapter_id, question: "", options: [], correct_index: 0, id: undefined })} className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]">Reset</button>
+                    <div className="mt-2 grid gap-3">
+                      <div className="text-sm font-semibold">Add / Edit Question</div>
+                      <label className="grid gap-1">
+                        <span className="text-xs text-muted">Question</span>
+                        <input value={qForm.question} onChange={(e)=>setQForm(f=>({ ...f, chapter_id: chForm.id ?? "", question: (e.target as HTMLInputElement).value }))} className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"/>
+                      </label>
+                      <label className="grid gap-1">
+                        <span className="text-xs text-muted">Options (comma separated)</span>
+                        <input value={toCsv(qForm.options)} onChange={(e)=>setQForm(f=>({ ...f, chapter_id: chForm.id ?? "", options: fromCsv((e.target as HTMLInputElement).value) }))} className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"/>
+                      </label>
+                      <label className="grid gap-1">
+                        <span className="text-xs text-muted">Correct index (0-based)</span>
+                        <input type="number" value={qForm.correct_index} onChange={(e)=>setQForm(f=>({ ...f, chapter_id: chForm.id ?? "", correct_index: Number((e.target as HTMLInputElement).value||0) }))} className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"/>
+                      </label>
+                      <div className="flex gap-2">
+                        <button onClick={saveQuestion} className="rounded-lg bg-[color:#0a1156] text-white px-4 py-2 font-semibold hover:opacity-90">Save Question</button>
+                        <button onClick={()=>setQForm({ chapter_id: chForm.id ?? "", question: "", options: [], correct_index: 0, id: undefined })} className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]">Reset</button>
+                      </div>
                     </div>
                   </div>
                 </>
               ) : (
-                <div className="text-xs text-muted mt-2">Pick a chapter to edit its quiz.</div>
+                <div className="text-xs text-muted">Pick or create a chapter first.</div>
               )}
-            </div>
+            </Section>
           </div>
         </div>
       )}
 
-      {/* Media */}
+      {/* ================= Quick Prices ================= */}
+      {tab==="prices" && (
+        <div className="mt-6 grid gap-6">
+          <Section title="Quick Price Editor">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <input
+                placeholder="Search by title…"
+                value={priceSearch}
+                onChange={(e)=>setPriceSearch((e.target as HTMLInputElement).value)}
+                className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)] w-full sm:w-80"
+              />
+              <div className="text-xs text-muted">Courses in GH₵ · E-books in USD</div>
+            </div>
+            <div className="mt-4 overflow-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left">
+                    <th className="py-2 pr-3">Type</th>
+                    <th className="py-2 pr-3">Title</th>
+                    <th className="py-2 pr-3">Price</th>
+                    <th className="py-2 pr-3 w-32">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {priceRows.map((r)=>(
+                    <PriceRow key={`${r.kind}-${r.id}`} row={r} onSave={savePrice} />
+                  ))}
+                  {priceRows.length===0 && (
+                    <tr><td colSpan={4} className="py-3 text-sm text-muted">No items.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Section>
+        </div>
+      )}
+
+      {/* ================= Media ================= */}
       {tab==="media" && (
-        <div className="mt-8 rounded-2xl bg-white border border-light p-5">
-          <h2 className="font-semibold">Upload Image to Storage</h2>
-          <p className="text-sm text-muted mt-1">Uploads to Supabase Storage (public). Copy the URL wherever needed.</p>
-          <div className="mt-4 flex items-center gap-3">
-            <input type="file" accept="image/*" onChange={(e)=>{ const f=(e.target as HTMLInputElement).files?.[0]; if (f) { void handleUpload(f); } }} />
-            <span>{uploading ? "Uploading…" : ""}</span>
-          </div>
-          {uploadedUrl && uploadedUrl.startsWith("http") && (
-            <div className="mt-4">
-              <div className="text-sm mb-2">Preview:</div>
-              <Image src={uploadedUrl} alt="Uploaded" width={320} height={180} className="rounded-lg ring-1 ring-[color:var(--color-light)] object-cover" />
-              <div className="text-sm mt-2">URL:</div>
-              <code className="text-xs break-all">{uploadedUrl}</code>
+        <div className="mt-6">
+          <Section title="Upload to Supabase Storage (public)">
+            <div className="flex items-center gap-3 flex-wrap">
+              <input type="file" accept="image/*" onChange={(e)=>{ const f=(e.target as HTMLInputElement).files?.[0]; if (f) { void (async()=>{ setUploading(true); const url = await uploadToStorage(f); setUploading(false); if (url) setUploadedUrl(url); })(); } }} />
+              <span className="text-sm">{uploading ? "Uploading…" : ""}</span>
             </div>
-          )}
+            {uploadedUrl && uploadedUrl.startsWith("http") && (
+              <div className="mt-4">
+                <div className="text-sm mb-2">Preview:</div>
+                <Image src={uploadedUrl} alt="Uploaded" width={320} height={180} className="rounded-lg ring-1 ring-[color:var(--color-light)] object-cover" />
+                <div className="text-sm mt-2">URL:</div>
+                <code className="text-xs break-all">{uploadedUrl}</code>
+              </div>
+            )}
+          </Section>
         </div>
       )}
 
-      {/* Users */}
+      {/* ================= Users ================= */}
       {tab==="users" && (
-        <div className="mt-8 rounded-2xl bg-white border border-light p-5">
-          <h2 className="font-semibold">Users</h2>
-          <button onClick={refreshUsers} className="mt-3 px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)]">Refresh</button>
-          <div className="mt-3 grid gap-3">
-            {users.map(u=>(
-              <div key={u.id} className="flex items-start justify-between gap-3 rounded-lg p-3 ring-1 ring-[color:var(--color-light)]">
-                <div className="text-sm">
-                  <div className="font-semibold">{u.email ?? u.id}</div>
-                  <div className="text-muted">Created: {u.created_at ?? "—"} · Confirmed: {u.email_confirmed_at ? "yes" : "no"}</div>
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={()=>void generateLink(u.email)} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)]" disabled={!u.email}>Confirm Link</button>
-                  <button onClick={()=>void deleteUser(u.id)} className="px-3 py-1.5 rounded-lg bg-red-600 text-white">Delete</button>
+        <div className="mt-6 grid gap-6">
+          <Section
+            title="Users"
+            right={
+              <div className="flex items-center gap-2">
+                <input
+                  placeholder="Search email or id…"
+                  value={userQuery}
+                  onChange={(e)=>setUserQuery((e.target as HTMLInputElement).value)}
+                  className="h-9 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)] w-60"
+                />
+                <button onClick={refreshUsers} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-sm">
+                  {usersLoading ? "Refreshing…" : "Refresh"}
+                </button>
+              </div>
+            }
+          >
+            <div className="overflow-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left">
+                    <th className="py-2 pr-3">Email</th>
+                    <th className="py-2 pr-3">Created</th>
+                    <th className="py-2 pr-3">Confirmed</th>
+                    <th className="py-2 pr-3">Status</th>
+                    <th className="py-2 pr-3 w-[420px]">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredUsers.map(u=>(
+                    <tr key={u.id} className="border-t">
+                      <td className="py-2 pr-3">{u.email ?? u.id}</td>
+                      <td className="py-2 pr-3">{u.created_at ?? "—"}</td>
+                      <td className="py-2 pr-3">{u.email_confirmed_at ? "Yes" : "No"}</td>
+                      <td className="py-2 pr-3">{u.banned ? "Banned" : "Active"}</td>
+                      <td className="py-2 pr-3">
+                        <div className="flex flex-wrap gap-2">
+                          <button onClick={()=>{ setSelectedUser(u); setSelectedPurchases(null); void loadPurchases(u.id); }} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-xs">View</button>
+                          <button onClick={()=>void generateConfirmLink(u.email)} disabled={!u.email} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-xs">Confirm Link</button>
+                          {u.banned ? (
+                            <button onClick={()=>void act(u.id,"unban")} className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-xs">Unban</button>
+                          ) : (
+                            <button onClick={()=>void act(u.id,"ban")} className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs">Ban</button>
+                          )}
+                          <button onClick={()=>void act(u.id,"revoke")} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-xs">Revoke Sessions</button>
+                          <button onClick={()=>void act(u.id,"clear-history")} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-xs">Clear History</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredUsers.length===0 && (
+                    <tr><td colSpan={5} className="py-3 text-sm text-muted">No users found.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Drawer / Modal for selected user */}
+            {selectedUser && (
+              <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+                <div className="absolute inset-0 bg-black/40" onClick={()=>{ setSelectedUser(null); setSelectedPurchases(null); }} />
+                <div className="relative z-10 w-full max-w-2xl rounded-2xl bg-white border border-light p-5 max-h-[90vh] overflow-auto">
+                  <div className="flex items-center justify-between">
+                    <div className="text-lg font-semibold">User Details</div>
+                    <button onClick={()=>{ setSelectedUser(null); setSelectedPurchases(null); }} className="text-sm">Close</button>
+                  </div>
+                  <div className="mt-3 grid gap-2 text-sm">
+                    <div><span className="text-muted">ID:</span> {selectedUser.id}</div>
+                    <div><span className="text-muted">Email:</span> {selectedUser.email ?? "—"}</div>
+                    <div><span className="text-muted">Created:</span> {selectedUser.created_at ?? "—"}</div>
+                    <div><span className="text-muted">Confirmed:</span> {selectedUser.email_confirmed_at ? "Yes" : "No"}</div>
+                    <div><span className="text-muted">Status:</span> {selectedUser.banned ? "Banned" : "Active"}</div>
+                  </div>
+
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-lg p-3 ring-1 ring-[color:var(--color-light)]">
+                      <div className="font-medium">Courses Purchased</div>
+                      <ul className="mt-2 text-sm list-disc ms-5">
+                        {(selectedPurchases?.courses ?? []).map((c, i)=>(<li key={i}>{c.title}</li>))}
+                        {(selectedPurchases?.courses?.length ?? 0)===0 && <li className="text-muted">None</li>}
+                      </ul>
+                    </div>
+                    <div className="rounded-lg p-3 ring-1 ring-[color:var(--color-light)]">
+                      <div className="font-medium">E-books Purchased</div>
+                      <ul className="mt-2 text-sm list-disc ms-5">
+                        {(selectedPurchases?.ebooks ?? []).map((e, i)=>(<li key={i}>{e.title}</li>))}
+                        {(selectedPurchases?.ebooks?.length ?? 0)===0 && <li className="text-muted">None</li>}
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {selectedUser.banned
+                      ? <button onClick={()=>void act(selectedUser.id,"unban")} className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-sm">Unban</button>
+                      : <button onClick={()=>void act(selectedUser.id,"ban")} className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm">Ban</button>}
+                    <button onClick={()=>void act(selectedUser.id,"revoke")} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-sm">Revoke Sessions</button>
+                    <button onClick={()=>void act(selectedUser.id,"clear-history")} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-sm">Clear History</button>
+                    <button onClick={()=>void generateConfirmLink(selectedUser.email)} disabled={!selectedUser.email} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-sm">Confirm Link</button>
+                  </div>
                 </div>
               </div>
-            ))}
-            {users.length===0 && <div className="text-muted text-sm">No users loaded.</div>}
-          </div>
+            )}
+          </Section>
         </div>
       )}
 
-      {/* Deploy */}
+      {/* ================= Deploy ================= */}
       {tab==="deploy" && (
-        <div className="mt-8 rounded-2xl bg-white border border-light p-5">
-          <h2 className="font-semibold">Deployment</h2>
-          <p className="text-sm text-muted">Trigger a Vercel rebuild (requires VERCEL_DEPLOY_HOOK_URL).</p>
-          <button onClick={triggerDeploy} className="mt-3 rounded-lg bg-brand text-white px-4 py-2 font-semibold hover:opacity-90">Trigger Deploy</button>
+        <div className="mt-6">
+          <Section title="Deployment">
+            <p className="text-sm text-muted">Trigger a Vercel rebuild (requires <code>VERCEL_DEPLOY_HOOK_URL</code>).</p>
+            <button onClick={triggerDeploy} className="mt-3 rounded-lg bg-[color:#0a1156] text-white px-4 py-2 font-semibold hover:opacity-90">Trigger Deploy</button>
+          </Section>
         </div>
       )}
     </div>
+  );
+}
+
+/* ====================== Subcomponent: PriceRow ====================== */
+function PriceRow({
+  row,
+  onSave
+}: {
+  row: { kind: "course" | "ebook"; id: string; title: string; price: number; currency: "GHS" | "USD" };
+  onSave: (r: { kind: "course" | "ebook"; id: string; price: number }) => Promise<void>;
+}) {
+  const [val, setVal] = useState<string>(row.price.toString());
+  const [saving, setSaving] = useState(false);
+  useEffect(() => { setVal(row.price.toString()); }, [row.price]);
+
+  async function handleSave() {
+    const p = Number(val);
+    if (!Number.isFinite(p) || p < 0) { alert("Enter a valid price"); return; }
+    setSaving(true);
+    await onSave({ kind: row.kind, id: row.id, price: p });
+    setSaving(false);
+  }
+
+  return (
+    <tr className="border-t">
+      <td className="py-2 pr-3 capitalize">{row.kind}</td>
+      <td className="py-2 pr-3">{row.title}</td>
+      <td className="py-2 pr-3">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted">{row.currency}</span>
+          <input
+            value={val}
+            onChange={(e)=>setVal((e.target as HTMLInputElement).value)}
+            className="h-9 w-32 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+          />
+        </div>
+      </td>
+      <td className="py-2 pr-3">
+        <button onClick={handleSave} disabled={saving} className="px-3 py-1.5 rounded-lg bg-[color:#0a1156] text-white text-sm hover:opacity-90 disabled:opacity-50">
+          {saving ? "Saving…" : "Save"}
+        </button>
+      </td>
+    </tr>
   );
 }
