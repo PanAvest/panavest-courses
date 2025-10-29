@@ -622,7 +622,7 @@ export default function AdminPage() {
   }
 
   const [userActionBusy, setUserActionBusy] = useState<string | null>(null);
-  async function act(userId: string, endpoint: "ban" | "unban" | "revoke" | "clear-history") {
+  async function act(userId: string, endpoint: "ban" | "unban" | "revoke" | "clear-history") | "delete" {
     setUserActionBusy(`${endpoint}:${userId}`);
     const r = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/${endpoint}`, { method: "POST" });
     setUserActionBusy(null);
@@ -640,7 +640,26 @@ export default function AdminPage() {
     setSelectedPurchases({ courses, ebooks });
   }
 
-  /* ---------------- Quick Prices ---------------- */
+  
+/** Generate password reset link and copy to clipboard */
+async function generateResetLink(email?: string) {
+  if (!email) return;
+  const r = await fetch("/api/admin/users", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ action: "generate_reset_link", email })
+  });
+  const d = await r.json();
+  const link = (d && typeof d === "object") ? (d as Record<string, unknown>)["link"] : null;
+  if (typeof link === "string") {
+    await navigator.clipboard.writeText(link);
+    alert("Reset link copied");
+  } else {
+    alert("Could not generate reset link");
+  }
+}
+
+/* ---------------- Quick Prices ---------------- */
   const [priceSearch, setPriceSearch] = useState("");
   const priceRows = useMemo(() => {
     const rows: Array<{ kind: "course" | "ebook"; id: string; title: string; price: number; currency: "GHS" | "USD" }> = [];
@@ -1219,7 +1238,7 @@ export default function AdminPage() {
                       <td className="py-2 pr-3">
                         <div className="flex flex-wrap gap-2">
                           <button onClick={()=>{ setSelectedUser(u); setSelectedPurchases(null); void loadPurchases(u.id); }} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-xs">View</button>
-                          <button onClick={()=>void generateConfirmLink(u.email)} disabled={!u.email} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-xs">Confirm Link</button>
+                          <button onClick={()=>void generateConfirmLink(u.email)} disabled={!u.email} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-xs">Confirm Link</button> <button onClick={()=>void generateResetLink(selectedUser.email)} disabled={!selectedUser.email} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-sm disabled:opacity-50">Reset PW</button> <button onClick={()=>void act(selectedUser.id,"delete")} disabled={userActionBusy === `delete:${selectedUser.id}`} className="px-3 py-1.5 rounded-lg bg-red-700 text-white text-sm disabled:opacity-50">Delete</button> <button onClick={()=>void generateResetLink(u.email)} disabled={!u.email} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-xs">Reset PW</button> <button onClick={()=>void act(u.id,"delete")} disabled={userActionBusy === `delete:${u.id}`} className="px-3 py-1.5 rounded-lg bg-red-700 text-white text-xs">Delete</button>
                           {u.banned ? (
                             <button onClick={()=>void act(u.id,"unban")} disabled={userActionBusy === `unban:${u.id}`} className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-xs disabled:opacity-50">Unban</button>
                           ) : (
@@ -1278,7 +1297,7 @@ export default function AdminPage() {
                       : <button onClick={()=>void act(selectedUser.id,"ban")} disabled={userActionBusy === `ban:${selectedUser.id}`} className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm disabled:opacity-50">Ban</button>}
                     <button onClick={()=>void act(selectedUser.id,"revoke")} disabled={userActionBusy === `revoke:${selectedUser.id}`} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-sm disabled:opacity-50">Revoke Sessions</button>
                     <button onClick={()=>void act(selectedUser.id,"clear-history")} disabled={userActionBusy === `clear-history:${selectedUser.id}`} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-sm disabled:opacity-50">Clear History</button>
-                    <button onClick={()=>void generateConfirmLink(selectedUser.email)} disabled={!selectedUser.email} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-sm disabled:opacity-50">Confirm Link</button>
+                    <button onClick={()=>void generateConfirmLink(selectedUser.email)} disabled={!selectedUser.email} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-sm disabled:opacity-50">Confirm Link</button> <button onClick={()=>void generateResetLink(selectedUser.email)} disabled={!selectedUser.email} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-sm disabled:opacity-50">Reset PW</button> <button onClick={()=>void act(selectedUser.id,"delete")} disabled={userActionBusy === `delete:${selectedUser.id}`} className="px-3 py-1.5 rounded-lg bg-red-700 text-white text-sm disabled:opacity-50">Delete</button> <button onClick={()=>void generateResetLink(u.email)} disabled={!u.email} className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-xs">Reset PW</button> <button onClick={()=>void act(u.id,"delete")} disabled={userActionBusy === `delete:${u.id}`} className="px-3 py-1.5 rounded-lg bg-red-700 text-white text-xs">Delete</button>
                   </div>
                 </div>
               </div>
