@@ -65,8 +65,7 @@ export async function POST(request: Request) {
 
     const origin = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
     // ⬇️ Route back to a PAGE, not an API
-    const callback_url = `${origin}/paystack/callback`;
-
+    const callback_url = `${origin}/api/payments/paystack/callback`;
     // (Optional) pre-create records so you can track pending states (safe to skip)
     const admin = getAdmin();
     const now = new Date().toISOString();
