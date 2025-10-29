@@ -2,11 +2,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
-import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// Create a Supabase client that runs RLS as the user (forward the access token)
 function supabaseForToken(accessToken: string) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "ebookId required" }, { status: 400 });
     }
 
-    // Token from header or cookie
+    // 1) Get access token from Authorization header or cookie
     const authHeader = req.headers.get("authorization") || "";
     let token = "";
     if (authHeader.toLowerCase().startsWith("bearer ")) {
@@ -38,19 +38,18 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
+    // 2) Identify user
     const sb = supabaseForToken(token);
-
-    // Confirm user
     const { data: userInfo, error: userErr } = await sb.auth.getUser();
     if (userErr || !userInfo?.user) {
       return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
     const userId = userInfo.user.id;
 
-    // Get ebook metadata, be liberal on fields to avoid breaking
+    // 3) Load ebook. Keep selection minimal to avoid column errors.
     const { data: ebook, error: ebookErr } = await sb
       .from("ebooks")
-      .select("id, published, bucket, file_path, paid_url, sample_url")
+      .select("id, published, sample_url")
       .eq("id", ebookId)
       .maybeSingle();
 
@@ -61,48 +60,32 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Ebook not found or not published" }, { status: 404 });
     }
 
-    // Ownership
-    const { data: purchase, error: pErr } = await sb
+    // 4) Verify ownership in ebook_purchases (status must be 'paid')
+    const { data: purchase, error: purchaseErr } = await sb
       .from("ebook_purchases")
       .select("status")
       .eq("user_id", userId)
       .eq("ebook_id", ebookId)
       .maybeSingle();
 
-    const isOwner = !pErr && purchase?.status === "paid";
+    if (purchaseErr) {
+      return NextResponse.json({ error: `Purchase check failed: ${purchaseErr.message}` }, { status: 500 });
+    }
+
+    const isOwner = purchase?.status === "paid";
     if (!isOwner) {
       return NextResponse.json({ error: "Not purchased" }, { status: 403 });
     }
 
-    // Resolve upstream: prefer private storage signed URL, else paid_url, else sample_url
-    let upstreamUrl: string | null = null;
-
-    if (ebook?.bucket && ebook?.file_path) {
-      const admin = getSupabaseAdmin();
-      const { data: signed, error: signErr } = await admin
-        .storage
-        .from(ebook.bucket as string)
-        .createSignedUrl(ebook.file_path as string, 60);
-      if (!signErr && signed?.signedUrl) {
-        upstreamUrl = signed.signedUrl;
-      }
+    // 5) Stream the PDF from sample_url (treat as paid URL for now)
+    if (!ebook.sample_url) {
+      return NextResponse.json({ error: "No PDF URL configured for this ebook" }, { status: 404 });
     }
 
-    if (!upstreamUrl && ebook?.paid_url) {
-      upstreamUrl = ebook.paid_url as string;
-    }
-    if (!upstreamUrl && ebook?.sample_url) {
-      upstreamUrl = ebook.sample_url as string;
-    }
-
-    if (!upstreamUrl) {
-      return NextResponse.json({ error: "No PDF available for this ebook" }, { status: 404 });
-    }
-
-    const upstream = await fetch(upstreamUrl, { cache: "no-store" });
+    const upstream = await fetch(ebook.sample_url, { cache: "no-store" });
     if (!upstream.ok) {
       return NextResponse.json(
-        { error: `Upstream fetch failed: ${upstream.status}` },
+        { error: `Upstream fetch failed`, status: upstream.status },
         { status: 502 }
       );
     }
@@ -115,6 +98,9 @@ export async function GET(req: NextRequest) {
 
     return new Response(upstream.body, { status: 200, headers });
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message || "Server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: (e as Error).message || "Server error" },
+      { status: 500 }
+    );
   }
 }
