@@ -96,6 +96,9 @@ function secondsToClock(s: number) {
   return `${m}:${String(ss).padStart(2, "0")}`;
 }
 
+/** Local progress key helper (scoped per-user per-course) */
+const progressKey = (userId: string, courseId: string) => `pv.progress.${userId}.${courseId}`;
+
 export default function CourseDashboard() {
   const params = useParams<{ slug: string }>();
   const slug = params?.slug;
@@ -159,9 +162,10 @@ export default function CourseDashboard() {
     })();
   }, [router]);
 
-  /** Load data */
+  /** Load data (includes robust slide progress merge) */
   useEffect(() => {
     if (!userId || !slug) return;
+
     (async () => {
       setLoading(true);
 
@@ -224,15 +228,29 @@ export default function CourseDashboard() {
         initializedRef.current = true;
       }
 
-      // slide progress (✅ preserves user progress)
+      // ✅ slide progress: merge server + localStorage; keep local in sync
       try {
-        const { data: prog } = await supabase
+        const { data: prog, error: progErr } = await supabase
           .from("user_slide_progress")
           .select("slide_id")
           .eq("user_id", userId)
           .eq("course_id", c.id);
-        setCompleted((prog ?? []).map((p: { slide_id: string }) => p.slide_id));
-      } catch {}
+
+        if (progErr) {
+          // server failed → fallback to local only
+          const fromLocal = JSON.parse(localStorage.getItem(progressKey(userId, c.id)) ?? "[]") as string[];
+          setCompleted(fromLocal);
+        } else {
+          const fromServer = (prog ?? []).map((p: { slide_id: string }) => p.slide_id);
+          const fromLocal = JSON.parse(localStorage.getItem(progressKey(userId, c.id)) ?? "[]") as string[];
+          const merged = Array.from(new Set([...fromServer, ...fromLocal]));
+          setCompleted(merged);
+          localStorage.setItem(progressKey(userId, c.id), JSON.stringify(merged));
+        }
+      } catch {
+        const fromLocal = JSON.parse(localStorage.getItem(progressKey(userId, c.id)) ?? "[]") as string[];
+        setCompleted(fromLocal);
+      }
 
       // quiz questions
       try {
@@ -397,21 +415,39 @@ export default function CourseDashboard() {
   const done = completed.length;
   const pct = totalSlides === 0 ? 0 : Math.round((done / totalSlides) * 100);
 
-  /** Mark slide as done — preserves progress */
+  /** Mark slide as done — UPSERT + local mirror */
   async function markDone(slide: Slide | null) {
     if (!slide || !userId || !course) return;
     try {
-      await supabase
+      const { data, error } = await supabase
         .from("user_slide_progress")
         .upsert(
-          { user_id: userId, course_id: course.id, slide_id: slide.id },
+          {
+            user_id: userId,
+            course_id: course.id,
+            slide_id: slide.id,
+            completed_at: new Date().toISOString(),
+          },
           { onConflict: "user_id,course_id,slide_id" }
-        );
+        )
+        .select("slide_id")
+        .single();
 
-      // Ensure gating recomputes immediately
+      if (error) {
+        setNotice(`Could not save progress: ${error.message}`);
+        setTimeout(() => setNotice(""), 2500);
+        return;
+      }
+
       flushSync(() => {
         setCompleted(prev => (prev.includes(slide.id) ? prev : [...prev, slide.id]));
       });
+
+      // persist locally as well (defensive)
+      const key = progressKey(userId, course.id);
+      const existing = JSON.parse(localStorage.getItem(key) ?? "[]") as string[];
+      const merged = Array.from(new Set([...existing, slide.id]));
+      localStorage.setItem(key, JSON.stringify(merged));
 
       setNotice("Marked as done ✓");
 
@@ -426,9 +462,9 @@ export default function CourseDashboard() {
       }
 
       setTimeout(() => setNotice(""), 1500);
-    } catch {
-      setNotice("Could not save progress. Try again.");
-      setTimeout(() => setNotice(""), 2000);
+    } catch (e: any) {
+      setNotice(`Save failed. ${e?.message ?? ""}`.trim());
+      setTimeout(() => setNotice(""), 2500);
     }
   }
 
@@ -1103,6 +1139,12 @@ export default function CourseDashboard() {
               </ul>
             </div>
 
+            {!isOnline && (
+              <div className="mt-3 text-xs text-red-700 bg-red-50 border border-red-200 rounded-md p-2">
+                You are offline. Stay online to ensure your answers are saved.
+              </div>
+            )}
+
             <div className="mt-4 grid gap-4">
               {finalExamQuestions.map((q, idx) => (
                 <div key={q.id} className="rounded-lg p-3 ring-1 ring-[color:var(--color-light)]">
@@ -1127,12 +1169,6 @@ export default function CourseDashboard() {
                 </div>
               ))}
             </div>
-
-            {!isOnline && (
-              <div className="mt-3 text-xs text-red-700 bg-red-50 border border-red-200 rounded-md p-2">
-                You are offline. Stay online to ensure your answers are saved.
-              </div>
-            )}
 
             <div className="mt-5 flex items-center justify-end gap-2">
               <button
