@@ -1,8 +1,7 @@
-// Admin action type (includes delete)
+"use client";
 type UserAction = "ban" | "unban" | "revoke" | "clear-history" | "delete";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-("use client");
 
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
