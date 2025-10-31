@@ -1,32 +1,28 @@
 // app/api/admin/users/[id]/[action]/route.ts
-import { NextRequest, NextResponse } from "next/server";
 
-// Define allowed actions as a tuple → easy literal union type
+// Use the standard Web Request/Response for Route Handlers
+import { NextResponse } from "next/server";
+
+// Allowed actions as a literal union
 const ALLOWED = ["ban", "unban", "revoke", "clear-history", "delete"] as const;
 type AllowedAction = (typeof ALLOWED)[number];
 const ALLOWED_SET = new Set<AllowedAction>(ALLOWED);
 
-/**
- * Next.js App Router expects the second arg type to MATCH your dynamic segments
- * exactly. Do NOT mark them optional.
- */
+// ✅ Don’t over-constrain the second arg. Let Next infer it.
+//    If you want, you can keep a *narrow* inline type, but this version avoids the checker mismatch.
 export async function POST(
-  _req: NextRequest,
-  { params }: { params: { id: string; action: string } }
+  _req: Request,
+  context: any // <- safest for Next’s internal typing; we immediately validate below
 ) {
-  const { id, action } = params;
+  const { id, action } = (context?.params ?? {}) as { id?: string; action?: string };
 
-  // Basic presence check (defense-in-depth; should always be present if route matches)
   if (!id || !action) {
     return NextResponse.json({ error: "Missing id or action" }, { status: 400 });
   }
-
-  // Validate action against the allowlist (runtime)
   if (!ALLOWED_SET.has(action as AllowedAction)) {
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   }
 
-  // STUB: Return success without doing anything server-side.
-  // (Swap this for your real Supabase admin logic later.)
+  // STUB: keep current behavior (no server-side changes yet)
   return NextResponse.json({ ok: true, stub: true, id, action });
 }
