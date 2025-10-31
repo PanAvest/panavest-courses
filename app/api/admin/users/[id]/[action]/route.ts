@@ -5,9 +5,18 @@ type UserAction = "ban" | "unban" | "revoke" | "clear-history" | "delete";
 
 export async function POST(
   _req: NextRequest,
-  ctx: { params: { id: string; action: UserAction } }
+  ctx: { params: { id?: string; action?: string } }
 ) {
-  const { id, action } = ctx.params;
+  const id = ctx.params?.id ?? "";
+  const action = ctx.params?.action as UserAction | undefined;
+
+  if (!id) {
+    return NextResponse.json({ error: "Missing user id" }, { status: 400 });
+  }
+  if (!action) {
+    return NextResponse.json({ error: "Missing action" }, { status: 400 });
+  }
+
   const admin = getSupabaseAdmin();
 
   try {
@@ -26,14 +35,14 @@ export async function POST(
       }
       case "revoke": {
         // No direct Admin API for revoking sessions in supabase-js v2.
-        // Optional: set a marker your app can use to force sign-out.
+        // App can watch this marker to force client sign-out.
         await admin.auth.admin.updateUserById(id, {
           user_metadata: { session_revoked_at: new Date().toISOString() },
         });
         break;
       }
       case "clear-history": {
-        // App-specific no-op placeholder
+        // App-specific no-op placeholder (intentionally left blank).
         break;
       }
       case "delete": {
@@ -47,10 +56,10 @@ export async function POST(
 
     return NextResponse.json({ ok: true });
   } catch (e) {
-    const err = e as { message?: string };
-    return NextResponse.json(
-      { error: err?.message ?? "Action failed" },
-      { status: 500 }
-    );
+    const msg =
+      e && typeof e === "object" && "message" in e
+        ? String((e as { message?: unknown }).message ?? "Action failed")
+        : "Action failed";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
