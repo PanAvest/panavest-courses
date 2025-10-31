@@ -99,6 +99,90 @@ function secondsToClock(s: number) {
 /** Local progress key helper (scoped per-user per-course) */
 const progressKey = (userId: string, courseId: string) => `pv.progress.${userId}.${courseId}`;
 
+function VideoPlayer({
+  src,
+  poster,
+  className = "",
+  rounded = "rounded-lg",
+}: {
+  src: string;
+  poster?: string | null;
+  className?: string;
+  rounded?: string;
+}) {
+  const ref = useRef<HTMLVideoElement | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Safari sometimes renders a black frame until you “nudge” currentTime.
+  const onLoadedMetadata = () => {
+    try {
+      if (!ref.current) return;
+      // Nudge a tiny offset to force first frame render on some webkits
+      if (ref.current.currentTime === 0) {
+        ref.current.currentTime = 0.001;
+      }
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const onError = () => {
+    setError(
+      "The video couldn't load here. Please open it in a new tab using the link below."
+    );
+  };
+
+  return (
+    <div className={`w-full ${rounded} overflow-hidden`}>
+      {/* Fixed aspect so it never gets “cut”, and object-contain preserves the full frame */}
+      <div className="relative w-full aspect-video bg-black">
+        {!error ? (
+          <video
+            ref={ref}
+            className={`absolute inset-0 h-full w-full object-contain ${className}`}
+            // Inline playback + best compatibility
+            playsInline
+            // We don't autoplay; metadata ensures a fast first frame and duration
+            preload="metadata"
+            // Normal controls; hide download menu on most browsers
+            controls
+            controlsList="nodownload"
+            // Cross-origin allows range requests/thumbnails on some hosts
+            crossOrigin="anonymous"
+            // Helpful on iOS/Safari
+            muted={false}
+            poster={poster ?? undefined}
+            src={src}
+            onLoadedMetadata={onLoadedMetadata}
+            onError={onError}
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center p-4">
+            <div className="text-center text-xs md:text-sm text-white/90">
+              {error}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Fallback open-in-new-tab */}
+      {error && (
+        <div className="mt-2 text-xs">
+          <a
+            href={src}
+            target="_blank"
+            rel="noreferrer"
+            className="underline break-all"
+          >
+            Open the video in a new tab
+          </a>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 export default function CourseDashboard() {
   const params = useParams<{ slug: string }>();
   const slug = params?.slug;
@@ -741,42 +825,51 @@ export default function CourseDashboard() {
 
   /** UI helpers */
   function renderMedia(s: Slide) {
-    const video = s.video_url ?? s.intro_video_url ?? null;
-    if (video) {
-      return (
-        <div className="mt-3 w-full">
-          <div className="w-full overflow-hidden rounded-lg">
-            <video className="block w-full h-auto" controls preload="metadata" src={video} />
-          </div>
-        </div>
-      );
-    }
-    if (s.asset_url) {
-      const lower = s.asset_url.toLowerCase();
-      const isImg = [".jpg",".jpeg",".png",".gif",".webp"].some(ext => lower.endsWith(ext));
-      if (isImg) {
-        return (
-          <div className="mt-3">
-            <Image
-              src={s.asset_url}
-              alt="Slide asset"
-              width={1600}
-              height={900}
-              className="rounded-lg ring-1 ring-[var(--color-light)] w-full h-auto object-contain"
-            />
-          </div>
-        );
-      }
-      return (
-        <div className="mt-3 text-sm">
-          <a className="underline break-all" href={s.asset_url} target="_blank" rel="noreferrer">
-            Open slide asset
-          </a>
-        </div>
-      );
-    }
-    return null;
+  const video = s.video_url ?? s.intro_video_url ?? null;
+
+  if (video) {
+    return (
+      <div className="mt-3 w-full">
+        <VideoPlayer src={video} poster={null} />
+      </div>
+    );
   }
+
+  if (s.asset_url) {
+    const lower = s.asset_url.toLowerCase();
+    const isImg = [".jpg", ".jpeg", ".png", ".gif", ".webp"].some((ext) =>
+      lower.endsWith(ext)
+    );
+    if (isImg) {
+      return (
+        <div className="mt-3">
+          <Image
+            src={s.asset_url}
+            alt="Slide asset"
+            width={1600}
+            height={900}
+            className="rounded-lg ring-1 ring-[var(--color-light)] w-full h-auto object-contain"
+            priority={false}
+          />
+        </div>
+      );
+    }
+    return (
+      <div className="mt-3 text-sm">
+        <a
+          className="underline break-all"
+          href={s.asset_url}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Open slide asset
+        </a>
+      </div>
+    );
+  }
+  return null;
+}
+
 
   const trySelectSlide = (s: Slide) => {
     if (canAccessById(s.id)) {
