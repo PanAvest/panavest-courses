@@ -1,53 +1,78 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+// app/api/admin/users/[id]/[action]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
-const ALLOWED = new Set(["ban", "unban", "revoke", "clear-history", "delete"] as const);
+// Ensure this route never caches
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+// Allowed admin actions
+const ALLOWED = ["ban", "unban", "revoke", "clear-history", "delete"] as const;
+type UserAction = (typeof ALLOWED)[number];
+
+function bad(status: number, message: string) {
+  return NextResponse.json({ error: message }, { status });
+}
 
 export async function POST(
   _req: NextRequest,
-  { params }: { params: Record<string, string> } // ✅ Next 15-compatible
+  { params }: { params: { id?: string; action?: string } }
 ) {
-  const id = params.id ?? "";
-  const action = params.action ?? "";
+  const id = params?.id?.trim();
+  const actionRaw = params?.action ?? "";
+  const action = ALLOWED.find((a) => a === actionRaw) as UserAction | undefined;
 
-  if (!id || !ALLOWED.has(action as any)) {
-    return NextResponse.json({ error: "Invalid action or missing id" }, { status: 400 });
-  }
+  if (!id) return bad(400, "Missing user id");
+  if (!action) return bad(400, "Invalid action");
 
   const admin = getSupabaseAdmin();
 
   try {
     switch (action) {
       case "ban": {
-        await admin.auth.admin.updateUserById(id, { user_metadata: { banned: true } });
+        const { error } = await admin.auth.admin.updateUserById(id, {
+          user_metadata: { banned: true },
+        });
+        if (error) throw error;
         break;
       }
+
       case "unban": {
-        await admin.auth.admin.updateUserById(id, { user_metadata: { banned: false } });
+        const { error } = await admin.auth.admin.updateUserById(id, {
+          user_metadata: { banned: false },
+        });
+        if (error) throw error;
         break;
       }
+
       case "revoke": {
-        // No direct Admin API to revoke sessions in supabase-js v2.
-        // Mark user; your app can force sign-out on next API call.
-        await admin.auth.admin.updateUserById(id, {
+        // No direct session revoke in supabase-js v2 Admin API.
+        // Mark metadata so your app can force a re-login client-side.
+        const { error } = await admin.auth.admin.updateUserById(id, {
           user_metadata: { session_revoked_at: new Date().toISOString() },
         });
+        if (error) throw error;
         break;
       }
+
       case "clear-history": {
-        // App-specific placeholder; implement if you track history.
+        // App-specific no-op; implement if you add an audit/history store.
         break;
       }
+
       case "delete": {
-        await admin.auth.admin.deleteUser(id);
+        const { error } = await admin.auth.admin.deleteUser(id);
+        if (error) throw error;
         break;
       }
     }
 
     return NextResponse.json({ ok: true });
-  } catch (e) {
-    const msg = (e as { message?: string })?.message ?? "Action failed";
-    return NextResponse.json({ error: msg }, { status: 500 });
+  } catch (err) {
+    const message =
+      err && typeof err === "object" && "message" in err
+        ? String((err as { message?: string }).message)
+        : "Action failed";
+    return bad(500, message);
   }
 }
