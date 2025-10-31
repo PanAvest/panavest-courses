@@ -2,11 +2,12 @@
 "use client";
 
 /**
- * PanAvest Master Admin — Turbo Drop-in (fixed)
- * - Removed invalid inline `ringColor:` styles
- * - Replaced `color(${...})` wrappers with real CSS variables
- * - Uses Tailwind `ring-[var(--color-light)]` for ring color
- * - No global style or config changes required
+ * PanAvest Master Admin — Turbo Drop-in (Prices tab fixed)
+ * - Stable data flow for Prices (no re-mount/focus loss)
+ * - Dedicated lightweight store for price rows (decoupled from list re-fetches)
+ * - Debounced search; rows memoized; keys stable
+ * - Mobile-friendly layout polish (tables scroll, controls stack)
+ * - No global config changes required
  */
 
 import Image from "next/image";
@@ -17,7 +18,6 @@ import React, {
   useMemo,
   useRef,
   useState,
-  startTransition,
   useTransition,
 } from "react";
 
@@ -140,17 +140,12 @@ const toCsv = (v: string[] | null | undefined) => (v ?? []).join(", ");
 const fromCsv = (v: string) =>
   v.split(",").map((s) => s.trim()).filter(Boolean);
 
-/** Small JSON fetcher with typed result + status guard */
-async function fetchJSON<T>(
-  url: string,
-  init?: RequestInit & { signal?: AbortSignal }
-): Promise<T> {
+/** JSON fetcher */
+async function fetchJSON<T>(url: string, init?: RequestInit & { signal?: AbortSignal }): Promise<T> {
   const r = await fetch(url, { cache: "no-store", ...init });
   if (!r.ok) {
     const msg = await r.text().catch(() => "");
-    throw Object.assign(new Error(msg || `Request failed: ${r.status}`), {
-      status: r.status,
-    });
+    throw Object.assign(new Error(msg || `Request failed: ${r.status}`), { status: r.status });
   }
   return (await r.json()) as T;
 }
@@ -171,15 +166,13 @@ function useAbortRef() {
   return { next, clear, ref };
 }
 
-/** Safer adapters (defensive parsing) */
+/** Defensive parsers */
 function asAdminUser(x: unknown): AdminUser {
   const r = x && typeof x === "object" ? (x as Record<string, unknown>) : {};
   return {
     id: String(r["id"] ?? ""),
     email: isStr(r["email"]) ? r["email"] : undefined,
-    email_confirmed_at: isStr(r["email_confirmed_at"])
-      ? r["email_confirmed_at"]
-      : null,
+    email_confirmed_at: isStr(r["email_confirmed_at"]) ? r["email_confirmed_at"] : null,
     created_at: isStr(r["created_at"]) ? r["created_at"] : null,
     banned: typeof r["banned"] === "boolean" ? r["banned"] : null,
   };
@@ -197,9 +190,7 @@ function asKnowledgeArray(x: unknown): Knowledge[] {
       price: typeof r["price"] === "number" ? r["price"] : null,
       cpd_points: typeof r["cpd_points"] === "number" ? r["cpd_points"] : null,
       img: isStr(r["img"]) ? r["img"] : null,
-      accredited: Array.isArray(r["accredited"])
-        ? (r["accredited"] as string[])
-        : null,
+      accredited: Array.isArray(r["accredited"]) ? (r["accredited"] as string[]) : null,
       published: typeof r["published"] === "boolean" ? r["published"] : null,
     };
   });
@@ -237,21 +228,15 @@ function asQuizSettings(x: unknown, chapterId: string): QuizSettings {
   const r = x && typeof x === "object" ? (x as Record<string, unknown>) : {};
   return {
     chapter_id: chapterId,
-    time_limit_seconds:
-      typeof r["time_limit_seconds"] === "number"
-        ? r["time_limit_seconds"]
-        : null,
-    num_questions:
-      typeof r["num_questions"] === "number" ? r["num_questions"] : null,
+    time_limit_seconds: typeof r["time_limit_seconds"] === "number" ? r["time_limit_seconds"] : null,
+    num_questions: typeof r["num_questions"] === "number" ? r["num_questions"] : null,
   };
 }
 function asQuizQuestions(x: unknown): QuizQuestion[] {
   if (!Array.isArray(x)) return [];
   return x.map((q) => {
     const r = q && typeof q === "object" ? (q as Record<string, unknown>) : {};
-    const opts = Array.isArray(r["options"])
-      ? (r["options"] as unknown[]).map(String)
-      : [];
+    const opts = Array.isArray(r["options"]) ? (r["options"] as unknown[]).map(String) : [];
     return {
       id: isStr(r["id"]) ? r["id"] : undefined,
       chapter_id: String(r["chapter_id"] ?? ""),
@@ -302,12 +287,12 @@ const Button = memo(function Button({
 }) {
   const cls =
     kind === "primary"
-      ? `rounded-lg bg-[${BRAND}] text-white px-4 py-2 font-semibold hover:opacity-90 disabled:opacity-50`
+      ? `rounded-lg bg-[#0a1156] text-white px-4 py-2 font-semibold hover:opacity-90 disabled:opacity-50`
       : kind === "danger"
       ? `rounded-lg bg-red-600 text-white px-3 py-1.5 text-sm hover:opacity-90 disabled:opacity-50`
       : kind === "neutral"
-      ? `rounded-lg px-3 py-1.5 text-sm ring-1 ring-[var(--color-light)]`
-      : `rounded-lg px-4 py-2 ring-1 ring-[var(--color-light)]`;
+      ? `rounded-lg px-3 py-1.5 text-sm ring-1 ring-[${LIGHT}]`
+      : `rounded-lg px-4 py-2 ring-1 ring-[${LIGHT}]`;
   return (
     <button className={cls} onClick={onClick} disabled={disabled} title={title}>
       {children}
@@ -325,7 +310,7 @@ const Card = memo(function Card({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl bg-white border border-[var(--color-light)]">
+    <div className="rounded-2xl bg-white border border-[color:var(--color-light,#e8ebf0)]">
       <div className="flex items-center justify-between gap-3 px-5 pt-5">
         <h2 className="font-semibold">{title}</h2>
         {right}
@@ -345,7 +330,7 @@ const Stat = memo(function Stat({
   foot?: string;
 }) {
   return (
-    <div className="rounded-2xl bg-white border border-[var(--color-light)] p-4">
+    <div className="rounded-2xl bg-white border border-[color:var(--color-light,#e8ebf0)] p-4">
       <div className="text-xs" style={{ color: MUTED }}>
         {label}
       </div>
@@ -376,7 +361,7 @@ const Sidebar = memo(function Sidebar({
     { key: "deploy", label: "Deploy", hint: "Trigger Vercel build" },
   ];
   return (
-    <aside className="sticky top-4 self-start w-full sm:w-64 lg:w-72 rounded-2xl border border-[var(--color-light)] bg-white p-3">
+    <aside className="sticky top-4 self-start w-full sm:w-64 lg:w-72 rounded-2xl border border-[color:var(--color-light,#e8ebf0)] bg-white p-3">
       <div className="px-2 py-2">
         <div className="text-lg font-bold">Master Admin</div>
         <div className="text-xs mt-0.5" style={{ color: MUTED }}>
@@ -388,7 +373,9 @@ const Sidebar = memo(function Sidebar({
           <button
             key={item.key}
             onClick={() => setTab(item.key)}
-            className={`text-left rounded-xl px-3 py-2.5 ring-1 ring-[var(--color-light)] ${tab === item.key ? "bg-[--panavest-brand] text-white" : "bg-white"}`}
+            className={`text-left rounded-xl px-3 py-2.5 ring-1 ring-[${LIGHT}] ${
+              tab === item.key ? "bg-[--panavest-brand] text-white" : "bg-white"
+            }`}
             style={
               tab === item.key
                 ? ({ ["--panavest-brand" as any]: BRAND } as React.CSSProperties)
@@ -424,7 +411,7 @@ const Sidebar = memo(function Sidebar({
 
 export default function AdminPage() {
   const [tab, setTab] = useState<Tab>("overview");
-  const [isPending, startPending] = useTransition();
+  const [isPending, startTransition] = useTransition();
 
   /** ---------- OVERVIEW (lazy) ---------- */
   const [stats, setStats] = useState<Stats | null>(null);
@@ -435,10 +422,9 @@ export default function AdminPage() {
     const ac = statsAbort.next();
     setStatsErr(null);
     try {
-      const d = await fetchJSON<Partial<Stats & { revenue_30d_usd?: number }>>(
-        "/api/admin/stats",
-        { signal: ac.signal }
-      );
+      const d = await fetchJSON<Partial<Stats & { revenue_30d_usd?: number }>>("/api/admin/stats", {
+        signal: ac.signal,
+      });
       setStats({
         users_total: num(d?.users_total, 0),
         users_new_7d: num(d?.users_new_7d, 0),
@@ -453,9 +439,7 @@ export default function AdminPage() {
       if (e?.name === "AbortError") return;
       if (e?.status === 404) {
         setStats(null);
-        setStatsErr(
-          "Stats endpoint not found. You can keep using the dashboard without it."
-        );
+        setStatsErr("Stats endpoint not found. You can keep using the dashboard without it.");
       } else setStatsErr("Failed to load stats.");
     }
   }, [statsAbort]);
@@ -470,9 +454,7 @@ export default function AdminPage() {
 
   const refreshKnowledge = useCallback(async () => {
     const ac = knowledgeAbort.next();
-    const d = await fetchJSON<unknown>("/api/admin/knowledge", {
-      signal: ac.signal,
-    });
+    const d = await fetchJSON<unknown>("/api/admin/knowledge", { signal: ac.signal });
     setKnowledge(asKnowledgeArray(d));
   }, [knowledgeAbort]);
 
@@ -503,10 +485,7 @@ export default function AdminPage() {
     }
     setSavingK(true);
     try {
-      const payload: Knowledge = {
-        ...kForm,
-        accredited: fromCsv(toCsv(kForm.accredited ?? [])),
-      };
+      const payload: Knowledge = { ...kForm, accredited: fromCsv(toCsv(kForm.accredited ?? [])) };
       await fetchJSON("/api/admin/knowledge", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -524,7 +503,7 @@ export default function AdminPage() {
         published: true,
       });
       await refreshKnowledge();
-    } catch (e) {
+    } catch {
       alert("Save failed");
     } finally {
       setSavingK(false);
@@ -595,10 +574,9 @@ export default function AdminPage() {
         setChForm({ ...emptyChapter, course_id: "" });
         return;
       }
-      const d = await fetchJSON<unknown>(
-        `/api/admin/chapters?course_id=${encodeURIComponent(courseId)}`,
-        { signal: ac.signal }
-      );
+      const d = await fetchJSON<unknown>(`/api/admin/chapters?course_id=${encodeURIComponent(courseId)}`, {
+        signal: ac.signal,
+      });
       const rows = asChapters(d);
       if (courseId !== selectedCourseId) return; // stale
       setChapters(rows);
@@ -623,10 +601,9 @@ export default function AdminPage() {
         setSlides([]);
         return;
       }
-      const d = await fetchJSON<unknown>(
-        `/api/admin/slides?chapter_id=${encodeURIComponent(chapterId)}`,
-        { signal: ac.signal }
-      );
+      const d = await fetchJSON<unknown>(`/api/admin/slides?chapter_id=${encodeURIComponent(chapterId)}`, {
+        signal: ac.signal,
+      });
       if (chapterId !== (chForm.id ?? "")) return;
       setSlides(asSlides(d));
     },
@@ -671,10 +648,9 @@ export default function AdminPage() {
         return;
       }
       try {
-        const d = await fetchJSON<Partial<Exam> | null>(
-          `/api/admin/exams?course_id=${encodeURIComponent(courseId)}`,
-          { signal: ac.signal }
-        );
+        const d = await fetchJSON<Partial<Exam> | null>(`/api/admin/exams?course_id=${encodeURIComponent(courseId)}`, {
+          signal: ac.signal,
+        });
         if (courseId !== selectedCourseId) return;
         if (d && d.course_id) {
           const ex: Exam = {
@@ -682,19 +658,15 @@ export default function AdminPage() {
             course_id: String((d as any).course_id),
             title: isStr((d as any).title) ? (d as any).title : "Final Exam",
             pass_mark: num((d as any).pass_mark, 60),
-            time_limit_minutes:
-              typeof (d as any).time_limit_minutes === "number"
-                ? (d as any).time_limit_minutes
-                : 30,
+            time_limit_minutes: typeof (d as any).time_limit_minutes === "number" ? (d as any).time_limit_minutes : 30,
             created_at: isStr((d as any).created_at) ? (d as any).created_at : null,
           };
           setExam(ex);
           setExamForm(ex);
 
-          const qs = await fetchJSON<unknown>(
-            `/api/admin/exam-questions?exam_id=${encodeURIComponent(ex.id ?? "")}`,
-            { signal: ac.signal }
-          );
+          const qs = await fetchJSON<unknown>(`/api/admin/exam-questions?exam_id=${encodeURIComponent(ex.id ?? "")}`, {
+            signal: ac.signal,
+          });
           const arr: ExamQuestion[] = Array.isArray(qs)
             ? (qs as any[]).map((q) => ({
                 id: isStr(q.id) ? q.id : undefined,
@@ -710,12 +682,7 @@ export default function AdminPage() {
         } else {
           setExam(null);
           setExamQuestions([]);
-          setExamForm({
-            course_id: courseId,
-            title: "Final Exam",
-            pass_mark: 60,
-            time_limit_minutes: 30,
-          });
+          setExamForm({ course_id: courseId, title: "Final Exam", pass_mark: 60, time_limit_minutes: 30 });
           setEqForm({ exam_id: "", question: "", options: [], correct_index: 0 });
         }
       } catch (e: any) {
@@ -739,12 +706,7 @@ export default function AdminPage() {
       setQForm({ chapter_id: "", question: "", options: [], correct_index: 0 });
       setExam(null);
       setExamQuestions([]);
-      setExamForm({
-        course_id: "",
-        title: "Final Exam",
-        pass_mark: 60,
-        time_limit_minutes: 30,
-      });
+      setExamForm({ course_id: "", title: "Final Exam", pass_mark: 60, time_limit_minutes: 30 });
       setEqForm({ exam_id: "", question: "", options: [], correct_index: 0 });
       return;
     }
@@ -790,9 +752,7 @@ export default function AdminPage() {
         id: slForm.id || undefined,
         chapter_id: slForm.chapter_id,
         title: slForm.title.trim(),
-        order_index: Number.isFinite(slForm.order_index)
-          ? Number(slForm.order_index)
-          : 0,
+        order_index: Number.isFinite(slForm.order_index) ? Number(slForm.order_index) : 0,
         intro_video_url: slForm.intro_video_url?.trim() || null,
         asset_url: slForm.asset_url?.trim() || null,
         body: slForm.body?.trim() || null,
@@ -869,22 +829,14 @@ export default function AdminPage() {
       body: JSON.stringify(qForm),
     });
     await refreshQuiz(qForm.chapter_id);
-    setQForm({
-      chapter_id: qForm.chapter_id,
-      question: "",
-      options: [],
-      correct_index: 0,
-      id: undefined,
-    });
+    setQForm({ chapter_id: qForm.chapter_id, question: "", options: [], correct_index: 0, id: undefined });
   }, [qForm, refreshQuiz]);
 
   const deleteQuestion = useCallback(
     async (id?: string) => {
       if (!id) return;
       if (!confirm("Delete this question?")) return;
-      await fetchJSON(`/api/admin/quiz-questions?id=${encodeURIComponent(id)}`, {
-        method: "DELETE",
-      });
+      await fetchJSON(`/api/admin/quiz-questions?id=${encodeURIComponent(id)}`, { method: "DELETE" });
       await refreshQuiz(quizSettings.chapter_id);
     },
     [quizSettings.chapter_id, refreshQuiz]
@@ -926,9 +878,7 @@ export default function AdminPage() {
     async (q: ExamQuestion) => {
       if (!q.id) return;
       if (!confirm("Delete this question?")) return;
-      await fetchJSON(`/api/admin/exam-questions?id=${encodeURIComponent(q.id)}`, {
-        method: "DELETE",
-      });
+      await fetchJSON(`/api/admin/exam-questions?id=${encodeURIComponent(q.id)}`, { method: "DELETE" });
       await refreshExam(selectedCourseId);
     },
     [selectedCourseId, refreshExam]
@@ -954,9 +904,7 @@ export default function AdminPage() {
     const ac = ebooksAbort.next();
     setLoadingEbooks(true);
     try {
-      const d = await fetchJSON<unknown>("/api/admin/ebooks", {
-        signal: ac.signal,
-      });
+      const d = await fetchJSON<unknown>("/api/admin/ebooks", { signal: ac.signal });
       setEbooks(asEbooks(d));
     } finally {
       setLoadingEbooks(false);
@@ -976,7 +924,7 @@ export default function AdminPage() {
     try {
       const payload: Ebook = {
         ...ebookForm,
-        price_cents: num(ebookForm.price_cents, 0),
+        price_cents: Math.round(num(ebookForm.price_cents, 0)),
         cover_url: ebookForm.cover_url?.trim() || null,
         sample_url: ebookForm.sample_url?.trim() || null,
         kpf_url: ebookForm.kpf_url?.trim() || null,
@@ -1008,9 +956,7 @@ export default function AdminPage() {
     async (id?: string) => {
       if (!id) return;
       if (!confirm("Delete e-book?")) return;
-      await fetchJSON(`/api/admin/ebooks/${encodeURIComponent(id)}`, {
-        method: "DELETE",
-      });
+      await fetchJSON(`/api/admin/ebooks/${encodeURIComponent(id)}`, { method: "DELETE" });
       if (ebookForm.id === id)
         setEbookForm({
           slug: "",
@@ -1139,9 +1085,7 @@ export default function AdminPage() {
   );
 
   const loadPurchases = useCallback(async (userId: string) => {
-    const r = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/purchases`, {
-      cache: "no-store",
-    });
+    const r = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/purchases`, { cache: "no-store" });
     if (!r.ok) {
       setSelectedPurchases({ courses: [], ebooks: [] });
       return;
@@ -1152,40 +1096,73 @@ export default function AdminPage() {
     setSelectedPurchases({ courses, ebooks });
   }, []);
 
-  /** ---------- PRICES ---------- */
+  /** ---------- PRICES (FIXED) ---------- */
+  // We keep a local “store” of price rows that only updates when upstream data actually changes,
+  // avoiding re-mounts while typing or focusing inputs.
+
+  type PriceRowT = { kind: "course" | "ebook"; id: string; title: string; price: number; currency: "GHS" };
+
   const [priceSearch, setPriceSearch] = useState("");
-  const priceRows = useMemo(() => {
-    const rows: Array<{
-      kind: "course" | "ebook";
-      id: string;
-      title: string;
-      price: number;
-      currency: "GHS";
-    }> = [];
-    knowledge.forEach((k) =>
+  const [priceRowsStore, setPriceRowsStore] = useState<PriceRowT[]>([]);
+
+  // Build canonical rows when knowledge/ebooks change (tab enter or refresh)
+  const canonicalRows = useMemo<PriceRowT[]>(() => {
+    const rows: PriceRowT[] = [];
+    for (const k of knowledge) {
       rows.push({
         kind: "course",
-        id: k.id ?? k.slug,
+        id: (k.id ?? k.slug) || k.slug,
         title: k.title,
         price: k.price ?? 0,
         currency: "GHS",
-      })
-    );
-    ebooks.forEach((e) =>
+      });
+    }
+    for (const e of ebooks) {
       rows.push({
         kind: "ebook",
-        id: e.id ?? e.slug,
+        id: (e.id ?? e.slug) || e.slug,
         title: e.title,
-        price: e.price_cents / 100,
+        price: (e.price_cents ?? 0) / 100,
         currency: "GHS",
-      })
+      });
+    }
+    return rows;
+  }, [knowledge, ebooks]);
+
+  // Sync store only when canonical values change (deep-ish compare by id+price)
+  useEffect(() => {
+    setPriceRowsStore((prev) => {
+      const mapPrev = new Map(prev.map((r) => [r.kind + ":" + r.id, r]));
+      const next: PriceRowT[] = canonicalRows.map((r) => {
+        const key = r.kind + ":" + r.id;
+        const old = mapPrev.get(key);
+        // preserve current edited value (if user was typing) by preferring old.price
+        return old ? { ...r, price: old.price } : r;
+      });
+      return next;
+    });
+  }, [canonicalRows]);
+
+  // Debounced search query (smooth typing)
+  const [debouncedQ, setDebouncedQ] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(priceSearch.trim().toLowerCase()), 120);
+    return () => clearTimeout(t);
+  }, [priceSearch]);
+
+  const visibleRows = useMemo(() => {
+    if (!debouncedQ) return priceRowsStore;
+    return priceRowsStore.filter((r) => r.title.toLowerCase().includes(debouncedQ));
+  }, [priceRowsStore, debouncedQ]);
+
+  const mutateRowPrice = useCallback((key: string, nextVal: number | null) => {
+    setPriceRowsStore((rows) =>
+      rows.map((r) => (r.kind + ":" + r.id === key ? { ...r, price: nextVal ?? r.price } : r))
     );
-    const q = priceSearch.trim().toLowerCase();
-    return q ? rows.filter((r) => r.title.toLowerCase().includes(q)) : rows;
-  }, [knowledge, ebooks, priceSearch]);
+  }, []);
 
   const savePrice = useCallback(
-    async (row: { kind: "course" | "ebook"; id: string; price: number }) => {
+    async (row: PriceRowT) => {
       if (row.kind === "course") {
         const item = knowledge.find((k) => (k.id ?? k.slug) === row.id);
         if (!item) return;
@@ -1195,7 +1172,7 @@ export default function AdminPage() {
           headers: { "content-type": "application/json" },
           body: JSON.stringify(payload),
         });
-        await refreshKnowledge();
+        await refreshKnowledge(); // upstream sync (store preserves current inputs)
       } else {
         const item = ebooks.find((e) => (e.id ?? e.slug) === row.id);
         if (!item) return;
@@ -1205,7 +1182,7 @@ export default function AdminPage() {
           headers: { "content-type": "application/json" },
           body: JSON.stringify(payload),
         });
-        await refreshEbooks();
+        await refreshEbooks(); // upstream sync
       }
     },
     [knowledge, ebooks, refreshKnowledge, refreshEbooks]
@@ -1239,28 +1216,18 @@ export default function AdminPage() {
             )}
             {statsErr && <div className="text-sm text-red-600">{statsErr}</div>}
             <div className="grid gap-3 grid-cols-2 md:grid-cols-3">
-              <Stat
-                label="Total Users"
-                value={stats?.users_total ?? "—"}
-                foot={`+${stats?.users_new_7d ?? 0} in last 7 days`}
-              />
+              <Stat label="Total Users" value={stats?.users_total ?? "—"} foot={`+${stats?.users_new_7d ?? 0} in last 7 days`} />
               <Stat label="Courses" value={stats?.courses_total ?? "—"} />
               <Stat label="E-Books" value={stats?.ebooks_total ?? "—"} />
               <Stat label="Orders" value={stats?.orders_total ?? "—"} />
-              <Stat
-                label="Revenue (30d)"
-                value={`GH₵${(stats?.revenue_30d_ghs ?? 0).toLocaleString()}`}
-              />
+              <Stat label="Revenue (30d)" value={`GH₵${(stats?.revenue_30d_ghs ?? 0).toLocaleString()}`} />
             </div>
 
             <div className="grid gap-6 lg:grid-cols-2">
               <Card title="Top Courses (by sales)">
                 <div className="grid gap-2">
                   {(stats?.top_courses ?? []).map((c, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center justify-between rounded-lg p-3 ring-1 ring-[var(--color-light)]"
-                    >
+                    <div key={i} className="flex items-center justify-between rounded-lg p-3 ring-1 ring-[color:var(--color-light,#e8ebf0)]">
                       <div className="text-sm">{c.title}</div>
                       <div className="text-xs" style={{ color: MUTED }}>
                         {c.sales} sales
@@ -1277,10 +1244,7 @@ export default function AdminPage() {
               <Card title="Top E-Books (by sales)">
                 <div className="grid gap-2">
                   {(stats?.top_ebooks ?? []).map((e, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center justify-between rounded-lg p-3 ring-1 ring-[var(--color-light)]"
-                    >
+                    <div key={i} className="flex items-center justify-between rounded-lg p-3 ring-1 ring-[color:var(--color-light,#e8ebf0)]">
                       <div className="text-sm">{e.title}</div>
                       <div className="text-xs" style={{ color: MUTED }}>
                         {e.sales} sales
@@ -1301,10 +1265,7 @@ export default function AdminPage() {
         {/* CATALOG */}
         {tab === "catalog" && (
           <div className="grid gap-6 lg:grid-cols-2">
-            <Card
-              title="Course — Create / Edit"
-              right={<span className="text-xs" style={{ color: MUTED }}>All fields can be edited later</span>}
-            >
+            <Card title="Course — Create / Edit" right={<span className="text-xs" style={{ color: MUTED }}>All fields can be edited later</span>}>
               <div className="grid gap-3">
                 {[
                   ["slug", "Slug (unique, URL-safe)"],
@@ -1313,92 +1274,65 @@ export default function AdminPage() {
                   ["level", "Level"],
                 ].map(([k, label]) => (
                   <label key={k} className="grid gap-1">
-                    <span className="text-xs" style={{ color: MUTED }}>
-                      {label}
-                    </span>
+                    <span className="text-xs" style={{ color: MUTED }}>{label}</span>
                     <input
                       value={(kForm as Record<string, unknown>)[k] as string | undefined ?? ""}
-                      onChange={(e) =>
-                        setKForm((f) => ({
-                          ...f,
-                          [k]: (e.target as HTMLInputElement).value,
-                        }))
-                      }
-                      className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
+                      onChange={(e) => setKForm((f) => ({ ...f, [k]: (e.target as HTMLInputElement).value }))}
+                      className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light,#e8ebf0)]"
                     />
                   </label>
                 ))}
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="grid gap-1">
-                    <span className="text-xs" style={{ color: MUTED }}>
-                      Price (GH₵)
-                    </span>
+                    <span className="text-xs" style={{ color: MUTED }}>Price (GH₵)</span>
                     <input
                       type="number"
                       value={kForm.price ?? ""}
                       onChange={(e) =>
                         setKForm((f) => ({
                           ...f,
-                          price:
-                            (e.target as HTMLInputElement).value === ""
-                              ? null
-                              : Number((e.target as HTMLInputElement).value),
+                          price: (e.target as HTMLInputElement).value === "" ? null : Number((e.target as HTMLInputElement).value),
                         }))
                       }
-                      className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
+                      className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light,#e8ebf0)]"
                     />
                   </label>
                   <label className="grid gap-1">
-                    <span className="text-xs" style={{ color: MUTED }}>
-                      CPPD Points
-                    </span>
+                    <span className="text-xs" style={{ color: MUTED }}>CPPD Points</span>
                     <input
                       type="number"
                       value={kForm.cpd_points ?? ""}
                       onChange={(e) =>
                         setKForm((f) => ({
                           ...f,
-                          cpd_points:
-                            (e.target as HTMLInputElement).value === ""
-                              ? null
-                              : Number((e.target as HTMLInputElement).value),
+                          cpd_points: (e.target as HTMLInputElement).value === "" ? null : Number((e.target as HTMLInputElement).value),
                         }))
                       }
-                      className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
+                      className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light,#e8ebf0)]"
                     />
                   </label>
                 </div>
                 <label className="grid gap-1">
-                  <span className="text-xs" style={{ color: MUTED }}>
-                    Image URL (cover)
-                  </span>
+                  <span className="text-xs" style={{ color: MUTED }}>Image URL (cover)</span>
                   <input
                     value={kForm.img ?? ""}
-                    onChange={(e) =>
-                      setKForm((f) => ({ ...f, img: (e.target as HTMLInputElement).value }))
-                    }
-                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
+                    onChange={(e) => setKForm((f) => ({ ...f, img: (e.target as HTMLInputElement).value }))}
+                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light,#e8ebf0)]"
                   />
                 </label>
                 <label className="grid gap-1">
-                  <span className="text-xs" style={{ color: MUTED }}>
-                    Accredited (comma separated)
-                  </span>
+                  <span className="text-xs" style={{ color: MUTED }}>Accredited (comma separated)</span>
                   <input
                     value={toCsv(kForm.accredited ?? [])}
-                    onChange={(e) =>
-                      setKForm((f) => ({ ...f, accredited: fromCsv((e.target as HTMLInputElement).value) }))
-                    }
-                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
+                    onChange={(e) => setKForm((f) => ({ ...f, accredited: fromCsv((e.target as HTMLInputElement).value) }))}
+                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light,#e8ebf0)]"
                   />
                 </label>
                 <label className="inline-flex items-center gap-2">
                   <input
                     type="checkbox"
                     checked={kForm.published ?? true}
-                    onChange={(e) =>
-                      setKForm((f) => ({ ...f, published: (e.target as HTMLInputElement).checked }))
-                    }
+                    onChange={(e) => setKForm((f) => ({ ...f, published: (e.target as HTMLInputElement).checked }))}
                   />
                   <span className="text-sm">Published</span>
                 </label>
@@ -1428,27 +1362,18 @@ export default function AdminPage() {
               </div>
             </Card>
 
-            <Card
-              title="Courses List"
-              right={<Button kind="neutral" onClick={() => void refreshKnowledge()}>Refresh</Button>}
-            >
+            <Card title="Courses List" right={<Button kind="neutral" onClick={() => void refreshKnowledge()}>Refresh</Button>}>
               <div className="grid gap-2">
                 {knowledge.map((k) => (
-                  <div
-                    key={k.id ?? k.slug}
-                    className="flex items-start justify-between gap-3 rounded-lg p-3 ring-1 ring-[var(--color-light)]"
-                  >
+                  <div key={k.id ?? k.slug} className="flex items-start justify-between gap-3 rounded-lg p-3 ring-1 ring-[color:var(--color-light,#e8ebf0)]">
                     <div className="text-sm">
                       <div className="font-semibold">{k.title}</div>
                       <div className="text-xs" style={{ color: MUTED }}>
-                        /{k.slug} · {k.level ?? "—"} · GH₵{k.price ?? 0} ·{" "}
-                        {k.published ? "Published" : "Draft"}
+                        /{k.slug} · {k.level ?? "—"} · GH₵{k.price ?? 0} · {k.published ? "Published" : "Draft"}
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <Button kind="neutral" onClick={() => setKForm(k)}>
-                        Edit
-                      </Button>
+                      <Button kind="neutral" onClick={() => setKForm(k)}>Edit</Button>
                     </div>
                   </div>
                 ))}
@@ -1463,72 +1388,48 @@ export default function AdminPage() {
             <Card title="E-book — Create / Edit (GH₵)">
               <div className="grid gap-3">
                 <label className="grid gap-1">
-                  <span className="text-xs" style={{ color: MUTED }}>
-                    Slug
-                  </span>
+                  <span className="text-xs" style={{ color: MUTED }}>Slug</span>
                   <input
                     value={ebookForm.slug}
-                    onChange={(e) =>
-                      setEbookForm((f) => ({ ...f, slug: (e.target as HTMLInputElement).value }))
-                    }
-                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
+                    onChange={(e) => setEbookForm((f) => ({ ...f, slug: (e.target as HTMLInputElement).value }))}
+                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light,#e8ebf0)]"
                   />
                 </label>
                 <label className="grid gap-1">
-                  <span className="text-xs" style={{ color: MUTED }}>
-                    Title
-                  </span>
+                  <span className="text-xs" style={{ color: MUTED }}>Title</span>
                   <input
                     value={ebookForm.title}
-                    onChange={(e) =>
-                      setEbookForm((f) => ({ ...f, title: (e.target as HTMLInputElement).value }))
-                    }
-                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
+                    onChange={(e) => setEbookForm((f) => ({ ...f, title: (e.target as HTMLInputElement).value }))}
+                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light,#e8ebf0)]"
                   />
                 </label>
                 <label className="grid gap-1">
-                  <span className="text-xs" style={{ color: MUTED }}>
-                    Description
-                  </span>
+                  <span className="text-xs" style={{ color: MUTED }}>Description</span>
                   <textarea
                     value={ebookForm.description ?? ""}
-                    onChange={(e) =>
-                      setEbookForm((f) => ({
-                        ...f,
-                        description: (e.target as HTMLTextAreaElement).value,
-                      }))
-                    }
-                    className="min-h-[90px] rounded-lg bg-white px-3 py-2 ring-1 ring-[var(--color-light)]"
+                    onChange={(e) => setEbookForm((f) => ({ ...f, description: (e.target as HTMLTextAreaElement).value }))}
+                    className="min-h-[90px] rounded-lg bg-white px-3 py-2 ring-1 ring-[color:var(--color-light,#e8ebf0)]"
                   />
                 </label>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="grid gap-1">
-                    <span className="text-xs" style={{ color: MUTED }}>
-                      Price (GH₵)
-                    </span>
+                    <span className="text-xs" style={{ color: MUTED }}>Price (GH₵)</span>
                     <input
                       type="number"
                       step="0.01"
                       value={(ebookForm.price_cents / 100).toString()}
                       onChange={(e) => {
-                        const cents = Math.round(
-                          Number((e.target as HTMLInputElement).value || 0) * 100
-                        );
-                        setEbookForm((f) => ({
-                          ...f,
-                          price_cents: Number.isFinite(cents) ? cents : 0,
-                        }));
+                        const cents = Math.round(Number((e.target as HTMLInputElement).value || 0) * 100);
+                        setEbookForm((f) => ({ ...f, price_cents: Number.isFinite(cents) ? cents : 0 }));
                       }}
-                      className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
+                      className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light,#e8ebf0)]"
                     />
                   </label>
                   <label className="inline-flex items-center gap-2 mt-6 sm:mt-0">
                     <input
                       type="checkbox"
                       checked={ebookForm.published}
-                      onChange={(e) =>
-                        setEbookForm((f) => ({ ...f, published: (e.target as HTMLInputElement).checked }))
-                      }
+                      onChange={(e) => setEbookForm((f) => ({ ...f, published: (e.target as HTMLInputElement).checked }))}
                     />
                     <span className="text-sm">Published</span>
                   </label>
@@ -1540,18 +1441,11 @@ export default function AdminPage() {
                   ["kpf_url", "KPF URL", ".kpf,application/octet-stream"] as const,
                 ]).map(([field, label, accept]) => (
                   <div key={field} className="grid gap-1">
-                    <span className="text-xs" style={{ color: MUTED }}>
-                      {label}
-                    </span>
+                    <span className="text-xs" style={{ color: MUTED }}>{label}</span>
                     <input
                       value={(ebookForm as Record<string, unknown>)[field] as string | undefined ?? ""}
-                      onChange={(e) =>
-                        setEbookForm((f) => ({
-                          ...f,
-                          [field]: (e.target as HTMLInputElement).value,
-                        }))
-                      }
-                      className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
+                      onChange={(e) => setEbookForm((f) => ({ ...f, [field]: (e.target as HTMLInputElement).value }))}
+                      className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light,#e8ebf0)]"
                     />
                     <input
                       type="file"
@@ -1588,16 +1482,10 @@ export default function AdminPage() {
               </div>
             </Card>
 
-            <Card
-              title="E-books List"
-              right={<Button kind="neutral" onClick={() => void refreshEbooks()}>{loadingEbooks ? "Refreshing…" : "Refresh"}</Button>}
-            >
+            <Card title="E-books List" right={<Button kind="neutral" onClick={() => void refreshEbooks()}>{loadingEbooks ? "Refreshing…" : "Refresh"}</Button>}>
               <div className="grid gap-2">
                 {ebooks.map((e) => (
-                  <div
-                    key={e.id ?? e.slug}
-                    className="flex items-start justify-between gap-3 rounded-lg p-3 ring-1 ring-[var(--color-light)]"
-                  >
+                  <div key={e.id ?? e.slug} className="flex items-start justify-between gap-3 rounded-lg p-3 ring-1 ring-[color:var(--color-light,#e8ebf0)]">
                     <div className="flex items-start gap-3">
                       {e.cover_url ? (
                         <Image
@@ -1605,7 +1493,7 @@ export default function AdminPage() {
                           alt={e.title}
                           width={56}
                           height={56}
-                          className="rounded-md ring-1 ring-[var(--color-light)] object-cover"
+                          className="rounded-md ring-1 ring-[color:var(--color-light,#e8ebf0)] object-cover"
                         />
                       ) : (
                         <div className="h-14 w-14 rounded-md" style={{ background: "rgba(232,235,240,.4)" }} />
@@ -1613,18 +1501,13 @@ export default function AdminPage() {
                       <div className="text-sm">
                         <div className="font-semibold">{e.title}</div>
                         <div className="text-xs" style={{ color: MUTED }}>
-                          /{e.slug} · GH₵{(e.price_cents / 100).toLocaleString()} ·{" "}
-                          {e.published ? "Published" : "Draft"}
+                          /{e.slug} · GH₵{(e.price_cents / 100).toLocaleString()} · {e.published ? "Published" : "Draft"}
                         </div>
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <Button kind="neutral" onClick={() => setEbookForm(e)}>
-                        Edit
-                      </Button>
-                      <Button kind="danger" onClick={() => void deleteEbook(e.id)}>
-                        Delete
-                      </Button>
+                      <Button kind="neutral" onClick={() => setEbookForm(e)}>Edit</Button>
+                      <Button kind="danger" onClick={() => void deleteEbook(e.id)}>Delete</Button>
                     </div>
                   </div>
                 ))}
@@ -1638,17 +1521,15 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* CONTENT BUILDER (includes Final Exam) */}
+        {/* CONTENT (Final Exam included) */}
         {tab === "content" && (
           <div className="grid gap-6 xl:grid-cols-[320px_1fr]">
             {/* Picker */}
             <Card title="Pick Course">
               <select
-                className="h-10 w-full rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
+                className="h-10 w-full rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light,#e8ebf0)]"
                 value={selectedCourseId}
-                onChange={(e) =>
-                  startTransition(() => setSelectedCourseId((e.target as HTMLSelectElement).value))
-                }
+                onChange={(e) => startTransition(() => setSelectedCourseId((e.target as HTMLSelectElement).value))}
               >
                 <option value="">— Choose a course —</option>
                 {knowledge.map((k) => (
@@ -1665,7 +1546,9 @@ export default function AdminPage() {
                     <button
                       key={ch.id ?? ch.title}
                       onClick={() => setChForm(ch)}
-                      className={`text-left rounded-lg px-3 py-2 ring-1 ring-[var(--color-light)] ${chForm.id === (ch.id ?? "") ? "bg-[rgba(232,235,240,.4)]" : "bg-white"}`}
+                      className={`text-left rounded-lg px-3 py-2 ring-1 ring-[color:var(--color-light,#e8ebf0)] ${
+                        chForm.id === (ch.id ?? "") ? "bg-[rgba(232,235,240,.4)]" : "bg-white"
+                      }`}
                     >
                       <div className="font-medium">{ch.title}</div>
                       <div className="text-xs" style={{ color: MUTED }}>
@@ -1687,42 +1570,28 @@ export default function AdminPage() {
               <Card title="Chapter">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="grid gap-1">
-                    <span className="text-xs" style={{ color: MUTED }}>
-                      Title
-                    </span>
+                    <span className="text-xs" style={{ color: MUTED }}>Title</span>
                     <input
                       value={chForm.title}
-                      onChange={(e) =>
-                        setChForm((f) => ({ ...f, title: (e.target as HTMLInputElement).value }))
-                      }
-                      className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
+                      onChange={(e) => setChForm((f) => ({ ...f, title: (e.target as HTMLInputElement).value }))}
+                      className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light,#e8ebf0)]"
                     />
                   </label>
                   <label className="grid gap-1">
-                    <span className="text-xs" style={{ color: MUTED }}>
-                      Order
-                    </span>
+                    <span className="text-xs" style={{ color: MUTED }}>Order</span>
                     <input
                       type="number"
                       value={chForm.order_index}
                       onChange={(e) =>
-                        setChForm((f) => ({
-                          ...f,
-                          order_index: Number((e.target as HTMLInputElement).value || 0),
-                        }))
+                        setChForm((f) => ({ ...f, order_index: Number((e.target as HTMLInputElement).value || 0) }))
                       }
-                      className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
+                      className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light,#e8ebf0)]"
                     />
                   </label>
                 </div>
                 <div className="mt-3 flex gap-2">
                   <Button onClick={() => void saveChapter()}>Save Chapter</Button>
-                  <Button
-                    kind="neutral"
-                    onClick={() =>
-                      setChForm({ ...emptyChapter, course_id: selectedCourseId || "" })
-                    }
-                  >
+                  <Button kind="neutral" onClick={() => setChForm({ ...emptyChapter, course_id: selectedCourseId || "" })}>
                     New Chapter
                   </Button>
                 </div>
@@ -1734,7 +1603,9 @@ export default function AdminPage() {
                     <button
                       key={s.id ?? s.title}
                       onClick={() => setSlForm(s)}
-                      className={`text-left rounded-lg px-3 py-2 ring-1 ring-[var(--color-light)] ${slForm.id === (s.id ?? "") ? "bg-[rgba(232,235,240,.4)]" : "bg-white"}`}
+                      className={`text-left rounded-lg px-3 py-2 ring-1 ring-[color:var(--color-light,#e8ebf0)] ${
+                        slForm.id === (s.id ?? "") ? "bg-[rgba(232,235,240,.4)]" : "bg-white"
+                      }`}
                     >
                       <div className="font-medium">{s.title}</div>
                       <div className="text-xs" style={{ color: MUTED }}>
@@ -1752,86 +1623,57 @@ export default function AdminPage() {
                 <div className="mt-4 grid gap-3">
                   <div className="grid gap-3 sm:grid-cols-2">
                     <label className="grid gap-1">
-                      <span className="text-xs" style={{ color: MUTED }}>
-                        Title
-                      </span>
+                      <span className="text-xs" style={{ color: MUTED }}>Title</span>
                       <input
                         value={slForm.title}
-                        onChange={(e) =>
-                          setSlForm((f) => ({ ...f, title: (e.target as HTMLInputElement).value }))
-                        }
-                        className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
+                        onChange={(e) => setSlForm((f) => ({ ...f, title: (e.target as HTMLInputElement).value }))}
+                        className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light,#e8ebf0)]"
                       />
                     </label>
                     <label className="grid gap-1">
-                      <span className="text-xs" style={{ color: MUTED }}>
-                        Order
-                      </span>
+                      <span className="text-xs" style={{ color: MUTED }}>Order</span>
                       <input
                         type="number"
                         value={slForm.order_index}
                         onChange={(e) =>
-                          setSlForm((f) => ({
-                            ...f,
-                            order_index: Number((e.target as HTMLInputElement).value || 0),
-                          }))
+                          setSlForm((f) => ({ ...f, order_index: Number((e.target as HTMLInputElement).value || 0) }))
                         }
-                        className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
+                        className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light,#e8ebf0)]"
                       />
                     </label>
                   </div>
 
                   <label className="grid gap-1">
-                    <span className="text-xs" style={{ color: MUTED }}>
-                      Body / Notes (optional)
-                    </span>
+                    <span className="text-xs" style={{ color: MUTED }}>Body / Notes (optional)</span>
                     <textarea
                       value={slForm.body ?? ""}
-                      onChange={(e) =>
-                        setSlForm((f) => ({ ...f, body: (e.target as HTMLTextAreaElement).value }))
-                      }
-                      className="min-h-[100px] rounded-lg bg-white px-3 py-2 ring-1 ring-[var(--color-light)]"
+                      onChange={(e) => setSlForm((f) => ({ ...f, body: (e.target as HTMLTextAreaElement).value }))}
+                      className="min-h-[100px] rounded-lg bg-white px-3 py-2 ring-1 ring-[color:var(--color-light,#e8ebf0)]"
                     />
                   </label>
 
                   <div className="grid gap-3 sm:grid-cols-2">
                     <label className="grid gap-1">
-                      <span className="text-xs" style={{ color: MUTED }}>
-                        Intro video URL
-                      </span>
+                      <span className="text-xs" style={{ color: MUTED }}>Intro video URL</span>
                       <input
                         value={slForm.intro_video_url ?? ""}
-                        onChange={(e) =>
-                          setSlForm((f) => ({
-                            ...f,
-                            intro_video_url: (e.target as HTMLInputElement).value,
-                          }))
-                        }
-                        className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
+                        onChange={(e) => setSlForm((f) => ({ ...f, intro_video_url: (e.target as HTMLInputElement).value }))}
+                        className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light,#e8ebf0)]"
                       />
                     </label>
                     <label className="grid gap-1">
-                      <span className="text-xs" style={{ color: MUTED }}>
-                        Asset URL (image/pdf)
-                      </span>
+                      <span className="text-xs" style={{ color: MUTED }}>Asset URL (image/pdf)</span>
                       <input
                         value={slForm.asset_url ?? ""}
-                        onChange={(e) =>
-                          setSlForm((f) => ({
-                            ...f,
-                            asset_url: (e.target as HTMLInputElement).value,
-                          }))
-                        }
-                        className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
+                        onChange={(e) => setSlForm((f) => ({ ...f, asset_url: (e.target as HTMLInputElement).value }))}
+                        className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light,#e8ebf0)]"
                       />
                     </label>
                   </div>
 
                   <div className="grid gap-2 sm:grid-cols-2">
                     <label className="grid gap-1">
-                      <span className="text-xs" style={{ color: MUTED }}>
-                        Upload Intro Video
-                      </span>
+                      <span className="text-xs" style={{ color: MUTED }}>Upload Intro Video</span>
                       <input
                         type="file"
                         accept="video/*"
@@ -1842,9 +1684,7 @@ export default function AdminPage() {
                       />
                     </label>
                     <label className="grid gap-1">
-                      <span className="text-xs" style={{ color: MUTED }}>
-                        Upload Asset (image/pdf)
-                      </span>
+                      <span className="text-xs" style={{ color: MUTED }}>Upload Asset (image/pdf)</span>
                       <input
                         type="file"
                         accept="image/*,application/pdf"
@@ -1860,10 +1700,7 @@ export default function AdminPage() {
 
                   <div className="flex gap-2">
                     <Button onClick={() => void saveSlide()}>Save Slide</Button>
-                    <Button
-                      kind="neutral"
-                      onClick={() => setSlForm({ ...emptySlide, chapter_id: chForm.id ?? "" })}
-                    >
+                    <Button kind="neutral" onClick={() => setSlForm({ ...emptySlide, chapter_id: chForm.id ?? "" })}>
                       New Slide
                     </Button>
                   </div>
@@ -1875,9 +1712,7 @@ export default function AdminPage() {
                   <>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <label className="grid gap-1">
-                        <span className="text-xs" style={{ color: MUTED }}>
-                          Time limit (seconds)
-                        </span>
+                        <span className="text-xs" style={{ color: MUTED }}>Time limit (seconds)</span>
                         <input
                           type="number"
                           value={quizSettings.time_limit_seconds ?? ""}
@@ -1885,19 +1720,14 @@ export default function AdminPage() {
                             setQuizSettings((s) => ({
                               ...s,
                               chapter_id: chForm.id ?? "",
-                              time_limit_seconds:
-                                (e.target as HTMLInputElement).value === ""
-                                  ? null
-                                  : Number((e.target as HTMLInputElement).value),
+                              time_limit_seconds: (e.target as HTMLInputElement).value === "" ? null : Number((e.target as HTMLInputElement).value),
                             }))
                           }
-                          className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
+                          className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light,#e8ebf0)]"
                         />
                       </label>
                       <label className="grid gap-1">
-                        <span className="text-xs" style={{ color: MUTED }}>
-                          # randomized questions
-                        </span>
+                        <span className="text-xs" style={{ color: MUTED }}># randomized questions</span>
                         <input
                           type="number"
                           value={quizSettings.num_questions ?? ""}
@@ -1905,13 +1735,10 @@ export default function AdminPage() {
                             setQuizSettings((s) => ({
                               ...s,
                               chapter_id: chForm.id ?? "",
-                              num_questions:
-                                (e.target as HTMLInputElement).value === ""
-                                  ? null
-                                  : Number((e.target as HTMLInputElement).value),
+                              num_questions: (e.target as HTMLInputElement).value === "" ? null : Number((e.target as HTMLInputElement).value),
                             }))
                           }
-                          className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
+                          className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light,#e8ebf0)]"
                         />
                       </label>
                     </div>
@@ -1928,29 +1755,19 @@ export default function AdminPage() {
                       <div className="text-sm font-semibold">Questions</div>
                       <div className="grid gap-2">
                         {questions.map((q, i) => (
-                          <div
-                            key={q.id ?? i}
-                            className="rounded-lg p-3 ring-1 ring-[var(--color-light)]"
-                          >
+                          <div key={q.id ?? i} className="rounded-lg p-3 ring-1 ring-[color:var(--color-light,#e8ebf0)]">
                             <div className="text-sm font-medium">{q.question}</div>
                             <ol className="text-xs mt-1 list-decimal ms-5" style={{ color: MUTED }}>
                               {q.options.map((opt, idx) => (
-                                <li
-                                  key={idx}
-                                  style={idx === q.correct_index ? { color: INK } : undefined}
-                                >
+                                <li key={idx} style={idx === q.correct_index ? { color: INK } : undefined}>
                                   {opt}
                                   {idx === q.correct_index ? "  ← correct" : ""}
                                 </li>
                               ))}
                             </ol>
                             <div className="mt-2 flex gap-2">
-                              <Button kind="neutral" onClick={() => setQForm(q)}>
-                                Edit in form
-                              </Button>
-                              <Button kind="danger" onClick={() => void deleteQuestion(q.id)}>
-                                Delete
-                              </Button>
+                              <Button kind="neutral" onClick={() => setQForm(q)}>Edit in form</Button>
+                              <Button kind="danger" onClick={() => void deleteQuestion(q.id)}>Delete</Button>
                             </div>
                           </div>
                         ))}
@@ -1965,67 +1782,35 @@ export default function AdminPage() {
                       <div className="mt-2 grid gap-3">
                         <div className="text-sm font-semibold">Add New Question</div>
                         <label className="grid gap-1">
-                          <span className="text-xs" style={{ color: MUTED }}>
-                            Question
-                          </span>
+                          <span className="text-xs" style={{ color: MUTED }}>Question</span>
                           <input
                             value={qForm.question}
-                            onChange={(e) =>
-                              setQForm((f) => ({
-                                ...f,
-                                chapter_id: chForm.id ?? "",
-                                question: (e.target as HTMLInputElement).value,
-                              }))
-                            }
-                            className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
+                            onChange={(e) => setQForm((f) => ({ ...f, chapter_id: chForm.id ?? "", question: (e.target as HTMLInputElement).value }))}
+                            className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light,#e8ebf0)]"
                           />
                         </label>
                         <label className="grid gap-1">
-                          <span className="text-xs" style={{ color: MUTED }}>
-                            Options (comma separated)
-                          </span>
+                          <span className="text-xs" style={{ color: MUTED }}>Options (comma separated)</span>
                           <input
                             value={toCsv(qForm.options)}
-                            onChange={(e) =>
-                              setQForm((f) => ({
-                                ...f,
-                                chapter_id: chForm.id ?? "",
-                                options: fromCsv((e.target as HTMLInputElement).value),
-                              }))
-                            }
-                            className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
+                            onChange={(e) => setQForm((f) => ({ ...f, chapter_id: chForm.id ?? "", options: fromCsv((e.target as HTMLInputElement).value) }))}
+                            className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light,#e8ebf0)]"
                           />
                         </label>
                         <label className="grid gap-1">
-                          <span className="text-xs" style={{ color: MUTED }}>
-                            Correct index (0-based)
-                          </span>
+                          <span className="text-xs" style={{ color: MUTED }}>Correct index (0-based)</span>
                           <input
                             type="number"
                             value={qForm.correct_index}
-                            onChange={(e) =>
-                              setQForm((f) => ({
-                                ...f,
-                                chapter_id: chForm.id ?? "",
-                                correct_index: Number((e.target as HTMLInputElement).value || 0),
-                              }))
-                            }
-                            className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
+                            onChange={(e) => setQForm((f) => ({ ...f, chapter_id: chForm.id ?? "", correct_index: Number((e.target as HTMLInputElement).value || 0) }))}
+                            className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light,#e8ebf0)]"
                           />
                         </label>
                         <div className="flex gap-2">
                           <Button onClick={() => void saveQuestion()}>Save Question</Button>
                           <Button
                             kind="neutral"
-                            onClick={() =>
-                              setQForm({
-                                chapter_id: chForm.id ?? "",
-                                question: "",
-                                options: [],
-                                correct_index: 0,
-                                id: undefined,
-                              })
-                            }
+                            onClick={() => setQForm({ chapter_id: chForm.id ?? "", question: "", options: [], correct_index: 0, id: undefined })}
                           >
                             Reset
                           </Button>
@@ -2049,42 +1834,24 @@ export default function AdminPage() {
                   <>
                     <div className="grid gap-3 sm:grid-cols-3">
                       <label className="grid gap-1">
-                        <span className="text-xs" style={{ color: MUTED }}>
-                          Title
-                        </span>
+                        <span className="text-xs" style={{ color: MUTED }}>Title</span>
                         <input
                           value={examForm.title}
-                          onChange={(e) =>
-                            setExamForm((f) => ({
-                              ...f,
-                              course_id: selectedCourseId,
-                              title: (e.target as HTMLInputElement).value,
-                            }))
-                          }
-                          className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
+                          onChange={(e) => setExamForm((f) => ({ ...f, course_id: selectedCourseId, title: (e.target as HTMLInputElement).value }))}
+                          className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light,#e8ebf0)]"
                         />
                       </label>
                       <label className="grid gap-1">
-                        <span className="text-xs" style={{ color: MUTED }}>
-                          Pass Mark (%)
-                        </span>
+                        <span className="text-xs" style={{ color: MUTED }}>Pass Mark (%)</span>
                         <input
                           type="number"
                           value={examForm.pass_mark}
-                          onChange={(e) =>
-                            setExamForm((f) => ({
-                              ...f,
-                              course_id: selectedCourseId,
-                              pass_mark: Number((e.target as HTMLInputElement).value || 0),
-                            }))
-                          }
-                          className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
+                          onChange={(e) => setExamForm((f) => ({ ...f, course_id: selectedCourseId, pass_mark: Number((e.target as HTMLInputElement).value || 0) }))}
+                          className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light,#e8ebf0)]"
                         />
                       </label>
                       <label className="grid gap-1">
-                        <span className="text-xs" style={{ color: MUTED }}>
-                          Time Limit (minutes)
-                        </span>
+                        <span className="text-xs" style={{ color: MUTED }}>Time Limit (minutes)</span>
                         <input
                           type="number"
                           value={examForm.time_limit_minutes ?? ""}
@@ -2092,30 +1859,20 @@ export default function AdminPage() {
                             setExamForm((f) => ({
                               ...f,
                               course_id: selectedCourseId,
-                              time_limit_minutes:
-                                (e.target as HTMLInputElement).value === ""
-                                  ? null
-                                  : Number((e.target as HTMLInputElement).value),
+                              time_limit_minutes: (e.target as HTMLInputElement).value === "" ? null : Number((e.target as HTMLInputElement).value),
                             }))
                           }
-                          className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
+                          className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light,#e8ebf0)]"
                         />
                       </label>
                     </div>
                     <div className="mt-2 flex gap-2">
-                      <Button onClick={() => startTransition(saveExam)}>
-                        {exam?.id ? "Update Exam" : "Create Exam"}
-                      </Button>
+                      <Button onClick={() => startTransition(saveExam)}>{exam?.id ? "Update Exam" : "Create Exam"}</Button>
                       <Button
                         kind="neutral"
                         onClick={() => {
                           setExam(null);
-                          setExamForm({
-                            course_id: selectedCourseId,
-                            title: "Final Exam",
-                            pass_mark: 60,
-                            time_limit_minutes: 30,
-                          });
+                          setExamForm({ course_id: selectedCourseId, title: "Final Exam", pass_mark: 60, time_limit_minutes: 30 });
                           setExamQuestions([]);
                         }}
                       >
@@ -2134,29 +1891,19 @@ export default function AdminPage() {
                         <>
                           <div className="grid gap-2">
                             {examQuestions.map((q, i) => (
-                              <div
-                                key={q.id ?? i}
-                                className="rounded-lg p-3 ring-1 ring-[var(--color-light)]"
-                              >
+                              <div key={q.id ?? i} className="rounded-lg p-3 ring-1 ring-[color:var(--color-light,#e8ebf0)]">
                                 <div className="text-sm font-medium">{q.question}</div>
                                 <ol className="text-xs mt-1 list-decimal ms-5" style={{ color: MUTED }}>
                                   {q.options.map((opt, idx) => (
-                                    <li
-                                      key={idx}
-                                      style={idx === q.correct_index ? { color: INK } : undefined}
-                                    >
+                                    <li key={idx} style={idx === q.correct_index ? { color: INK } : undefined}>
                                       {opt}
                                       {idx === q.correct_index ? "  ← correct" : ""}
                                     </li>
                                   ))}
                                 </ol>
                                 <div className="mt-2 flex gap-2">
-                                  <Button kind="neutral" onClick={() => setEqForm(q)}>
-                                    Edit in form
-                                  </Button>
-                                  <Button kind="danger" onClick={() => void deleteExamQuestion(q)}>
-                                    Delete
-                                  </Button>
+                                  <Button kind="neutral" onClick={() => setEqForm(q)}>Edit in form</Button>
+                                  <Button kind="danger" onClick={() => void deleteExamQuestion(q)}>Delete</Button>
                                 </div>
                               </div>
                             ))}
@@ -2171,69 +1918,35 @@ export default function AdminPage() {
                           <div className="mt-2 grid gap-3">
                             <div className="text-sm font-semibold">Add New Question</div>
                             <label className="grid gap-1">
-                              <span className="text-xs" style={{ color: MUTED }}>
-                                Question
-                              </span>
+                              <span className="text-xs" style={{ color: MUTED }}>Question</span>
                               <input
                                 value={eqForm.question}
-                                onChange={(e) =>
-                                  setEqForm((f) => ({
-                                    ...f,
-                                    exam_id: exam.id!,
-                                    question: (e.target as HTMLInputElement).value,
-                                  }))
-                                }
-                                className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
+                                onChange={(e) => setEqForm((f) => ({ ...f, exam_id: exam.id!, question: (e.target as HTMLInputElement).value }))}
+                                className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light,#e8ebf0)]"
                               />
                             </label>
                             <label className="grid gap-1">
-                              <span className="text-xs" style={{ color: MUTED }}>
-                                Options (comma separated)
-                              </span>
+                              <span className="text-xs" style={{ color: MUTED }}>Options (comma separated)</span>
                               <input
                                 value={toCsv(eqForm.options)}
-                                onChange={(e) =>
-                                  setEqForm((f) => ({
-                                    ...f,
-                                    exam_id: exam.id!,
-                                    options: fromCsv((e.target as HTMLInputElement).value),
-                                  }))
-                                }
-                                className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
+                                onChange={(e) => setEqForm((f) => ({ ...f, exam_id: exam.id!, options: fromCsv((e.target as HTMLInputElement).value) }))}
+                                className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light,#e8ebf0)]"
                               />
                             </label>
                             <label className="grid gap-1">
-                              <span className="text-xs" style={{ color: MUTED }}>
-                                Correct index (0-based)
-                              </span>
+                              <span className="text-xs" style={{ color: MUTED }}>Correct index (0-based)</span>
                               <input
                                 type="number"
                                 value={eqForm.correct_index}
-                                onChange={(e) =>
-                                  setEqForm((f) => ({
-                                    ...f,
-                                    exam_id: exam.id!,
-                                    correct_index: Number((e.target as HTMLInputElement).value || 0),
-                                  }))
-                                }
-                                className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
+                                onChange={(e) => setEqForm((f) => ({ ...f, exam_id: exam.id!, correct_index: Number((e.target as HTMLInputElement).value || 0) }))}
+                                className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light,#e8ebf0)]"
                               />
                             </label>
                             <div className="flex gap-2">
-                              <Button onClick={() => void saveExamQuestion(exam.id)}>
-                                Save Question
-                              </Button>
+                              <Button onClick={() => void saveExamQuestion(exam.id)}>Save Question</Button>
                               <Button
                                 kind="neutral"
-                                onClick={() =>
-                                  setEqForm({
-                                    exam_id: exam.id!,
-                                    question: "",
-                                    options: [],
-                                    correct_index: 0,
-                                    id: undefined,
-                                  })
-                                }
+                                onClick={() => setEqForm({ exam_id: exam.id!, question: "", options: [], correct_index: 0, id: undefined })}
                               >
                                 Reset
                               </Button>
@@ -2249,7 +1962,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* PRICES */}
+        {/* PRICES (stable & mobile-friendly) */}
         {tab === "prices" && (
           <div className="grid gap-6">
             <Card title="Quick Price Editor (GH₵)">
@@ -2258,16 +1971,17 @@ export default function AdminPage() {
                   placeholder="Search by title…"
                   value={priceSearch}
                   onChange={(e) => setPriceSearch((e.target as HTMLInputElement).value)}
-                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)] w-full sm:w-80"
+                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light,#e8ebf0)] w-full sm:w-80"
                 />
                 <div className="text-xs" style={{ color: MUTED }}>
-                  All amounts in GH₵ (ebooks stored as pesewas)
+                  All amounts in GH₵ (e-books stored as pesewas)
                 </div>
               </div>
+
               <div className="mt-4 overflow-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left">
+                <table className="w-full text-sm min-w-[640px]">
+                  <thead className="sticky top-0 bg-white z-10">
+                    <tr className="text-left border-b">
                       <th className="py-2 pr-3">Type</th>
                       <th className="py-2 pr-3">Title</th>
                       <th className="py-2 pr-3">Price</th>
@@ -2275,10 +1989,15 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {priceRows.map((r) => (
-                      <PriceRow key={`${r.kind}-${r.id}`} row={r} onSave={savePrice} />
+                    {visibleRows.map((r) => (
+                      <PriceRow
+                        key={`${r.kind}:${r.id}`}
+                        row={r}
+                        onEdit={(next) => mutateRowPrice(`${r.kind}:${r.id}`, next)}
+                        onSave={savePrice}
+                      />
                     ))}
-                    {priceRows.length === 0 && (
+                    {visibleRows.length === 0 && (
                       <tr>
                         <td colSpan={4} className="py-3 text-sm" style={{ color: MUTED }}>
                           No items.
@@ -2322,7 +2041,7 @@ export default function AdminPage() {
                     alt="Uploaded"
                     width={320}
                     height={180}
-                    className="rounded-lg ring-1 ring-[var(--color-light)] object-cover"
+                    className="rounded-lg ring-1 ring-[color:var(--color-light,#e8ebf0)] object-cover"
                   />
                   <div className="text-sm mt-2">URL:</div>
                   <code className="text-xs break-all">{uploadedUrl}</code>
@@ -2343,7 +2062,7 @@ export default function AdminPage() {
                     placeholder="Search email or id…"
                     value={userQuery}
                     onChange={(e) => setUserQuery((e.target as HTMLInputElement).value)}
-                    className="h-9 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)] w-60"
+                    className="h-9 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light,#e8ebf0)] w-60"
                   />
                   <Button kind="neutral" onClick={() => void refreshUsers()}>
                     {usersLoading ? "Refreshing…" : "Refresh"}
@@ -2352,9 +2071,9 @@ export default function AdminPage() {
               }
             >
               <div className="overflow-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm min-w-[760px]">
                   <thead>
-                    <tr className="text-left">
+                    <tr className="text-left border-b">
                       <th className="py-2 pr-3">Email</th>
                       <th className="py-2 pr-3">Created</th>
                       <th className="py-2 pr-3">Confirmed</th>
@@ -2381,56 +2100,28 @@ export default function AdminPage() {
                             >
                               View
                             </Button>
-                            <Button
-                              kind="neutral"
-                              onClick={() => void generateConfirmLink(u.email)}
-                              disabled={!u.email}
-                            >
+                            <Button kind="neutral" onClick={() => void generateConfirmLink(u.email)} disabled={!u.email}>
                               Confirm Link
                             </Button>
-                            <Button
-                              kind="neutral"
-                              onClick={() => void generateResetLink(u.email)}
-                              disabled={!u.email}
-                            >
+                            <Button kind="neutral" onClick={() => void generateResetLink(u.email)} disabled={!u.email}>
                               Reset PW
                             </Button>
-                            <Button
-                              kind="danger"
-                              onClick={() => void act(u.id, "delete")}
-                              disabled={userActionBusy === `delete:${u.id}`}
-                            >
+                            <Button kind="danger" onClick={() => void act(u.id, "delete")} disabled={userActionBusy === `delete:${u.id}`}>
                               Delete
                             </Button>
                             {u.banned ? (
-                              <Button
-                                kind="primary"
-                                onClick={() => void act(u.id, "unban")}
-                                disabled={userActionBusy === `unban:${u.id}`}
-                              >
+                              <Button kind="primary" onClick={() => void act(u.id, "unban")} disabled={userActionBusy === `unban:${u.id}`}>
                                 Unban
                               </Button>
                             ) : (
-                              <Button
-                                kind="danger"
-                                onClick={() => void act(u.id, "ban")}
-                                disabled={userActionBusy === `ban:${u.id}`}
-                              >
+                              <Button kind="danger" onClick={() => void act(u.id, "ban")} disabled={userActionBusy === `ban:${u.id}`}>
                                 Ban
                               </Button>
                             )}
-                            <Button
-                              kind="neutral"
-                              onClick={() => void act(u.id, "revoke")}
-                              disabled={userActionBusy === `revoke:${u.id}`}
-                            >
+                            <Button kind="neutral" onClick={() => void act(u.id, "revoke")} disabled={userActionBusy === `revoke:${u.id}`}>
                               Revoke Sessions
                             </Button>
-                            <Button
-                              kind="neutral"
-                              onClick={() => void act(u.id, "clear-history")}
-                              disabled={userActionBusy === `clear-history:${u.id}`}
-                            >
+                            <Button kind="neutral" onClick={() => void act(u.id, "clear-history")} disabled={userActionBusy === `clear-history:${u.id}`}>
                               Clear History
                             </Button>
                           </div>
@@ -2458,7 +2149,7 @@ export default function AdminPage() {
                       setSelectedPurchases(null);
                     }}
                   />
-                  <div className="relative z-10 w-full max-w-2xl rounded-2xl bg-white border border-[var(--color-light)] p-5 max-h-[90vh] overflow-auto">
+                  <div className="relative z-10 w-full max-w-2xl rounded-2xl bg-white border border-[color:var(--color-light,#e8ebf0)] p-5 max-h-[90vh] overflow-auto">
                     <div className="flex items-center justify-between">
                       <div className="text-lg font-semibold">User Details</div>
                       <button
@@ -2476,99 +2167,63 @@ export default function AdminPage() {
                         <span style={{ color: MUTED }}>ID:</span> {selectedUser.id}
                       </div>
                       <div>
-                        <span style={{ color: MUTED }}>Email:</span>{" "}
-                        {selectedUser.email ?? "—"}
+                        <span style={{ color: MUTED }}>Email:</span> {selectedUser.email ?? "—"}
                       </div>
                       <div>
-                        <span style={{ color: MUTED }}>Created:</span>{" "}
-                        {selectedUser.created_at ?? "—"}
+                        <span style={{ color: MUTED }}>Created:</span> {selectedUser.created_at ?? "—"}
                       </div>
                       <div>
-                        <span style={{ color: MUTED }}>Confirmed:</span>{" "}
-                        {selectedUser.email_confirmed_at ? "Yes" : "No"}
+                        <span style={{ color: MUTED }}>Confirmed:</span> {selectedUser.email_confirmed_at ? "Yes" : "No"}
                       </div>
                       <div>
-                        <span style={{ color: MUTED }}>Status:</span>{" "}
-                        {selectedUser.banned ? "Banned" : "Active"}
+                        <span style={{ color: MUTED }}>Status:</span> {selectedUser.banned ? "Banned" : "Active"}
                       </div>
                     </div>
 
                     <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      <div className="rounded-lg p-3 ring-1 ring-[var(--color-light)]">
+                      <div className="rounded-lg p-3 ring-1 ring-[color:var(--color-light,#e8ebf0)]">
                         <div className="font-medium">Courses Purchased</div>
                         <ul className="mt-2 text-sm list-disc ms-5">
                           {(selectedPurchases?.courses ?? []).map((c, i) => (
                             <li key={i}>{c.title}</li>
                           ))}
-                          {(selectedPurchases?.courses?.length ?? 0) === 0 && (
-                            <li style={{ color: MUTED }}>None</li>
-                          )}
+                          {(selectedPurchases?.courses?.length ?? 0) === 0 && <li style={{ color: MUTED }}>None</li>}
                         </ul>
                       </div>
-                      <div className="rounded-lg p-3 ring-1 ring-[var(--color-light)]">
+                      <div className="rounded-lg p-3 ring-1 ring-[color:var(--color-light,#e8ebf0)]">
                         <div className="font-medium">E-books Purchased</div>
                         <ul className="mt-2 text-sm list-disc ms-5">
                           {(selectedPurchases?.ebooks ?? []).map((e, i) => (
                             <li key={i}>{e.title}</li>
                           ))}
-                          {(selectedPurchases?.ebooks?.length ?? 0) === 0 && (
-                            <li style={{ color: MUTED }}>None</li>
-                          )}
+                          {(selectedPurchases?.ebooks?.length ?? 0) === 0 && <li style={{ color: MUTED }}>None</li>}
                         </ul>
                       </div>
                     </div>
 
                     <div className="mt-4 flex flex-wrap gap-2">
                       {selectedUser.banned ? (
-                        <Button
-                          kind="primary"
-                          onClick={() => void act(selectedUser.id, "unban")}
-                          disabled={userActionBusy === `unban:${selectedUser.id}`}
-                        >
+                        <Button kind="primary" onClick={() => void act(selectedUser.id, "unban")} disabled={userActionBusy === `unban:${selectedUser.id}`}>
                           Unban
                         </Button>
                       ) : (
-                        <Button
-                          kind="danger"
-                          onClick={() => void act(selectedUser.id, "ban")}
-                          disabled={userActionBusy === `ban:${selectedUser.id}`}
-                        >
+                        <Button kind="danger" onClick={() => void act(selectedUser.id, "ban")} disabled={userActionBusy === `ban:${selectedUser.id}`}>
                           Ban
                         </Button>
                       )}
-                      <Button
-                        kind="neutral"
-                        onClick={() => void act(selectedUser.id, "revoke")}
-                        disabled={userActionBusy === `revoke:${selectedUser.id}`}
-                      >
+                      <Button kind="neutral" onClick={() => void act(selectedUser.id, "revoke")} disabled={userActionBusy === `revoke:${selectedUser.id}`}>
                         Revoke Sessions
                       </Button>
-                      <Button
-                        kind="neutral"
-                        onClick={() => void act(selectedUser.id, "clear-history")}
-                        disabled={userActionBusy === `clear-history:${selectedUser.id}`}
-                      >
+                      <Button kind="neutral" onClick={() => void act(selectedUser.id, "clear-history")} disabled={userActionBusy === `clear-history:${selectedUser.id}`}>
                         Clear History
                       </Button>
-                      <Button
-                        kind="neutral"
-                        onClick={() => void generateConfirmLink(selectedUser.email)}
-                        disabled={!selectedUser.email}
-                      >
+                      <Button kind="neutral" onClick={() => void generateConfirmLink(selectedUser.email)} disabled={!selectedUser.email}>
                         Confirm Link
                       </Button>
-                      <Button
-                        kind="neutral"
-                        onClick={() => void generateResetLink(selectedUser.email)}
-                        disabled={!selectedUser.email}
-                      >
+                      <Button kind="neutral" onClick={() => void generateResetLink(selectedUser.email)} disabled={!selectedUser.email}>
                         Reset PW
                       </Button>
-                      <Button
-                        kind="danger"
-                        onClick={() => void act(selectedUser.id, "delete")}
-                        disabled={userActionBusy === `delete:${selectedUser.id}`}
-                      >
+                      <Button kind="danger" onClick={() => void act(selectedUser.id, "delete")} disabled={userActionBusy === `delete:${selectedUser.id}`}>
                         Delete
                       </Button>
                     </div>
@@ -2602,27 +2257,47 @@ export default function AdminPage() {
    ╚═══════════════════════════════╝ */
 const PriceRow = memo(function PriceRow({
   row,
+  onEdit,
   onSave,
 }: {
   row: { kind: "course" | "ebook"; id: string; title: string; price: number; currency: "GHS" };
-  onSave: (r: { kind: "course" | "ebook"; id: string; price: number }) => Promise<void>;
+  onEdit: (nextPrice: number | null) => void;
+  onSave: (r: { kind: "course" | "ebook"; id: string; title: string; price: number; currency: "GHS" }) => Promise<void>;
 }) {
-  const [val, setVal] = useState<string>(row.price.toString());
+  // local input state mirrors row.price, but never causes parent list to rebuild
+  const [val, setVal] = useState<string>(() => row.price.toString());
   const [saving, setSaving] = useState(false);
+
+  // Keep input in sync if upstream price changes externally (e.g., after refresh)
   useEffect(() => {
     setVal(row.price.toString());
   }, [row.price]);
 
-  async function handleSave() {
+  // On change, update local and inform store (so scrolling/focus stays intact)
+  const onChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const v = (e.target as HTMLInputElement).value;
+      setVal(v);
+      const p = Number(v);
+      if (Number.isFinite(p)) onEdit(p);
+      else onEdit(null);
+    },
+    [onEdit]
+  );
+
+  const handleSave = useCallback(async () => {
     const p = Number(val);
     if (!Number.isFinite(p) || p < 0) {
       alert("Enter a valid price");
       return;
     }
     setSaving(true);
-    await onSave({ kind: row.kind, id: row.id, price: p });
-    setSaving(false);
-  }
+    try {
+      await onSave({ ...row, price: p });
+    } finally {
+      setSaving(false);
+    }
+  }, [val, row, onSave]);
 
   return (
     <tr className="border-t">
@@ -2635,8 +2310,9 @@ const PriceRow = memo(function PriceRow({
           </span>
           <input
             value={val}
-            onChange={(e) => setVal((e.target as HTMLInputElement).value)}
-            className="h-9 w-32 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
+            onChange={onChange}
+            className="h-9 w-32 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light,#e8ebf0)]"
+            inputMode="decimal"
           />
         </div>
       </td>
@@ -2644,12 +2320,7 @@ const PriceRow = memo(function PriceRow({
         <button
           onClick={handleSave}
           disabled={saving}
-          className="px-3 py-1.5 rounded-lg text-sm"
-          style={{
-            background: BRAND,
-            color: "white",
-            opacity: saving ? 0.6 : 1,
-          }}
+          className="px-3 py-1.5 rounded-lg text-sm bg-[#0a1156] text-white disabled:opacity-60"
         >
           {saving ? "Saving…" : "Save"}
         </button>
