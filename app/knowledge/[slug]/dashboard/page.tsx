@@ -762,7 +762,7 @@ export default function CourseDashboard() {
               alt="Slide asset"
               width={1600}
               height={900}
-              className="rounded-lg ring-1 ring-[color:var(--color-light)] w-full h-auto object-contain"
+              className="rounded-lg ring-1 ring-[var(--color-light)] w-full h-auto object-contain"
             />
           </div>
         );
@@ -983,7 +983,7 @@ export default function CourseDashboard() {
                   <button
                     type="button"
                     onClick={() => beginQuiz(activeSlide.chapter_id)}
-                    className="rounded-xl px-5 py-2.5 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                    className="rounded-xl px-5 py-2.5 ring-1 ring-[var(--color-light)] hover:bg-[color:var(--color-light)]/50"
                   >
                     Take Chapter Quiz
                   </button>
@@ -1062,7 +1062,7 @@ export default function CourseDashboard() {
 
             <div className="mt-4 grid gap-4">
               {quizItems.map((q, idx) => (
-                <div key={q.id} className="rounded-lg p-3 ring-1 ring-[color:var(--color-light)]">
+                <div key={q.id} className="rounded-lg p-3 ring-1 ring-[var(--color-light)]">
                   <div className="font-medium text-sm">{idx + 1}. {q.question}</div>
                   <div className="mt-2 grid gap-2">
                     {q.options.map((opt, i) => {
@@ -1089,7 +1089,7 @@ export default function CourseDashboard() {
               <button
                 type="button"
                 onClick={() => setQuizOpen(false)}
-                className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]"
+                className="rounded-lg px-4 py-2 ring-1 ring-[var(--color-light)]"
               >
                 Close
               </button>
@@ -1138,7 +1138,7 @@ export default function CourseDashboard() {
               <button
                 type="button"
                 onClick={() => setStartConfirmOpen(false)}
-                className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]"
+                className="rounded-lg px-4 py-2 ring-1 ring-[var(--color-light)]"
               >
                 Cancel
               </button>
@@ -1187,7 +1187,7 @@ export default function CourseDashboard() {
 
             <div className="mt-4 grid gap-4">
               {finalExamQuestions.map((q, idx) => (
-                <div key={q.id} className="rounded-lg p-3 ring-1 ring-[color:var(--color-light)]">
+                <div key={q.id} className="rounded-lg p-3 ring-1 ring-[var(--color-light)]">
                   <div className="font-medium text-sm">{idx + 1}. {q.prompt}</div>
                   <div className="mt-2 grid gap-2">
                     {q.options.map((opt, i) => {
@@ -1231,7 +1231,7 @@ export default function CourseDashboard() {
             <div className="text-lg font-semibold">Results</div>
 
             <div className="mt-3 grid gap-2 text-sm">
-              <div className="rounded-lg p-3 ring-1 ring-[color:var(--color-light)]">
+              <div className="rounded-lg p-3 ring-1 ring-[var(--color-light)]">
                 <div className="font-medium">Final Exam</div>
                 <div className="mt-1">
                   Score: <b>{finalResult.correct}/{finalResult.total}</b> ({finalResult.scorePct}%)
@@ -1242,7 +1242,7 @@ export default function CourseDashboard() {
                 </div>
               </div>
 
-              <div className="rounded-lg p-3 ring-1 ring-[color:var(--color-light)]">
+              <div className="rounded-lg p-3 ring-1 ring-[var(--color-light)]">
                 <div className="font-medium mb-2">Chapter Quiz Scores</div>
                 {chapterScores.length === 0 ? (
                   <div className="text-xs text-muted">No chapter quiz submissions found.</div>
@@ -1279,7 +1279,7 @@ export default function CourseDashboard() {
               <button
                 type="button"
                 onClick={() => setResultOpen(false)}
-                className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]"
+                className="rounded-lg px-4 py-2 ring-1 ring-[var(--color-light)]"
               >
                 Close
               </button>

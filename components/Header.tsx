@@ -25,7 +25,7 @@ function SocialLink({
       title={label}
       target="_blank"
       rel="noopener noreferrer"
-      className={`inline-flex items-center justify-center rounded-md p-1.5 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/30 text-ink/80 hover:text-ink transition ${className}`}
+      className={`inline-flex items-center justify-center rounded-md p-1.5 ring-1 ring-[var(--color-light)] hover:bg-[color:var(--color-light)]/30 text-ink/80 hover:text-ink transition ${className}`}
     >
       {children}
     </a>
@@ -141,7 +141,7 @@ export default function Header() {
                 type="button"
                 onClick={handleSignOut}
                 disabled={signingOut}
-                className="text-sm rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)] bg-white hover:bg-[color:var(--color-light)]/30 disabled:opacity-60"
+                className="text-sm rounded-lg px-4 py-2 ring-1 ring-[var(--color-light)] bg-white hover:bg-[color:var(--color-light)]/30 disabled:opacity-60"
                 aria-label="Sign out"
               >
                 {signingOut ? "Signing out…" : "Sign Out"}
@@ -221,7 +221,7 @@ export default function Header() {
                     await handleSignOut();
                   }}
                   disabled={signingOut}
-                  className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)] bg-white text-ink font-medium text-center disabled:opacity-60"
+                  className="rounded-lg px-4 py-2 ring-1 ring-[var(--color-light)] bg-white text-ink font-medium text-center disabled:opacity-60"
                   aria-label="Sign out"
                 >
                   {signingOut ? "Signing out…" : "Sign Out"}

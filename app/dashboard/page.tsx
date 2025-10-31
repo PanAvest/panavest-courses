@@ -430,7 +430,7 @@ export default function DashboardPage() {
                       <div className="mt-2 h-2 w-full bg-[color:var(--color-light)] rounded">
                         <div
                           className="h-2 bg-[color:#0a1156] rounded"
-                          style={{ width: `${c.progress_pct}%` }}
+                          style={{width: `${c.progress_pct}%`}}
                         />
                       </div>
                       <div className="mt-2 text-xs text-muted">{Math.round(c.progress_pct)}% complete</div>
@@ -535,7 +535,7 @@ export default function DashboardPage() {
                         {rows.map(({ attempt, chapter }) => (
                           <li
                             key={`${attempt.course_id}-${attempt.chapter_id}-${attempt.completed_at}`}
-                            className="flex flex-wrap items-center justify-between gap-2 rounded-lg ring-1 ring-[color:var(--color-light)] px-3 py-2"
+                            className="flex flex-wrap items-center justify-between gap-2 rounded-lg ring-1 ring-[var(--color-light)] px-3 py-2"
                           >
                             <div className="min-w-0">
                               <div className="font-medium line-clamp-1">{chapter.title}</div>

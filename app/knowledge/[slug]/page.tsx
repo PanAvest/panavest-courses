@@ -150,7 +150,7 @@ export default function CoursePreview() {
                 </Link>
                 <Link
                   href={dashboardHref}
-                  className="inline-flex items-center justify-center rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                  className="inline-flex items-center justify-center rounded-lg px-4 py-2 ring-1 ring-[var(--color-light)] hover:bg-[color:var(--color-light)]/50"
                 >
                   Go to Dashboard
                 </Link>
@@ -168,7 +168,7 @@ export default function CoursePreview() {
                 </Link>
                 <Link
                   href={dashboardHref}
-                  className="inline-flex items-center justify-center rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                  className="inline-flex items-center justify-center rounded-lg px-4 py-2 ring-1 ring-[var(--color-light)] hover:bg-[color:var(--color-light)]/50"
                 >
                   Go to Dashboard
                 </Link>

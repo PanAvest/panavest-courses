@@ -34,7 +34,7 @@ export default function HomePage() {
               </Link>
               <Link
                 href="/leaderboard"
-                className="rounded-lg px-5 py-3 ring-1 ring-[color:var(--color-light)] bg-white hover:bg-[color:var(--color-light)]/30"
+                className="rounded-lg px-5 py-3 ring-1 ring-[var(--color-light)] bg-white hover:bg-[color:var(--color-light)]/30"
               >
                 Leaderboard
               </Link>

@@ -1080,7 +1080,7 @@ export default function AdminPage() {
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-sm ${tab === t ? "bg-[color:#0a1156] text-white" : "bg-white"}`}
+              className={`px-3 py-1.5 rounded-lg ring-1 ring-[var(--color-light)] text-sm ${tab === t ? "bg-[color:#0a1156] text-white" : "bg-white"}`}
             >
               {t[0].toUpperCase() + t.slice(1)}
             </button>
@@ -1122,7 +1122,7 @@ export default function AdminPage() {
                 {(stats?.top_courses ?? []).map((c, i) => (
                   <div
                     key={i}
-                    className="flex items-center justify-between rounded-lg p-3 ring-1 ring-[color:var(--color-light)]"
+                    className="flex items-center justify-between rounded-lg p-3 ring-1 ring-[var(--color-light)]"
                   >
                     <div className="text-sm">{c.title}</div>
                     <div className="text-xs text-muted">{c.sales} sales</div>
@@ -1138,7 +1138,7 @@ export default function AdminPage() {
                 {(stats?.top_ebooks ?? []).map((e, i) => (
                   <div
                     key={i}
-                    className="flex items-center justify-between rounded-lg p-3 ring-1 ring-[color:var(--color-light)]"
+                    className="flex items-center justify-between rounded-lg p-3 ring-1 ring-[var(--color-light)]"
                   >
                     <div className="text-sm">{e.title}</div>
                     <div className="text-xs text-muted">{e.sales} sales</div>
@@ -1176,7 +1176,7 @@ export default function AdminPage() {
                         [k]: (e.target as HTMLInputElement).value,
                       }))
                     }
-                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
                   />
                 </label>
               ))}
@@ -1195,7 +1195,7 @@ export default function AdminPage() {
                             : Number((e.target as HTMLInputElement).value),
                       }))
                     }
-                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
                   />
                 </label>
                 <label className="grid gap-1">
@@ -1212,7 +1212,7 @@ export default function AdminPage() {
                             : Number((e.target as HTMLInputElement).value),
                       }))
                     }
-                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
                   />
                 </label>
               </div>
@@ -1226,7 +1226,7 @@ export default function AdminPage() {
                       img: (e.target as HTMLInputElement).value,
                     }))
                   }
-                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
                 />
               </label>
               <label className="grid gap-1">
@@ -1241,7 +1241,7 @@ export default function AdminPage() {
                       accredited: fromCsv((e.target as HTMLInputElement).value),
                     }))
                   }
-                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
                 />
               </label>
               <label className="inline-flex items-center gap-2">
@@ -1279,7 +1279,7 @@ export default function AdminPage() {
                       published: true,
                     })
                   }
-                  className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]"
+                  className="rounded-lg px-4 py-2 ring-1 ring-[var(--color-light)]"
                 >
                   Reset
                 </button>
@@ -1292,7 +1292,7 @@ export default function AdminPage() {
             right={
               <button
                 onClick={refreshKnowledge}
-                className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-sm"
+                className="px-3 py-1.5 rounded-lg ring-1 ring-[var(--color-light)] text-sm"
               >
                 Refresh
               </button>
@@ -1302,7 +1302,7 @@ export default function AdminPage() {
               {knowledge.map((k) => (
                 <div
                   key={k.id ?? k.slug}
-                  className="flex items-start justify-between gap-3 rounded-lg p-3 ring-1 ring-[color:var(--color-light)]"
+                  className="flex items-start justify-between gap-3 rounded-lg p-3 ring-1 ring-[var(--color-light)]"
                 >
                   <div className="text-sm">
                     <div className="font-semibold">{k.title}</div>
@@ -1314,7 +1314,7 @@ export default function AdminPage() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => setKForm(k)}
-                      className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-sm"
+                      className="px-3 py-1.5 rounded-lg ring-1 ring-[var(--color-light)] text-sm"
                     >
                       Edit
                     </button>
@@ -1339,7 +1339,7 @@ export default function AdminPage() {
                       slug: (e.target as HTMLInputElement).value,
                     }))
                   }
-                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
                 />
               </label>
               <label className="grid gap-1">
@@ -1352,7 +1352,7 @@ export default function AdminPage() {
                       title: (e.target as HTMLInputElement).value,
                     }))
                   }
-                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
                 />
               </label>
               <label className="grid gap-1">
@@ -1365,7 +1365,7 @@ export default function AdminPage() {
                       description: (e.target as HTMLTextAreaElement).value,
                     }))
                   }
-                  className="min-h-[90px] rounded-lg bg-white px-3 py-2 ring-1 ring-[color:var(--color-light)]"
+                  className="min-h-[90px] rounded-lg bg-white px-3 py-2 ring-1 ring-[var(--color-light)]"
                 />
               </label>
               <div className="grid gap-3 sm:grid-cols-2">
@@ -1384,7 +1384,7 @@ export default function AdminPage() {
                         price_cents: Number.isFinite(cents) ? cents : 0,
                       }));
                     }}
-                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
                   />
                 </label>
                 <label className="inline-flex items-center gap-2 mt-6 sm:mt-0">
@@ -1429,7 +1429,7 @@ export default function AdminPage() {
                         [field]: (e.target as HTMLInputElement).value,
                       }))
                     }
-                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
                   />
                   <input
                     type="file"
@@ -1466,7 +1466,7 @@ export default function AdminPage() {
                       published: true,
                     })
                   }
-                  className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]"
+                  className="rounded-lg px-4 py-2 ring-1 ring-[var(--color-light)]"
                 >
                   Reset
                 </button>
@@ -1479,7 +1479,7 @@ export default function AdminPage() {
             right={
               <button
                 onClick={refreshEbooks}
-                className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-sm"
+                className="px-3 py-1.5 rounded-lg ring-1 ring-[var(--color-light)] text-sm"
               >
                 {loadingEbooks ? "Refreshing…" : "Refresh"}
               </button>
@@ -1489,7 +1489,7 @@ export default function AdminPage() {
               {ebooks.map((e) => (
                 <div
                   key={e.id ?? e.slug}
-                  className="flex items-start justify-between gap-3 rounded-lg p-3 ring-1 ring-[color:var(--color-light)]"
+                  className="flex items-start justify-between gap-3 rounded-lg p-3 ring-1 ring-[var(--color-light)]"
                 >
                   <div className="flex items-start gap-3">
                     {e.cover_url ? (
@@ -1498,7 +1498,7 @@ export default function AdminPage() {
                         alt={e.title}
                         width={56}
                         height={56}
-                        className="rounded-md ring-1 ring-[color:var(--color-light)] object-cover"
+                        className="rounded-md ring-1 ring-[var(--color-light)] object-cover"
                       />
                     ) : (
                       <div className="h-14 w-14 rounded-md bg-[color:var(--color-light)]/40" />
@@ -1518,7 +1518,7 @@ export default function AdminPage() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => setEbookForm(e)}
-                      className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-sm"
+                      className="px-3 py-1.5 rounded-lg ring-1 ring-[var(--color-light)] text-sm"
                     >
                       Edit
                     </button>
@@ -1545,7 +1545,7 @@ export default function AdminPage() {
           {/* Picker */}
           <Section title="Pick Course">
             <select
-              className="h-10 w-full rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+              className="h-10 w-full rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
               value={selectedCourseId}
               onChange={(e) =>
                 setSelectedCourseId((e.target as HTMLSelectElement).value)
@@ -1566,7 +1566,7 @@ export default function AdminPage() {
                   <button
                     key={ch.id ?? ch.title}
                     onClick={() => setChForm(ch)}
-                    className={`text-left rounded-lg px-3 py-2 ring-1 ring-[color:var(--color-light)] ${chForm.id === (ch.id ?? "") ? "bg-[color:var(--color-light)]/40" : "bg-white"}`}
+                    className={`text-left rounded-lg px-3 py-2 ring-1 ring-[var(--color-light)] ${chForm.id === (ch.id ?? "") ? "bg-[color:var(--color-light)]/40" : "bg-white"}`}
                   >
                     <div className="font-medium">{ch.title}</div>
                     <div className="text-xs text-muted">
@@ -1595,7 +1595,7 @@ export default function AdminPage() {
                         title: (e.target as HTMLInputElement).value,
                       }))
                     }
-                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
                   />
                 </label>
                 <label className="grid gap-1">
@@ -1611,7 +1611,7 @@ export default function AdminPage() {
                         ),
                       }))
                     }
-                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
                   />
                 </label>
               </div>
@@ -1629,7 +1629,7 @@ export default function AdminPage() {
                   onClick={() =>
                     setChForm({ ...emptyChapter, course_id: selectedCourseId })
                   }
-                  className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]"
+                  className="rounded-lg px-4 py-2 ring-1 ring-[var(--color-light)]"
                 >
                   New Chapter
                 </button>
@@ -1642,7 +1642,7 @@ export default function AdminPage() {
                   <button
                     key={s.id ?? s.title}
                     onClick={() => setSlForm(s)}
-                    className={`text-left rounded-lg px-3 py-2 ring-1 ring-[color:var(--color-light)] ${slForm.id === (s.id ?? "") ? "bg-[color:var(--color-light)]/40" : "bg-white"}`}
+                    className={`text-left rounded-lg px-3 py-2 ring-1 ring-[var(--color-light)] ${slForm.id === (s.id ?? "") ? "bg-[color:var(--color-light)]/40" : "bg-white"}`}
                   >
                     <div className="font-medium">{s.title}</div>
                     <div className="text-xs text-muted">
@@ -1667,7 +1667,7 @@ export default function AdminPage() {
                           title: (e.target as HTMLInputElement).value,
                         }))
                       }
-                      className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                      className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
                     />
                   </label>
                   <label className="grid gap-1">
@@ -1683,7 +1683,7 @@ export default function AdminPage() {
                           ),
                         }))
                       }
-                      className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                      className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
                     />
                   </label>
                 </div>
@@ -1700,7 +1700,7 @@ export default function AdminPage() {
                         body: (e.target as HTMLTextAreaElement).value,
                       }))
                     }
-                    className="min-h-[100px] rounded-lg bg-white px-3 py-2 ring-1 ring-[color:var(--color-light)]"
+                    className="min-h-[100px] rounded-lg bg-white px-3 py-2 ring-1 ring-[var(--color-light)]"
                   />
                 </label>
 
@@ -1715,7 +1715,7 @@ export default function AdminPage() {
                           intro_video_url: (e.target as HTMLInputElement).value,
                         }))
                       }
-                      className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                      className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
                     />
                   </label>
                   <label className="grid gap-1">
@@ -1730,7 +1730,7 @@ export default function AdminPage() {
                           asset_url: (e.target as HTMLInputElement).value,
                         }))
                       }
-                      className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                      className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
                     />
                   </label>
                 </div>
@@ -1786,7 +1786,7 @@ export default function AdminPage() {
                     onClick={() =>
                       setSlForm({ ...emptySlide, chapter_id: chForm.id ?? "" })
                     }
-                    className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]"
+                    className="rounded-lg px-4 py-2 ring-1 ring-[var(--color-light)]"
                   >
                     New Slide
                   </button>
@@ -1815,7 +1815,7 @@ export default function AdminPage() {
                                 : Number((e.target as HTMLInputElement).value),
                           }))
                         }
-                        className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                        className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
                       />
                     </label>
                     <label className="grid gap-1">
@@ -1835,7 +1835,7 @@ export default function AdminPage() {
                                 : Number((e.target as HTMLInputElement).value),
                           }))
                         }
-                        className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                        className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
                       />
                     </label>
                   </div>
@@ -1849,7 +1849,7 @@ export default function AdminPage() {
                     </button>
                     <button
                       onClick={() => void refreshQuiz(chForm.id ?? "")}
-                      className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]"
+                      className="rounded-lg px-4 py-2 ring-1 ring-[var(--color-light)]"
                     >
                       Refresh
                     </button>
@@ -1861,7 +1861,7 @@ export default function AdminPage() {
                       {questions.map((q, i) => (
                         <div
                           key={q.id ?? i}
-                          className="rounded-lg p-3 ring-1 ring-[color:var(--color-light)]"
+                          className="rounded-lg p-3 ring-1 ring-[var(--color-light)]"
                         >
                           {editingQuestionId === (q.id ?? null) && editingQ ? (
                             <div className="grid gap-2">
@@ -1879,7 +1879,7 @@ export default function AdminPage() {
                                       : prev,
                                   )
                                 }
-                                className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)] text-sm"
+                                className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)] text-sm"
                               />
                               <input
                                 value={toCsv(editingQ.options)}
@@ -1896,7 +1896,7 @@ export default function AdminPage() {
                                       : prev,
                                   )
                                 }
-                                className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)] text-sm"
+                                className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)] text-sm"
                                 placeholder="Options (comma separated)"
                               />
                               <input
@@ -1915,7 +1915,7 @@ export default function AdminPage() {
                                       : prev,
                                   )
                                 }
-                                className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)] text-sm"
+                                className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)] text-sm"
                                 placeholder="Correct index (0-based)"
                               />
                               <div className="flex gap-2">
@@ -1927,7 +1927,7 @@ export default function AdminPage() {
                                 </button>
                                 <button
                                   onClick={cancelEditQuestion}
-                                  className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-sm"
+                                  className="px-3 py-1.5 rounded-lg ring-1 ring-[var(--color-light)] text-sm"
                                 >
                                   Cancel
                                 </button>
@@ -1956,7 +1956,7 @@ export default function AdminPage() {
                               <div className="mt-2 flex gap-2">
                                 <button
                                   onClick={() => startEditQuestion(q)}
-                                  className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-sm"
+                                  className="px-3 py-1.5 rounded-lg ring-1 ring-[var(--color-light)] text-sm"
                                 >
                                   Edit
                                 </button>
@@ -1994,7 +1994,7 @@ export default function AdminPage() {
                               question: (e.target as HTMLInputElement).value,
                             }))
                           }
-                          className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                          className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
                         />
                       </label>
                       <label className="grid gap-1">
@@ -2012,7 +2012,7 @@ export default function AdminPage() {
                               ),
                             }))
                           }
-                          className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                          className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
                         />
                       </label>
                       <label className="grid gap-1">
@@ -2031,7 +2031,7 @@ export default function AdminPage() {
                               ),
                             }))
                           }
-                          className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+                          className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
                         />
                       </label>
                       <div className="flex gap-2">
@@ -2051,7 +2051,7 @@ export default function AdminPage() {
                               id: undefined,
                             })
                           }
-                          className="rounded-lg px-4 py-2 ring-1 ring-[color:var(--color-light)]"
+                          className="rounded-lg px-4 py-2 ring-1 ring-[var(--color-light)]"
                         >
                           Reset
                         </button>
@@ -2080,7 +2080,7 @@ export default function AdminPage() {
                 onChange={(e) =>
                   setPriceSearch((e.target as HTMLInputElement).value)
                 }
-                className="h-10 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)] w-full sm:w-80"
+                className="h-10 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)] w-full sm:w-80"
               />
               <div className="text-xs text-muted">
                 Courses in GH₵ · E-books in USD
@@ -2148,7 +2148,7 @@ export default function AdminPage() {
                   alt="Uploaded"
                   width={320}
                   height={180}
-                  className="rounded-lg ring-1 ring-[color:var(--color-light)] object-cover"
+                  className="rounded-lg ring-1 ring-[var(--color-light)] object-cover"
                 />
                 <div className="text-sm mt-2">URL:</div>
                 <code className="text-xs break-all">{uploadedUrl}</code>
@@ -2171,11 +2171,11 @@ export default function AdminPage() {
                   onChange={(e) =>
                     setUserQuery((e.target as HTMLInputElement).value)
                   }
-                  className="h-9 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)] w-60"
+                  className="h-9 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)] w-60"
                 />
                 <button
                   onClick={refreshUsers}
-                  className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-sm"
+                  className="px-3 py-1.5 rounded-lg ring-1 ring-[var(--color-light)] text-sm"
                 >
                   {usersLoading ? "Refreshing…" : "Refresh"}
                 </button>
@@ -2212,7 +2212,7 @@ export default function AdminPage() {
                               setSelectedPurchases(null);
                               void loadPurchases(u.id);
                             }}
-                            className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-xs"
+                            className="px-3 py-1.5 rounded-lg ring-1 ring-[var(--color-light)] text-xs"
                           >
                             View
                           </button>
@@ -2236,7 +2236,7 @@ export default function AdminPage() {
                           <button
                             onClick={() => void act(u.id, "revoke")}
                             disabled={userActionBusy === `revoke:${u.id}`}
-                            className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-xs disabled:opacity-50"
+                            className="px-3 py-1.5 rounded-lg ring-1 ring-[var(--color-light)] text-xs disabled:opacity-50"
                           >
                             Revoke Sessions
                           </button>
@@ -2245,7 +2245,7 @@ export default function AdminPage() {
                             disabled={
                               userActionBusy === `clear-history:${u.id}`
                             }
-                            className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-xs disabled:opacity-50"
+                            className="px-3 py-1.5 rounded-lg ring-1 ring-[var(--color-light)] text-xs disabled:opacity-50"
                           >
                             Clear History
                           </button>
@@ -2310,7 +2310,7 @@ export default function AdminPage() {
                   </div>
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-lg p-3 ring-1 ring-[color:var(--color-light)]">
+                    <div className="rounded-lg p-3 ring-1 ring-[var(--color-light)]">
                       <div className="font-medium">Courses Purchased</div>
                       <ul className="mt-2 text-sm list-disc ms-5">
                         {(selectedPurchases?.courses ?? []).map((c, i) => (
@@ -2321,7 +2321,7 @@ export default function AdminPage() {
                         )}
                       </ul>
                     </div>
-                    <div className="rounded-lg p-3 ring-1 ring-[color:var(--color-light)]">
+                    <div className="rounded-lg p-3 ring-1 ring-[var(--color-light)]">
                       <div className="font-medium">E-books Purchased</div>
                       <ul className="mt-2 text-sm list-disc ms-5">
                         {(selectedPurchases?.ebooks ?? []).map((e, i) => (
@@ -2355,7 +2355,7 @@ export default function AdminPage() {
                     <button
                       onClick={() => void act(selectedUser.id, "revoke")}
                       disabled={userActionBusy === `revoke:${selectedUser.id}`}
-                      className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-sm disabled:opacity-50"
+                      className="px-3 py-1.5 rounded-lg ring-1 ring-[var(--color-light)] text-sm disabled:opacity-50"
                     >
                       Revoke Sessions
                     </button>
@@ -2364,7 +2364,7 @@ export default function AdminPage() {
                       disabled={
                         userActionBusy === `clear-history:${selectedUser.id}`
                       }
-                      className="px-3 py-1.5 rounded-lg ring-1 ring-[color:var(--color-light)] text-sm disabled:opacity-50"
+                      className="px-3 py-1.5 rounded-lg ring-1 ring-[var(--color-light)] text-sm disabled:opacity-50"
                     >
                       Clear History
                     </button>
@@ -2442,7 +2442,7 @@ function PriceRow({
           <input
             value={val}
             onChange={(e) => setVal((e.target as HTMLInputElement).value)}
-            className="h-9 w-32 rounded-lg bg-white px-3 ring-1 ring-[color:var(--color-light)]"
+            className="h-9 w-32 rounded-lg bg-white px-3 ring-1 ring-[var(--color-light)]"
           />
         </div>
       </td>

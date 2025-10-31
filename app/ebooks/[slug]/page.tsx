@@ -438,7 +438,7 @@ export default function EbookDetailPage() {
                     </Link>
                     <Link
                       href={dashboardHref}
-                      className="inline-flex items-center justify-center rounded-lg px-5 py-3 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50 w-full sm:w-auto"
+                      className="inline-flex items-center justify-center rounded-lg px-5 py-3 ring-1 ring-[var(--color-light)] hover:bg-[color:var(--color-light)]/50 w-full sm:w-auto"
                     >
                       Go to Dashboard
                     </Link>
@@ -456,7 +456,7 @@ export default function EbookDetailPage() {
                     </button>
                     <Link
                       href={dashboardHref}
-                      className="inline-flex items-center justify-center rounded-lg px-5 py-3 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50 w-full sm:w-auto"
+                      className="inline-flex items-center justify-center rounded-lg px-5 py-3 ring-1 ring-[var(--color-light)] hover:bg-[color:var(--color-light)]/50 w-full sm:w-auto"
                     >
                       Go to Dashboard
                     </Link>
@@ -473,7 +473,7 @@ export default function EbookDetailPage() {
                     </button>
                     <Link
                       href={dashboardHref}
-                      className="inline-flex items-center justify-center rounded-lg px-5 py-3 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50 w-full sm:w-auto"
+                      className="inline-flex items-center justify-center rounded-lg px-5 py-3 ring-1 ring-[var(--color-light)] hover:bg-[color:var(--color-light)]/50 w-full sm:w-auto"
                     >
                       Go to Dashboard
                     </Link>
@@ -508,28 +508,28 @@ export default function EbookDetailPage() {
                 <div className="sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b border-light bg-white/90 px-3 py-2">
                   <button
                     onClick={() => { setFitMode("fit-width"); setZoom((z) => Math.max(MIN_ZOOM, Math.round((z - 0.1) * 10) / 10)); }}
-                    className="rounded-md px-3 py-1 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                    className="rounded-md px-3 py-1 ring-1 ring-[var(--color-light)] hover:bg-[color:var(--color-light)]/50"
                     aria-label="Zoom out"
                   >
                     −
                   </button>
                   <button
                     onClick={() => { setFitMode("fit-width"); setZoom((z) => Math.min(MAX_ZOOM, Math.round((z + 0.1) * 10) / 10)); }}
-                    className="rounded-md px-3 py-1 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                    className="rounded-md px-3 py-1 ring-1 ring-[var(--color-light)] hover:bg-[color:var(--color-light)]/50"
                     aria-label="Zoom in"
                   >
                     +
                   </button>
                   <button
                     onClick={() => { setFitMode("fit-width"); setZoom(1); }}
-                    className="rounded-md px-3 py-1 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                    className="rounded-md px-3 py-1 ring-1 ring-[var(--color-light)] hover:bg-[color:var(--color-light)]/50"
                     aria-label="Fit width"
                   >
                     Fit width
                   </button>
                   <button
                     onClick={() => { setFitMode("fixed"); setZoom(1.0); }}
-                    className="rounded-md px-3 py-1 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                    className="rounded-md px-3 py-1 ring-1 ring-[var(--color-light)] hover:bg-[color:var(--color-light)]/50"
                     aria-label="100 percent"
                   >
                     100%
@@ -538,14 +538,14 @@ export default function EbookDetailPage() {
                   <div className="ml-auto flex gap-2">
                     <button
                       onClick={() => { const s = scrollRef.current; if (s) s.scrollTo({ top: 0, behavior: "smooth" }); }}
-                      className="rounded-md px-3 py-1 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                      className="rounded-md px-3 py-1 ring-1 ring-[var(--color-light)] hover:bg-[color:var(--color-light)]/50"
                       aria-label="Scroll to top"
                     >
                       Top
                     </button>
                     <button
                       onClick={() => { const s = scrollRef.current; if (s) s.scrollTo({ top: s.scrollHeight, behavior: "smooth" }); }}
-                      className="rounded-md px-3 py-1 ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                      className="rounded-md px-3 py-1 ring-1 ring-[var(--color-light)] hover:bg-[color:var(--color-light)]/50"
                       aria-label="Scroll to bottom"
                     >
                       Bottom
