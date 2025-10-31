@@ -1,20 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
-type UserAction = "ban" | "unban" | "revoke" | "clear-history" | "delete";
+const ALLOWED = new Set(["ban", "unban", "revoke", "clear-history", "delete"] as const);
 
 export async function POST(
   _req: NextRequest,
-  ctx: { params: { id?: string; action?: string } }
+  { params }: { params: Record<string, string> } // ✅ Next 15-compatible
 ) {
-  const id = ctx.params?.id ?? "";
-  const action = ctx.params?.action as UserAction | undefined;
+  const id = params.id ?? "";
+  const action = params.action ?? "";
 
-  if (!id) {
-    return NextResponse.json({ error: "Missing user id" }, { status: 400 });
-  }
-  if (!action) {
-    return NextResponse.json({ error: "Missing action" }, { status: 400 });
+  if (!id || !ALLOWED.has(action as any)) {
+    return NextResponse.json({ error: "Invalid action or missing id" }, { status: 400 });
   }
 
   const admin = getSupabaseAdmin();
@@ -22,44 +19,34 @@ export async function POST(
   try {
     switch (action) {
       case "ban": {
-        await admin.auth.admin.updateUserById(id, {
-          user_metadata: { banned: true },
-        });
+        await admin.auth.admin.updateUserById(id, { user_metadata: { banned: true } });
         break;
       }
       case "unban": {
-        await admin.auth.admin.updateUserById(id, {
-          user_metadata: { banned: false },
-        });
+        await admin.auth.admin.updateUserById(id, { user_metadata: { banned: false } });
         break;
       }
       case "revoke": {
-        // No direct Admin API for revoking sessions in supabase-js v2.
-        // App can watch this marker to force client sign-out.
+        // No direct Admin API to revoke sessions in supabase-js v2.
+        // Mark user; your app can force sign-out on next API call.
         await admin.auth.admin.updateUserById(id, {
           user_metadata: { session_revoked_at: new Date().toISOString() },
         });
         break;
       }
       case "clear-history": {
-        // App-specific no-op placeholder (intentionally left blank).
+        // App-specific placeholder; implement if you track history.
         break;
       }
       case "delete": {
         await admin.auth.admin.deleteUser(id);
         break;
       }
-      default: {
-        return NextResponse.json({ error: "Invalid action" }, { status: 400 });
-      }
     }
 
     return NextResponse.json({ ok: true });
   } catch (e) {
-    const msg =
-      e && typeof e === "object" && "message" in e
-        ? String((e as { message?: unknown }).message ?? "Action failed")
-        : "Action failed";
+    const msg = (e as { message?: string })?.message ?? "Action failed";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
