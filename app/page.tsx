@@ -69,6 +69,7 @@ export default function HomePage() {
 
   const featured = useMemo(() => courses.slice(0, 6), [courses]);
 
+  // typed placeholders
   const featuredList: (Course | null)[] = loading
     ? Array.from({ length: 3 }, () => null)
     : featured;
@@ -79,25 +80,11 @@ export default function HomePage() {
 
   return (
     <>
-      {/* ===== HERO ===== */}
-      <section className="relative overflow-hidden">
-        {/* Top-bleeding gradient that blends under the header (no header changes needed) */}
-        <div
-          className="pointer-events-none absolute inset-x-0 -top-40 h-[520px] opacity-90"
-          style={{
-            background:
-              "radial-gradient(90% 90% at 10% 10%, rgba(182,84,55,0.18) 0%, rgba(182,84,55,0.10) 30%, rgba(182,84,55,0.06) 55%, rgba(182,84,55,0.00) 100%)",
-          }}
-        />
-        {/* Warm vignette on the right */}
-        <div
-          className="pointer-events-none absolute top-16 -right-24 h-[600px] w-[600px] rounded-full blur-3xl opacity-25"
-          style={{ background: "radial-gradient(closest-side, rgba(182,84,55,0.25), transparent)" }}
-        />
-
-        <div className="relative mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-20 grid gap-10 lg:grid-cols-[1.08fr_.92fr] items-center">
+      {/* ===== HERO (no bg, no card, no shadow) ===== */}
+      <section>
+        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-20 grid gap-10 lg:grid-cols-[1.08fr_.92fr] items-center">
           {/* Left copy */}
-          <div className="relative z-10">
+          <div>
             <span className="inline-flex items-center gap-2 rounded-full border border-[color:var(--color-light)] bg-white/70 px-3 py-1 text-xs">
               <span className="h-2 w-2 rounded-full" style={{ background: BRAND.primary }} />
               KDS is powered by <b>PanAvest International &amp; Partners</b>
@@ -145,27 +132,20 @@ export default function HomePage() {
             </figure>
           </div>
 
-          {/* Right visual — ON a clean card, NO shadows */}
-          <div className="relative z-10">
-            <div className="relative mx-auto w-full max-w-[620px]">
-              <div className="rounded-[28px] bg-white ring-1 ring-[color:var(--color-light)]">
-                <Image
-                  src="/hero-illustration.png"
-                  alt="KDS learning preview"
-                  width={1600}
-                  height={1200}
-                  priority
-                  className="h-auto w-full rounded-[28px] /* no shadow */"
-                />
-              </div>
+          {/* Right visual — plain image only */}
+          <div>
+            <div className="mx-auto w-full max-w-[620px]">
+              <Image
+                src="/hero-illustration.png"
+                alt="KDS learning preview"
+                width={1600}
+                height={1200}
+                priority
+                className="h-auto w-full"
+              />
             </div>
           </div>
         </div>
-
-        {/* Bottom curve divider */}
-        <svg className="block w-full text-white" viewBox="0 0 1440 80" aria-hidden>
-          <path fill="currentColor" d="M0,64L1440,0L1440,80L0,80Z"></path>
-        </svg>
       </section>
 
       {/* ===== WHAT WE DO ===== */}
