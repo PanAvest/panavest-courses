@@ -124,10 +124,10 @@ export default function HomePage() {
             {/* Nyansakasa quote */}
             <figure className="mt-8">
               <blockquote className="text-[15px] sm:text-[17px] leading-relaxed text-ink/80">
-                <span className="block font-semibold text-ink">Nyansakasa by Prof. Douglas Boateng</span>
                 <span className="mt-1 block italic">
                   “What you plant in your mind grows in your life.”
                 </span>
+                <span className="block font-semibold text-ink"> - Prof. Douglas Boateng</span>
               </blockquote>
             </figure>
           </div>
