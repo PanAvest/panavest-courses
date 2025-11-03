@@ -381,6 +381,8 @@ export default function DashboardPage() {
       setCerts(withCPD);
 
       // Provisional certs (passed attempt; no cert row yet)
+      
+const courseIdsForProvisional = Array.from(new Set(enrolledTmp.map(e => e.course_id)));
 
       if (courseIds.length > 0) {
         const { data: examRows } = await supabase
