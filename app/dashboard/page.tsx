@@ -5,70 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
-
-/* ───────────────────────────── Inline Minimal Certificate ─────────────────────────── */
-function formatDate(d?: string | Date) {
-  if (!d) return "";
-  const x = typeof d === "string" ? new Date(d) : d;
-  return isNaN(+x)
-    ? String(d)
-    : x.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
-}
-
-function MinimalCertificate({
-  recipient,
-  course,
-  date,
-  certId,
-  verifyUrl,
-  accent = "#0a1156",
-}: {
-  recipient: string;
-  course: string;
-  date?: string | Date;
-  certId?: string;
-  verifyUrl?: string;
-  accent?: string;
-}) {
-  return (
-    <div
-      className="mx-auto w-full max-w-3xl bg-white shadow relative print:shadow-none"
-      style={{ border: `6px solid ${accent}` }}
-    >
-      <button
-        onClick={() => window.print()}
-        className="absolute right-3 top-3 rounded px-3 py-1 text-xs border hover:bg-gray-50 print:hidden"
-      >
-        Print / Save as PDF
-      </button>
-      <div className="p-10 sm:p-14">
-        <div className="text-center">
-          <p className="text-[10px] tracking-[0.35em] uppercase" style={{ color: accent }}>
-            Certificate of Completion
-          </p>
-          <h1 className="mt-1 text-3xl sm:text-4xl font-serif font-bold">PanAvest KDS</h1>
-        </div>
-        <div className="my-8 h-px" style={{ background: `linear-gradient(90deg, ${accent}, transparent)` }} />
-        <div className="text-center py-10">
-          <p className="text-sm text-gray-600">This certifies that</p>
-          <div className="mt-4 text-4xl sm:text-5xl font-serif font-bold">{recipient || "Your Name"}</div>
-          <p className="mt-6 text-sm text-gray-600">has successfully completed</p>
-          <div className="mt-2 text-2xl sm:text-3xl italic">{course || "Course"}</div>
-          {date && <p className="mt-2 text-xs text-gray-500">Date: {formatDate(date)}</p>}
-          {certId && <p className="mt-1 text-xs text-gray-500">Certificate No: {certId}</p>}
-          {verifyUrl && (
-            <p className="mt-1 text-xs">
-              <a className="underline" href={verifyUrl}>
-                Verify / Download
-              </a>
-            </p>
-          )}
-        </div>
-      </div>
-      <style>{`@media print { @page { size: 8.5in 11in; margin: 0.5in; } html, body { background: white !important; } }`}</style>
-    </div>
-  );
-}
+import SimpleCertificate from "@/components/SimpleCertificate";
 
 /* ───────────────────────────────── Types ───────────────────────────────── */
 type CourseRow = { id: string; slug: string; title: string; img: string | null; cpd_points: number | null };
@@ -80,11 +17,18 @@ type EbookRow = { id: string; slug: string; title: string; cover_url: string | n
 type PurchaseRow = { ebook_id: string; status: string | null; ebooks?: EbookRow | EbookRow[] | null };
 type PurchasedEbook = { ebook_id: string; slug: string; title: string; cover_url: string | null; price_cedis: string };
 type ProfileRow = { id: string; full_name: string | null; updated_at?: string | null };
+
 type CertificateRow = {
-  id: string; user_id: string; course_id: string; attempt_id: string | null;
-  score_pct: number; certificate_no: string; issued_at: string;
+  id: string;
+  user_id: string;
+  course_id: string;
+  attempt_id: string | null;
+  score_pct: number;
+  certificate_no: string;
+  issued_at: string;
   courses: { title: string; slug: string; img: string | null; cpd_points?: number | null } | null;
 };
+
 type CourseMeta = { title: string; slug: string; cpd_points?: number | null; img?: string | null };
 type ExamRow = { id: string; course_id: string; title: string | null; pass_mark: number | null };
 type AttemptRow = { id: string; user_id: string; exam_id: string; score: number | null; passed: boolean | null; created_at: string };
@@ -107,13 +51,12 @@ export default function DashboardPage() {
   const [sessionReady, setSessionReady] = useState(false);
   const [userId, setUserId] = useState("");
 
-  // UI state
+  // UI/data state
   const [loading, setLoading] = useState(true);
   const [fullName, setFullName] = useState("");
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
 
-  // Data
   const [enrolled, setEnrolled] = useState<EnrolledCourse[]>([]);
   const [quiz, setQuiz] = useState<QuizAttempt[]>([]);
   const [chaptersById, setChaptersById] = useState<Record<string, ChapterInfo>>({});
@@ -123,52 +66,78 @@ export default function DashboardPage() {
     { course_id: string; course_title: string; course_slug: string; img: string | null; cpd_points: number | null; score_pct: number; passed_at: string }[]
   >([]);
   const [courseMetaMap, setCourseMetaMap] = useState<Record<string, CourseMeta>>({});
+  const certPreviewContainerRef = useRef<HTMLDivElement | null>(null);
 
-  const certPreviewRef = useRef<HTMLDivElement | null>(null);
-
-  /* ── Stable session setup: prevents sign-in/dashboard ping-pong ── */
+  /* ── Stable auth gate ── */
   useEffect(() => {
     let cancelled = false;
+    let redirected = false;
+    let t: ReturnType<typeof setTimeout> | null = null;
 
-    const boot = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (cancelled) return;
-
-      if (!session) {
-        router.replace("/auth/sign-in?next=/dashboard");
-        return;
-      }
-      setUserId(session.user.id);
-      setSessionReady(true);
+    const safeReplace = (to: string) => {
+      if (redirected || cancelled) return;
+      redirected = true;
+      router.replace(to);
     };
 
-    boot();
-
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+    const verify = async () => {
+      const { data: s1 } = await supabase.auth.getSession();
       if (cancelled) return;
-      if (!session) {
-        router.replace("/auth/sign-in?next=/dashboard");
-      } else {
+      if (s1.session) {
+        setUserId(s1.session.user.id);
+        setSessionReady(true);
+        return;
+      }
+      t = setTimeout(async () => {
+        const { data: s2 } = await supabase.auth.getSession();
+        if (cancelled) return;
+        if (s2.session) {
+          setUserId(s2.session.user.id);
+          setSessionReady(true);
+        } else {
+          safeReplace("/auth/sign-in?next=/dashboard");
+        }
+      }, 350);
+    };
+
+    verify();
+
+    const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (cancelled) return;
+      if (event === "SIGNED_IN" && session) {
         setUserId(session.user.id);
         setSessionReady(true);
+        redirected = false;
+      } else if (event === "SIGNED_OUT") {
+        const { data: s } = await supabase.auth.getSession();
+        if (!s.session) safeReplace("/auth/sign-in?next=/dashboard");
       }
     });
 
     return () => {
       cancelled = true;
+      if (t) clearTimeout(t);
       sub.subscription.unsubscribe();
     };
   }, [router]);
 
-  /* ── All data loads occur only after session is confirmed ── */
+  /* ── Data load with AbortController (prevents stale updates) ── */
   useEffect(() => {
     if (!sessionReady || !userId) return;
+
+    const ac = new AbortController();
+    const { signal } = ac;
+    let alive = true;
 
     (async () => {
       setLoading(true);
 
+      // Helper: short-circuit if aborted
+      const guard = () => !(signal.aborted || !alive);
+
       // Profile
       const { data: prof } = await supabase.from("profiles").select("id, full_name, updated_at").eq("id", userId).maybeSingle();
+      if (!guard()) return;
       const p = (prof as unknown as ProfileRow) || null;
       const initialName = (p?.full_name ?? "").trim();
       setFullName(initialName);
@@ -180,6 +149,7 @@ export default function DashboardPage() {
         .select("course_id, progress_pct, courses!inner(id,title,slug,img,cpd_points)")
         .eq("user_id", userId)
         .order("updated_at", { ascending: false });
+      if (!guard()) return;
 
       const localMeta: Record<string, CourseMeta> = {};
       let enrolledTmp: EnrolledCourse[] = [];
@@ -193,21 +163,16 @@ export default function DashboardPage() {
           if (r.course_id && c.title) {
             localMeta[r.course_id] = { title: c.title, slug: c.slug, cpd_points: c.cpd_points ?? null, img: c.img ?? null };
           }
-          return {
-            course_id: r.course_id,
-            progress_pct: 0, // compute later
-            title: c.title,
-            slug: c.slug,
-            img: c.img ?? null,
-            cpd_points: c.cpd_points ?? null,
-          };
+          return { course_id: r.course_id, progress_pct: 0, title: c.title, slug: c.slug, img: c.img ?? null, cpd_points: c.cpd_points ?? null };
         });
       }
 
       // Compute progress from slides
       courseIds = Array.from(new Set(courseIds));
+      const courseIdsForProvisional: string[] = courseIds.slice();
       if (courseIds.length > 0) {
         const { data: chRows } = await supabase.from("course_chapters").select("id,course_id").in("course_id", courseIds);
+        if (!guard()) return;
         const chaptersByCourse: Record<string, string[]> = {};
         (chRows ?? []).forEach((r: { id: string; course_id: string }) => {
           (chaptersByCourse[r.course_id] ||= []).push(r.id);
@@ -218,13 +183,14 @@ export default function DashboardPage() {
         const totalSlidesByCourse: Record<string, number> = {};
         if (allChapterIds.length > 0) {
           const { data: slRows } = await supabase.from("course_slides").select("id,chapter_id").in("chapter_id", allChapterIds);
+          if (!guard()) return;
           const slidesByChapterCount: Record<string, number> = {};
           (slRows ?? []).forEach((s: { id: string; chapter_id: string }) => {
             slidesByChapterCount[s.chapter_id] = (slidesByChapterCount[s.chapter_id] ?? 0) + 1;
           });
-          for (const cid of courseIds) {
+          for (const cid of courseIdsForProvisional) {
             const chIds = chaptersByCourse[cid] ?? [];
-            totalSlidesByCourse[cid] = chIds.reduce((acc, ch) => acc + (slidesByChapterCount[ch] ?? 0), 0);
+            totalSlidesByCourse[cid] = chIds.reduce((acc, chId) => acc + (slidesByChapterCount[chId] ?? 0), 0);
           }
         }
 
@@ -233,6 +199,7 @@ export default function DashboardPage() {
           .select("course_id, slide_id")
           .eq("user_id", userId)
           .in("course_id", courseIds);
+        if (!guard()) return;
 
         const doneByCourse: Record<string, Set<string>> = {};
         (progRows ?? []).forEach((r: { course_id: string; slide_id: string }) => {
@@ -248,13 +215,14 @@ export default function DashboardPage() {
       }
       setEnrolled(enrolledTmp);
 
-      // Purchased E-Books
+      // Purchased E-Books (paid only)
       const { data: purRows } = await supabase
         .from("ebook_purchases")
         .select("ebook_id,status,ebooks!inner(id,slug,title,cover_url,price_cents)")
         .eq("user_id", userId)
         .eq("status", "paid")
         .order("created_at", { ascending: false });
+      if (!guard()) return;
 
       if (purRows) {
         const items = (purRows as unknown as PurchaseRow[])
@@ -272,13 +240,16 @@ export default function DashboardPage() {
         .from("user_chapter_quiz")
         .select("course_id, chapter_id, total_count, correct_count, score_pct, completed_at")
         .eq("user_id", userId);
+      if (!guard()) return;
+
       const attempts = (quizRows as unknown as QuizAttempt[]) ?? [];
       setQuiz(attempts);
 
-      // Chapter meta
+      // Chapter meta for ordering
       const chapterIds = Array.from(new Set(attempts.map((a) => a.chapter_id))).filter(Boolean);
       if (chapterIds.length > 0) {
         const { data: chapterRows } = await supabase.from("course_chapters").select("id,title,order_index,course_id").in("id", chapterIds);
+        if (!guard()) return;
         const map: Record<string, ChapterInfo> = {};
         (chapterRows as unknown as ChapterInfo[] | null | undefined)?.forEach((row) => {
           map[row.id] = { id: row.id, title: row.title, order_index: Number(row.order_index ?? 0), course_id: row.course_id };
@@ -286,44 +257,47 @@ export default function DashboardPage() {
         setChaptersById(map);
       }
 
-      // Ensure course meta for quiz/enrolled
-      const existingIds = new Set(Object.keys(localMeta));
+      // Ensure Course Meta (title/slug/cpd/img) for anything missing
+      const existingIds = new Set(Object.keys(courseMetaMap));
       const metaMissingFromQuiz = Array.from(new Set(attempts.map((a) => a.course_id))).filter(Boolean).filter((cid) => !existingIds.has(cid));
       const metaMissingFromEnroll = Array.from(new Set(enrolledTmp.map((e) => e.course_id))).filter((cid) => !existingIds.has(cid));
       const toFetch = Array.from(new Set([...metaMissingFromQuiz, ...metaMissingFromEnroll]));
       if (toFetch.length > 0) {
         const { data: courseRows } = await supabase.from("courses").select("id,title,slug,cpd_points,img").in("id", toFetch);
+        if (!guard()) return;
         (courseRows as CourseRow[] | null | undefined)?.forEach((cr) => {
-          localMeta[cr.id] = { title: cr.title, slug: cr.slug, cpd_points: cr.cpd_points ?? null, img: cr.img ?? null };
+          courseMetaMap[cr.id] = { title: cr.title, slug: cr.slug, cpd_points: cr.cpd_points ?? null, img: cr.img ?? null };
         });
+        setCourseMetaMap({ ...courseMetaMap });
       }
-      setCourseMetaMap(localMeta);
 
-      /* ───────── Certificates (no join to avoid 400) ───────── */
+      /* ───────── Certificates (no join; hydrate meta) ───────── */
       const { data: certRows, error: certErr } = await supabase
         .from("certificates")
         .select("id,user_id,course_id,attempt_id,score_pct,certificate_no,issued_at")
         .eq("user_id", userId)
         .order("issued_at", { ascending: false });
+      if (!guard()) return;
 
       if (certErr) console.error("certificates fetch error", certErr);
 
-      const certsBare =
-        (certRows ?? []) as { id: string; user_id: string; course_id: string; attempt_id: string | null; score_pct: number; certificate_no: string; issued_at: string }[];
+      const bare = (certRows ?? []) as {
+        id: string; user_id: string; course_id: string; attempt_id: string | null; score_pct: number; certificate_no: string; issued_at: string;
+      }[];
 
-      // Ensure meta for certificate courses
-      const certCourseIds = Array.from(new Set(certsBare.map((c) => c.course_id))).filter(Boolean);
-      const missingForCerts = certCourseIds.filter((cid) => !localMeta[cid]);
+      const certCourseIds = Array.from(new Set(bare.map((c) => c.course_id))).filter(Boolean);
+      const missingForCerts = certCourseIds.filter((cid) => !courseMetaMap[cid]);
       if (missingForCerts.length > 0) {
         const { data: moreCourses } = await supabase.from("courses").select("id,title,slug,img,cpd_points").in("id", missingForCerts);
+        if (!guard()) return;
         (moreCourses as CourseRow[] | null | undefined)?.forEach((cr) => {
-          localMeta[cr.id] = { title: cr.title, slug: cr.slug, cpd_points: cr.cpd_points ?? null, img: cr.img ?? null };
+          courseMetaMap[cr.id] = { title: cr.title, slug: cr.slug, cpd_points: cr.cpd_points ?? null, img: cr.img ?? null };
         });
-        setCourseMetaMap({ ...localMeta });
+        setCourseMetaMap({ ...courseMetaMap });
       }
 
-      const mergedCerts: CertificateRow[] = certsBare.map((c) => {
-        const meta = c.course_id ? localMeta[c.course_id] : undefined;
+      const mergedCerts: CertificateRow[] = bare.map((c) => {
+        const meta = courseMetaMap[c.course_id];
         return {
           ...c,
           courses: meta
@@ -333,9 +307,10 @@ export default function DashboardPage() {
       });
       setCerts(mergedCerts);
 
-      /* ───────── Provisional (passed final + 100% progress; no issued row yet) ───────── */
+      /* ───────── Provisional (passed + 100% progress) ───────── */
       if (courseIds.length > 0) {
         const { data: examRows } = await supabase.from("exams").select("id,course_id,title,pass_mark").in("course_id", courseIds);
+        if (!guard()) return;
         const examByCourse: Record<string, ExamRow> = {};
         const examIds: string[] = [];
         (examRows ?? []).forEach((e: ExamRow) => {
@@ -351,6 +326,7 @@ export default function DashboardPage() {
             .eq("user_id", userId)
             .in("exam_id", examIds)
             .order("created_at", { ascending: false });
+          if (!guard()) return;
 
           latestByExam = {};
           (attRows ?? []).forEach((a: AttemptRow) => {
@@ -375,7 +351,7 @@ export default function DashboardPage() {
           const hundred = (progressByCourse[cid] ?? 0) >= 100;
 
           if (passed && hundred) {
-            const meta = localMeta[cid] || { title: "Course", slug: "", cpd_points: null, img: null };
+            const meta = courseMetaMap[cid] || { title: "Course", slug: "", cpd_points: null, img: null };
             provisional.push({
               course_id: cid,
               course_title: meta.title,
@@ -387,12 +363,18 @@ export default function DashboardPage() {
             });
           }
         }
+
         setProvisionalCerts(provisional);
       }
 
       setLoading(false);
     })();
-  }, [sessionReady, userId]);
+
+    return () => {
+      alive = false;
+      ac.abort();
+    };
+  }, [sessionReady, userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Save display name (used by cert)
   async function saveName() {
@@ -539,15 +521,15 @@ export default function DashboardPage() {
             )}
           </section>
 
-          {/* Course Certificates (official + provisional) */}
+          {/* Course Certificates (real + provisional) */}
           <section className="mt-10">
             <h2 className="text-xl font-semibold">Course Certificates</h2>
 
-            {!hasAnyCerts ? (
+            {(certs?.length ?? 0) + (provisionalCerts?.length ?? 0) === 0 ? (
               <p className="mt-3 text-muted">No certificates yet. Complete a course and pass the final exam to earn one.</p>
             ) : (
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                {/* Official certificates */}
+                {/* Real certificates */}
                 {certs.map((c) => {
                   const courseTitle = c.courses?.title ?? "Course";
                   const courseSlug = c.courses?.slug ?? "";
@@ -578,22 +560,26 @@ export default function DashboardPage() {
                           {cpd != null && <div className="text-muted text-xs">CPD/CPPD: {cpd}</div>}
                         </div>
 
+                        {/* Inline preview */}
                         <details className="mt-3 rounded-lg border border-dashed p-3 open:shadow-sm">
                           <summary className="cursor-pointer text-sm font-medium">Preview certificate</summary>
-                          <div ref={certPreviewRef} className="mt-4">
-                            <MinimalCertificate
+                          <div ref={certPreviewContainerRef} className="mt-4">
+                            <SimpleCertificate
                               recipient={fullName || "Your Name"}
                               course={courseTitle}
                               date={c.issued_at}
                               certId={kdsCertId}
-                              verifyUrl={verifyUrl}
+                              qrValue={verifyUrl}
+                              showPrint
                               accent="#0a1156"
                             />
                           </div>
                         </details>
 
                         <div className="mt-3 flex items-center gap-2">
-                          <Link href={verifyUrl} className="rounded-lg bg-[color:#0a1156] text-white px-3 py-1.5 text-sm">View / Download (secure)</Link>
+                          <Link href={verifyUrl} className="rounded-lg bg-[color:#0a1156] text-white px-3 py-1.5 text-sm">
+                            View / Download (secure)
+                          </Link>
                           <div className="text-xs text-muted">Final score: {c.score_pct}%</div>
                         </div>
                       </div>
@@ -601,7 +587,7 @@ export default function DashboardPage() {
                   );
                 })}
 
-                {/* Provisional (when passed + 100% progress, but not yet issued) */}
+                {/* Provisional certs */}
                 {provisionalCerts.map((pc) => {
                   const kdsCertId = makeKdsCertId(userId, pc.course_id);
                   return (
@@ -629,12 +615,13 @@ export default function DashboardPage() {
                         <details className="mt-3 rounded-lg border border-dashed p-3 open:shadow-sm">
                           <summary className="cursor-pointer text-sm font-medium">Preview (print/save)</summary>
                           <div className="mt-4">
-                            <MinimalCertificate
+                            <SimpleCertificate
                               recipient={fullName || "Your Name"}
                               course={pc.course_title}
                               date={pc.passed_at}
                               certId={kdsCertId}
-                              verifyUrl={undefined}
+                              qrProvider="none"
+                              showPrint
                               accent="#0a1156"
                             />
                           </div>
