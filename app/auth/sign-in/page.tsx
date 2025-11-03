@@ -1,36 +1,30 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabaseClient";
 import AuthForm from "@/components/AuthForm";
-
-const supabase: SupabaseClient | null =
-  typeof window !== "undefined"
-    ? createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL as string,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
-      )
-    : null;
 
 export default function SignInPage() {
   const router = useRouter();
+  const redirected = useRef(false);
 
   useEffect(() => {
-    if (!supabase) return;
-
     let mounted = true;
 
-    // Immediate redirect if already signed in (refresh/return visit)
-    supabase.auth.getSession().then(({ data }) => {
+    (async () => {
+      const { data } = await supabase.auth.getSession();
       if (!mounted) return;
-      if (data?.session) router.replace("/dashboard");
-    });
+      if (data?.session && !redirected.current) {
+        redirected.current = true;
+        router.replace("/dashboard");
+      }
+    })();
 
-    // Redirect right after a successful sign-in
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (!mounted) return;
-      if (event === "SIGNED_IN" && session) {
+      if (event === "SIGNED_IN" && session && !redirected.current) {
+        redirected.current = true;
         router.replace("/dashboard");
       }
     });
