@@ -238,7 +238,7 @@ export default function DashboardPage() {
         const { data: chRows } = await supabase
           .from("course_chapters")
           .select("id,course_id")
-          .in("course_id", courseIdsForProvisional);
+          .in("course_id", courseIds);
 
         const chaptersByCourse: Record<string, string[]> = {};
         (chRows ?? []).forEach((r: { id: string; course_id: string }) => {
@@ -260,7 +260,7 @@ export default function DashboardPage() {
             slidesByChapterCount[s.chapter_id] = (slidesByChapterCount[s.chapter_id] ?? 0) + 1;
           });
 
-          for (const cid of courseIdsForProvisional) {
+          for (const cid of courseIds) {
             const chIds = chaptersByCourse[cid] ?? [];
             totalSlidesByCourse[cid] = chIds.reduce((acc, chId) => acc + (slidesByChapterCount[chId] ?? 0), 0);
           }
@@ -381,9 +381,7 @@ export default function DashboardPage() {
       setCerts(withCPD);
 
       // Provisional certs (passed attempt; no cert row yet)
-      
-const courseIdsForProvisional = Array.from(new Set(enrolledTmp.map(e => e.course_id)));
-
+      const courseIds = Array.from(new Set(enrolledTmp.map(e => e.course_id)));
       if (courseIds.length > 0) {
         const { data: examRows } = await supabase
           .from("exams")
@@ -421,7 +419,7 @@ const courseIdsForProvisional = Array.from(new Set(enrolledTmp.map(e => e.course
             passed_at: string;
           }[] = [];
 
-          for (const cid of courseIdsForProvisional) {
+          for (const cid of courseIds) {
             const exam = examByCourse[cid];
             if (!exam) continue;
             const att = latestByExam[exam.id];
