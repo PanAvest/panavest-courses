@@ -231,7 +231,7 @@ export default function DashboardPage() {
 
       // Ensure uniqueness
       courseIds = Array.from(new Set(courseIds));
-      courseIds = courseIds.slice();
+      courseIdsForProvisional = courseIds.slice();
 
       // Compute progress from slides
       if (courseIds.length > 0) {
@@ -261,7 +261,7 @@ export default function DashboardPage() {
             slidesByChapterCount[s.chapter_id] = (slidesByChapterCount[s.chapter_id] ?? 0) + 1;
           });
 
-          for (const cid of courseIds) {
+          for (const cid of courseIdsForProvisional) {
             const chIds = chaptersByCourse[cid] ?? [];
             totalSlidesByCourse[cid] = chIds.reduce((acc, chId) => acc + (slidesByChapterCount[chId] ?? 0), 0);
           }
@@ -420,7 +420,7 @@ export default function DashboardPage() {
             passed_at: string;
           }[] = [];
 
-          for (const cid of courseIds) {
+          for (const cid of courseIdsForProvisional) {
             const exam = examByCourse[cid];
             if (!exam) continue;
             const att = latestByExam[exam.id];
