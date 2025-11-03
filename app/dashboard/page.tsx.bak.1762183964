@@ -238,7 +238,7 @@ export default function DashboardPage() {
         const { data: chRows } = await supabase
           .from("course_chapters")
           .select("id,course_id")
-          .in("course_id", courseIds);
+          .in("course_id", courseIdsForProvisional);
 
         const chaptersByCourse: Record<string, string[]> = {};
         (chRows ?? []).forEach((r: { id: string; course_id: string }) => {
