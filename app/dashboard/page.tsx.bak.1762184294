@@ -231,7 +231,6 @@ export default function DashboardPage() {
 
       // Ensure uniqueness
       courseIds = Array.from(new Set(courseIds));
-      courseIdsForProvisional = courseIds.slice();
 
       // Compute progress from slides
       if (courseIds.length > 0) {
