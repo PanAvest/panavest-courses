@@ -89,7 +89,7 @@ export default function HomePage() {
               "radial-gradient(90% 90% at 10% 10%, rgba(182,84,55,0.18) 0%, rgba(182,84,55,0.10) 30%, rgba(182,84,55,0.06) 55%, rgba(182,84,55,0.00) 100%)",
           }}
         />
-        {/* Warm vignette on the right for depth */}
+        {/* Warm vignette on the right */}
         <div
           className="pointer-events-none absolute top-16 -right-24 h-[600px] w-[600px] rounded-full blur-3xl opacity-25"
           style={{ background: "radial-gradient(closest-side, rgba(182,84,55,0.25), transparent)" }}
@@ -121,7 +121,7 @@ export default function HomePage() {
               </Link>
             </div>
 
-            {/* trust pills remain */}
+            {/* trust pills */}
             <div className="mt-8 flex flex-wrap items-center gap-3 text-xs text-ink/70">
               <span className="inline-flex items-center gap-2 rounded-lg bg-white/70 ring-1 ring-[color:var(--color-light)] px-3 py-1">
                 ✅ Certified CPD (CPPD)
@@ -134,7 +134,7 @@ export default function HomePage() {
               </span>
             </div>
 
-            {/* Nyansakasa quote (replaces KPI cards) */}
+            {/* Nyansakasa quote */}
             <figure className="mt-8">
               <blockquote className="text-[15px] sm:text-[17px] leading-relaxed text-ink/80">
                 <span className="block font-semibold text-ink">Nyansakasa by Prof. Douglas Boateng</span>
@@ -145,22 +145,19 @@ export default function HomePage() {
             </figure>
           </div>
 
-          {/* Right visual — NO card, just the image with soft drop shadow */}
+          {/* Right visual — ON a clean card, NO shadows */}
           <div className="relative z-10">
             <div className="relative mx-auto w-full max-w-[620px]">
-              {/* subtle glow behind the image */}
-              <div
-                className="absolute -inset-6 rounded-[32px] blur-2xl opacity-30"
-                style={{ background: `linear-gradient(45deg, ${BRAND.primary}, rgba(246,195,178,0.8))` }}
-              />
-              <Image
-                src="/hero-illustration.png"
-                alt="KDS learning preview"
-                width={1600}
-                height={1200}
-                priority
-                className="relative z-10 h-auto w-full rounded-[28px] shadow-[0_30px_70px_rgba(0,0,0,0.15)]"
-              />
+              <div className="rounded-[28px] bg-white ring-1 ring-[color:var(--color-light)]">
+                <Image
+                  src="/hero-illustration.png"
+                  alt="KDS learning preview"
+                  width={1600}
+                  height={1200}
+                  priority
+                  className="h-auto w-full rounded-[28px] /* no shadow */"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -233,7 +230,6 @@ export default function HomePage() {
                   <h3 className="font-semibold text-[17px] text-ink group-hover:opacity-90">
                     {c?.title ?? "Loading…"}
                   </h3>
-                  {/* No stars; show CPPD score + short description */}
                   <div className="mt-1 text-xs text-ink/60">
                     CPPD Score: <b>{c?.cpd_points ?? 0}</b>
                   </div>
