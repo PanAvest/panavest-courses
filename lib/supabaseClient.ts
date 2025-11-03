@@ -1,37 +1,73 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-declare global { var __kds_supabase__: SupabaseClient | undefined; }
-let browserClient: SupabaseClient | null = null;
-export function getSupabaseClient(): SupabaseClient {
-  if (typeof window === "undefined") throw new Error("getSupabaseClient() should only be called in the browser.");
-  if (globalThis.__kds_supabase__) return (browserClient = globalThis.__kds_supabase__);
+
+declare global {
+  // cache the browser client across HMR to prevent multiple GoTrueClient instances
+  var __kds_supabase__: SupabaseClient | undefined;
+}
+
+/** ───────────── Browser singleton ───────────── */
+function getBrowserClient(): SupabaseClient {
+  if (typeof window === "undefined") {
+    throw new Error("getBrowserClient() should only be called in the browser.");
+  }
+  if (globalThis.__kds_supabase__) return globalThis.__kds_supabase__!;
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
   if (!url || !anon) throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY");
-  browserClient = createClient(url, anon, {
+
+  const client = createClient(url, anon, {
     db: { schema: "public" },
-    auth: { storageKey: "kds-auth-v1", persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: "pkce" },
+    auth: {
+      storageKey: "kds-auth-v1",
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      flowType: "pkce",
+    },
     global: { fetch },
   });
-  browserClient.auth.onAuthStateChange((_e, s) => (browserClient as any)?.realtime?.setAuth?.(s?.access_token ?? ""));
-  globalThis.__kds_supabase__ = browserClient;
-  return browserClient;
+
+  // keep realtime channels in sync with auth
+  client.auth.onAuthStateChange((_e, s) => (client as any)?.realtime?.setAuth?.(s?.access_token ?? ""));
+
+  globalThis.__kds_supabase__ = client;
+  return client;
 }
+
+/** ───────────── Isomorphic export (same import everywhere) ───────────── */
 function createIsomorphicClient(): SupabaseClient {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
   if (!url || !anon) throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY");
+
   if (typeof window === "undefined") {
-    return createClient(url, anon, { db: { schema: "public" }, auth: { persistSession: false, autoRefreshToken: false }, global: { fetch } });
+    // server: no session persistence
+    return createClient(url, anon, {
+      db: { schema: "public" },
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { fetch },
+    });
   }
-  return getSupabaseClient();
+  return getBrowserClient();
 }
+
 export const supabase = createIsomorphicClient();
+
+/** Optional server-only service client (unchanged signature) */
 export function getServiceClient() {
-  if (typeof window !== "undefined") throw new Error("getServiceClient() must only be used on the server.");
+  if (typeof window !== "undefined") {
+    throw new Error("getServiceClient() must only be used on the server.");
+  }
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const service = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   if (!url || !service) throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
-  return createClient(url, service, { db: { schema: "public" }, auth: { persistSession: false, autoRefreshToken: false }, global: { fetch } });
+  return createClient(url, service, {
+    db: { schema: "public" },
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { fetch },
+  });
 }
-export default getSupabaseClient;
+
+export default getBrowserClient;

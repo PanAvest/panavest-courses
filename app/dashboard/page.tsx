@@ -1,117 +1,95 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
-import SimpleCertificate from "@/components/SimpleCertificate";
+
+/* ───────────────────────────── Inline Minimal Certificate ─────────────────────────── */
+function formatDate(d?: string | Date) {
+  if (!d) return "";
+  const x = typeof d === "string" ? new Date(d) : d;
+  return isNaN(+x)
+    ? String(d)
+    : x.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+}
+
+function MinimalCertificate({
+  recipient,
+  course,
+  date,
+  certId,
+  verifyUrl,
+  accent = "#0a1156",
+}: {
+  recipient: string;
+  course: string;
+  date?: string | Date;
+  certId?: string;
+  verifyUrl?: string;
+  accent?: string;
+}) {
+  return (
+    <div
+      className="mx-auto w-full max-w-3xl bg-white shadow relative print:shadow-none"
+      style={{ border: `6px solid ${accent}` }}
+    >
+      <button
+        onClick={() => window.print()}
+        className="absolute right-3 top-3 rounded px-3 py-1 text-xs border hover:bg-gray-50 print:hidden"
+      >
+        Print / Save as PDF
+      </button>
+      <div className="p-10 sm:p-14">
+        <div className="text-center">
+          <p className="text-[10px] tracking-[0.35em] uppercase" style={{ color: accent }}>
+            Certificate of Completion
+          </p>
+          <h1 className="mt-1 text-3xl sm:text-4xl font-serif font-bold">PanAvest KDS</h1>
+        </div>
+        <div className="my-8 h-px" style={{ background: `linear-gradient(90deg, ${accent}, transparent)` }} />
+        <div className="text-center py-10">
+          <p className="text-sm text-gray-600">This certifies that</p>
+          <div className="mt-4 text-4xl sm:text-5xl font-serif font-bold">{recipient || "Your Name"}</div>
+          <p className="mt-6 text-sm text-gray-600">has successfully completed</p>
+          <div className="mt-2 text-2xl sm:text-3xl italic">{course || "Course"}</div>
+          {date && <p className="mt-2 text-xs text-gray-500">Date: {formatDate(date)}</p>}
+          {certId && <p className="mt-1 text-xs text-gray-500">Certificate No: {certId}</p>}
+          {verifyUrl && (
+            <p className="mt-1 text-xs">
+              <a className="underline" href={verifyUrl}>
+                Verify / Download
+              </a>
+            </p>
+          )}
+        </div>
+      </div>
+      <style>{`@media print { @page { size: 8.5in 11in; margin: 0.5in; } html, body { background: white !important; } }`}</style>
+    </div>
+  );
+}
 
 /* ───────────────────────────────── Types ───────────────────────────────── */
-
-type CourseRow = {
-  id: string;
-  slug: string;
-  title: string;
-  img: string | null;
-  cpd_points: number | null;
-};
-
-type EnrollmentRow = {
-  course_id: string;
-  progress_pct: number | null; // ignored; we recompute from slide progress
-  courses?: CourseRow | CourseRow[] | null;
-};
-
-type EnrolledCourse = {
-  course_id: string;
-  progress_pct: number; // computed
-  title: string;
-  slug: string;
-  img: string | null;
-  cpd_points: number | null;
-};
-
-type QuizAttempt = {
-  course_id: string;
-  chapter_id: string;
-  total_count: number;
-  correct_count: number;
-  score_pct: number;
-  completed_at: string; // ISO
-};
-
-type ChapterInfo = {
-  id: string;
-  title: string;
-  order_index: number;
-  course_id: string;
-};
-
-type EbookRow = {
-  id: string;
-  slug: string;
-  title: string;
-  cover_url: string | null;
-  price_cents: number;
-};
-
-type PurchaseRow = {
-  ebook_id: string;
-  status: string | null;
-  ebooks?: EbookRow | EbookRow[] | null;
-};
-
-type PurchasedEbook = {
-  ebook_id: string;
-  slug: string;
-  title: string;
-  cover_url: string | null;
-  price_cedis: string;
-};
-
-type ProfileRow = {
-  id: string;
-  full_name: string | null;
-  updated_at?: string | null;
-};
-
+type CourseRow = { id: string; slug: string; title: string; img: string | null; cpd_points: number | null };
+type EnrollmentRow = { course_id: string; progress_pct: number | null; courses?: CourseRow | CourseRow[] | null };
+type EnrolledCourse = { course_id: string; progress_pct: number; title: string; slug: string; img: string | null; cpd_points: number | null };
+type QuizAttempt = { course_id: string; chapter_id: string; total_count: number; correct_count: number; score_pct: number; completed_at: string };
+type ChapterInfo = { id: string; title: string; order_index: number; course_id: string };
+type EbookRow = { id: string; slug: string; title: string; cover_url: string | null; price_cents: number };
+type PurchaseRow = { ebook_id: string; status: string | null; ebooks?: EbookRow | EbookRow[] | null };
+type PurchasedEbook = { ebook_id: string; slug: string; title: string; cover_url: string | null; price_cedis: string };
+type ProfileRow = { id: string; full_name: string | null; updated_at?: string | null };
 type CertificateRow = {
-  id: string;
-  user_id: string;
-  course_id: string;
-  attempt_id: string | null;
-  score_pct: number;
-  certificate_no: string;
-  issued_at: string;
-  courses: {
-    title: string;
-    slug: string;
-    img: string | null;
-    cpd_points?: number | null;
-  } | null;
+  id: string; user_id: string; course_id: string; attempt_id: string | null;
+  score_pct: number; certificate_no: string; issued_at: string;
+  courses: { title: string; slug: string; img: string | null; cpd_points?: number | null } | null;
 };
-
-type RawCertificateRow = Omit<CertificateRow, "courses"> & {
-  courses:
-    | { title: string; slug: string; img: string | null }
-    | { title: string; slug: string; img: string | null }[]
-    | null;
-};
-
-type CourseMeta = { title: string; slug: string; cpd_points?: number | null };
-
+type CourseMeta = { title: string; slug: string; cpd_points?: number | null; img?: string | null };
 type ExamRow = { id: string; course_id: string; title: string | null; pass_mark: number | null };
-type AttemptRow = {
-  id: string;
-  user_id: string;
-  exam_id: string;
-  score: number | null;
-  passed: boolean | null;
-  created_at: string;
-};
+type AttemptRow = { id: string; user_id: string; exam_id: string; score: number | null; passed: boolean | null; created_at: string };
 
 /* ─────────────────────────────── Helpers ─────────────────────────────── */
-
 function pickCourse(c: CourseRow | CourseRow[] | null | undefined): CourseRow | null {
   if (!c) return null;
   return Array.isArray(c) ? (c[0] ?? null) : c;
@@ -120,74 +98,77 @@ function pickEbook(e: EbookRow | EbookRow[] | null | undefined): EbookRow | null
   if (!e) return null;
   return Array.isArray(e) ? (e[0] ?? null) : e;
 }
-function normalizeCertificates(rows: RawCertificateRow[] | null | undefined): CertificateRow[] {
-  if (!rows) return [];
-  return rows.map((r) => ({
-    ...r,
-    courses: Array.isArray(r.courses) ? (r.courses[0] ?? null) : r.courses,
-  }));
-}
 
 /* ───────────────────────────── Component ───────────────────────────── */
-
 export default function DashboardPage() {
-  const [loading, setLoading] = useState<boolean>(true);
+  const router = useRouter();
 
-  // Profile (persistent welcome name)
-  const [userId, setUserId] = useState<string>("");
-  const [fullName, setFullName] = useState<string>("");
-  const [isEditingName, setIsEditingName] = useState<boolean>(false);
-  const [nameDraft, setNameDraft] = useState<string>("");
+  // Auth gate
+  const [sessionReady, setSessionReady] = useState(false);
+  const [userId, setUserId] = useState("");
 
-  // Courses / progress
+  // UI state
+  const [loading, setLoading] = useState(true);
+  const [fullName, setFullName] = useState("");
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+
+  // Data
   const [enrolled, setEnrolled] = useState<EnrolledCourse[]>([]);
-
-  // Chapter quiz results
   const [quiz, setQuiz] = useState<QuizAttempt[]>([]);
   const [chaptersById, setChaptersById] = useState<Record<string, ChapterInfo>>({});
-
-  // Purchased ebooks
   const [ebooks, setEbooks] = useState<PurchasedEbook[]>([]);
-
-  // Certificates (real)
   const [certs, setCerts] = useState<CertificateRow[]>([]);
-
-  // Fallback passed exams without certs
   const [provisionalCerts, setProvisionalCerts] = useState<
-    {
-      course_id: string;
-      course_title: string;
-      course_slug: string;
-      img: string | null;
-      cpd_points: number | null;
-      score_pct: number;
-      passed_at: string;
-    }[]
+    { course_id: string; course_title: string; course_slug: string; img: string | null; cpd_points: number | null; score_pct: number; passed_at: string }[]
   >([]);
-
-  // Course meta map for quiz section titles and CPD etc.
   const [courseMetaMap, setCourseMetaMap] = useState<Record<string, CourseMeta>>({});
 
-  // certificate preview (when expanding)
-  const certPreviewContainerRef = useRef<HTMLDivElement | null>(null);
+  const certPreviewRef = useRef<HTMLDivElement | null>(null);
 
+  /* ── Stable session setup: prevents sign-in/dashboard ping-pong ── */
   useEffect(() => {
-    (async () => {
-      const { data: auth } = await supabase.auth.getUser();
-      const user = auth?.user;
-      if (!user) {
-        window.location.href = "/auth/sign-in";
+    let cancelled = false;
+
+    const boot = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (cancelled) return;
+
+      if (!session) {
+        router.replace("/auth/sign-in?next=/dashboard");
         return;
       }
-      setUserId(user.id);
+      setUserId(session.user.id);
+      setSessionReady(true);
+    };
+
+    boot();
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      if (cancelled) return;
+      if (!session) {
+        router.replace("/auth/sign-in?next=/dashboard");
+      } else {
+        setUserId(session.user.id);
+        setSessionReady(true);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      sub.subscription.unsubscribe();
+    };
+  }, [router]);
+
+  /* ── All data loads occur only after session is confirmed ── */
+  useEffect(() => {
+    if (!sessionReady || !userId) return;
+
+    (async () => {
+      setLoading(true);
 
       // Profile
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("id, full_name, updated_at")
-        .eq("id", user.id)
-        .maybeSingle();
-
+      const { data: prof } = await supabase.from("profiles").select("id, full_name, updated_at").eq("id", userId).maybeSingle();
       const p = (prof as unknown as ProfileRow) || null;
       const initialName = (p?.full_name ?? "").trim();
       setFullName(initialName);
@@ -197,7 +178,7 @@ export default function DashboardPage() {
       const { data: enrData } = await supabase
         .from("enrollments")
         .select("course_id, progress_pct, courses!inner(id,title,slug,img,cpd_points)")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .order("updated_at", { ascending: false });
 
       const localMeta: Record<string, CourseMeta> = {};
@@ -207,20 +188,14 @@ export default function DashboardPage() {
       if (enrData) {
         const rows = enrData as unknown as EnrollmentRow[];
         enrolledTmp = rows.map((r) => {
-          const c = pickCourse(r.courses) || {
-            id: "",
-            slug: "",
-            title: "",
-            img: null,
-            cpd_points: null,
-          };
+          const c = pickCourse(r.courses) || { id: "", slug: "", title: "", img: null, cpd_points: null };
           if (r.course_id) courseIds.push(r.course_id);
           if (r.course_id && c.title) {
-            localMeta[r.course_id] = { title: c.title, slug: c.slug, cpd_points: c.cpd_points ?? null };
+            localMeta[r.course_id] = { title: c.title, slug: c.slug, cpd_points: c.cpd_points ?? null, img: c.img ?? null };
           }
           return {
             course_id: r.course_id,
-            progress_pct: 0, // compute below
+            progress_pct: 0, // compute later
             title: c.title,
             slug: c.slug,
             img: c.img ?? null,
@@ -229,18 +204,10 @@ export default function DashboardPage() {
         });
       }
 
-      // Ensure uniqueness
-      courseIds = Array.from(new Set(courseIds));
-      courseIds = courseIds.slice();
-
       // Compute progress from slides
+      courseIds = Array.from(new Set(courseIds));
       if (courseIds.length > 0) {
-        // Chapters per course
-        const { data: chRows } = await supabase
-          .from("course_chapters")
-          .select("id,course_id")
-          .in("course_id", courseIds);
-
+        const { data: chRows } = await supabase.from("course_chapters").select("id,course_id").in("course_id", courseIds);
         const chaptersByCourse: Record<string, string[]> = {};
         (chRows ?? []).forEach((r: { id: string; course_id: string }) => {
           (chaptersByCourse[r.course_id] ||= []).push(r.id);
@@ -248,30 +215,23 @@ export default function DashboardPage() {
 
         const allChapterIds = Object.values(chaptersByCourse).flat();
 
-        // Slide counts per course
         const totalSlidesByCourse: Record<string, number> = {};
         if (allChapterIds.length > 0) {
-          const { data: slRows } = await supabase
-            .from("course_slides")
-            .select("id,chapter_id")
-            .in("chapter_id", allChapterIds);
-
+          const { data: slRows } = await supabase.from("course_slides").select("id,chapter_id").in("chapter_id", allChapterIds);
           const slidesByChapterCount: Record<string, number> = {};
           (slRows ?? []).forEach((s: { id: string; chapter_id: string }) => {
             slidesByChapterCount[s.chapter_id] = (slidesByChapterCount[s.chapter_id] ?? 0) + 1;
           });
-
           for (const cid of courseIds) {
             const chIds = chaptersByCourse[cid] ?? [];
-            totalSlidesByCourse[cid] = chIds.reduce((acc, chId) => acc + (slidesByChapterCount[chId] ?? 0), 0);
+            totalSlidesByCourse[cid] = chIds.reduce((acc, ch) => acc + (slidesByChapterCount[ch] ?? 0), 0);
           }
         }
 
-        // Completed slides per course for this user
         const { data: progRows } = await supabase
           .from("user_slide_progress")
           .select("course_id, slide_id")
-          .eq("user_id", user.id)
+          .eq("user_id", userId)
           .in("course_id", courseIds);
 
         const doneByCourse: Record<string, Set<string>> = {};
@@ -279,22 +239,20 @@ export default function DashboardPage() {
           (doneByCourse[r.course_id] ||= new Set<string>()).add(r.slide_id);
         });
 
-        // Compute %
         enrolledTmp = enrolledTmp.map((e) => {
           const total = Math.max(0, totalSlidesByCourse[e.course_id] ?? 0);
-          const done = (doneByCourse[e.course_id]?.size ?? 0);
+          const done = doneByCourse[e.course_id]?.size ?? 0;
           const pct = total === 0 ? 0 : Math.min(100, Math.round((done / total) * 100));
           return { ...e, progress_pct: pct };
         });
       }
-
       setEnrolled(enrolledTmp);
 
-      // Purchased E-Books (paid only)
+      // Purchased E-Books
       const { data: purRows } = await supabase
         .from("ebook_purchases")
         .select("ebook_id,status,ebooks!inner(id,slug,title,cover_url,price_cents)")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .eq("status", "paid")
         .order("created_at", { ascending: false });
 
@@ -303,15 +261,9 @@ export default function DashboardPage() {
           .map((p) => {
             const e = pickEbook(p.ebooks);
             if (!e) return null;
-            return {
-              ebook_id: p.ebook_id,
-              slug: e.slug,
-              title: e.title,
-              cover_url: e.cover_url ?? null,
-              price_cedis: `GH₵ ${((e.price_cents ?? 0) / 100).toFixed(2)}`,
-            } as PurchasedEbook;
+            return { ebook_id: p.ebook_id, slug: e.slug, title: e.title, cover_url: e.cover_url ?? null, price_cedis: `GH₵ ${((e.price_cents ?? 0) / 100).toFixed(2)}` } as PurchasedEbook;
           })
-          .filter((x): x is PurchasedEbook => Boolean(x));
+          .filter(Boolean) as PurchasedEbook[];
         setEbooks(items);
       }
 
@@ -319,76 +271,71 @@ export default function DashboardPage() {
       const { data: quizRows } = await supabase
         .from("user_chapter_quiz")
         .select("course_id, chapter_id, total_count, correct_count, score_pct, completed_at")
-        .eq("user_id", user.id);
-
+        .eq("user_id", userId);
       const attempts = (quizRows as unknown as QuizAttempt[]) ?? [];
       setQuiz(attempts);
 
-      // Chapter metadata for ordering
+      // Chapter meta
       const chapterIds = Array.from(new Set(attempts.map((a) => a.chapter_id))).filter(Boolean);
       if (chapterIds.length > 0) {
-        const { data: chapterRows } = await supabase
-          .from("course_chapters")
-          .select("id,title,order_index,course_id")
-          .in("id", chapterIds);
-
+        const { data: chapterRows } = await supabase.from("course_chapters").select("id,title,order_index,course_id").in("id", chapterIds);
         const map: Record<string, ChapterInfo> = {};
         (chapterRows as unknown as ChapterInfo[] | null | undefined)?.forEach((row) => {
-          map[row.id] = {
-            id: row.id,
-            title: row.title,
-            order_index: Number(row.order_index ?? 0),
-            course_id: row.course_id,
-          };
+          map[row.id] = { id: row.id, title: row.title, order_index: Number(row.order_index ?? 0), course_id: row.course_id };
         });
         setChaptersById(map);
       }
 
-      // Fill Course Meta (title/slug/cpd)
+      // Ensure course meta for quiz/enrolled
       const existingIds = new Set(Object.keys(localMeta));
-      const metaMissingFromQuiz = Array.from(new Set(attempts.map(a => a.course_id))).filter(Boolean).filter(cid => !existingIds.has(cid));
-      const metaMissingFromEnroll = (Array.from(new Set(enrolledTmp.map(e => e.course_id)))).filter(cid => !existingIds.has(cid));
+      const metaMissingFromQuiz = Array.from(new Set(attempts.map((a) => a.course_id))).filter(Boolean).filter((cid) => !existingIds.has(cid));
+      const metaMissingFromEnroll = Array.from(new Set(enrolledTmp.map((e) => e.course_id))).filter((cid) => !existingIds.has(cid));
       const toFetch = Array.from(new Set([...metaMissingFromQuiz, ...metaMissingFromEnroll]));
       if (toFetch.length > 0) {
-        const { data: courseRows } = await supabase
-          .from("courses")
-          .select("id,title,slug,cpd_points,img")
-          .in("id", toFetch);
-
+        const { data: courseRows } = await supabase.from("courses").select("id,title,slug,cpd_points,img").in("id", toFetch);
         (courseRows as CourseRow[] | null | undefined)?.forEach((cr) => {
-          localMeta[cr.id] = { title: cr.title, slug: cr.slug, cpd_points: cr.cpd_points ?? null };
+          localMeta[cr.id] = { title: cr.title, slug: cr.slug, cpd_points: cr.cpd_points ?? null, img: cr.img ?? null };
         });
       }
       setCourseMetaMap(localMeta);
 
-      // Real certificates table
-      const { data: certRows } = await supabase
+      /* ───────── Certificates (no join to avoid 400) ───────── */
+      const { data: certRows, error: certErr } = await supabase
         .from("certificates")
-        .select("id,user_id,course_id,attempt_id,score_pct,certificate_no,issued_at,courses(title,slug,img)")
-        .eq("user_id", user.id)
+        .select("id,user_id,course_id,attempt_id,score_pct,certificate_no,issued_at")
+        .eq("user_id", userId)
         .order("issued_at", { ascending: false });
 
-      const normalized = normalizeCertificates(certRows as unknown as RawCertificateRow[] | null | undefined);
+      if (certErr) console.error("certificates fetch error", certErr);
 
-      // Attach CPD into courses for display (if we have it in meta)
-      const withCPD: CertificateRow[] = normalized.map((c) => {
+      const certsBare =
+        (certRows ?? []) as { id: string; user_id: string; course_id: string; attempt_id: string | null; score_pct: number; certificate_no: string; issued_at: string }[];
+
+      // Ensure meta for certificate courses
+      const certCourseIds = Array.from(new Set(certsBare.map((c) => c.course_id))).filter(Boolean);
+      const missingForCerts = certCourseIds.filter((cid) => !localMeta[cid]);
+      if (missingForCerts.length > 0) {
+        const { data: moreCourses } = await supabase.from("courses").select("id,title,slug,img,cpd_points").in("id", missingForCerts);
+        (moreCourses as CourseRow[] | null | undefined)?.forEach((cr) => {
+          localMeta[cr.id] = { title: cr.title, slug: cr.slug, cpd_points: cr.cpd_points ?? null, img: cr.img ?? null };
+        });
+        setCourseMetaMap({ ...localMeta });
+      }
+
+      const mergedCerts: CertificateRow[] = certsBare.map((c) => {
         const meta = c.course_id ? localMeta[c.course_id] : undefined;
         return {
           ...c,
-          courses: c.courses ? { ...c.courses, cpd_points: meta?.cpd_points ?? null } : c.courses,
+          courses: meta
+            ? { title: meta.title, slug: meta.slug, img: meta.img ?? null, cpd_points: meta.cpd_points ?? null }
+            : { title: "Course", slug: "", img: null, cpd_points: null },
         };
       });
+      setCerts(mergedCerts);
 
-      setCerts(withCPD);
-
-      // Provisional certs (passed attempt; no cert row yet)
-
+      /* ───────── Provisional (passed final + 100% progress; no issued row yet) ───────── */
       if (courseIds.length > 0) {
-        const { data: examRows } = await supabase
-          .from("exams")
-          .select("id,course_id,title,pass_mark")
-          .in("course_id", courseIds);
-
+        const { data: examRows } = await supabase.from("exams").select("id,course_id,title,pass_mark").in("course_id", courseIds);
         const examByCourse: Record<string, ExamRow> = {};
         const examIds: string[] = [];
         (examRows ?? []).forEach((e: ExamRow) => {
@@ -396,69 +343,67 @@ export default function DashboardPage() {
           examIds.push(e.id);
         });
 
+        let latestByExam: Record<string, AttemptRow> = {};
         if (examIds.length > 0) {
           const { data: attRows } = await supabase
             .from("attempts")
             .select("id,user_id,exam_id,score,passed,created_at")
-            .eq("user_id", user.id)
+            .eq("user_id", userId)
             .in("exam_id", examIds)
             .order("created_at", { ascending: false });
 
-          const latestByExam: Record<string, AttemptRow> = {};
+          latestByExam = {};
           (attRows ?? []).forEach((a: AttemptRow) => {
             if (!latestByExam[a.exam_id]) latestByExam[a.exam_id] = a;
           });
+        }
 
-          const realCertCourseIds = new Set(withCPD.map((c) => c.course_id));
-          const provisional: {
-            course_id: string;
-            course_title: string;
-            course_slug: string;
-            img: string | null;
-            cpd_points: number | null;
-            score_pct: number;
-            passed_at: string;
-          }[] = [];
+        const realCertCourseIds = new Set(mergedCerts.map((c) => c.course_id));
+        const progressByCourse: Record<string, number> = {};
+        for (const e of enrolledTmp) progressByCourse[e.course_id] = e.progress_pct;
 
-          for (const cid of courseIds) {
-            const exam = examByCourse[cid];
-            if (!exam) continue;
-            const att = latestByExam[exam.id];
-            if (!att || !att.passed || (att.score ?? 0) < (exam.pass_mark ?? 0)) continue;
-            if (realCertCourseIds.has(cid)) continue;
+        const provisional: {
+          course_id: string; course_title: string; course_slug: string; img: string | null; cpd_points: number | null; score_pct: number; passed_at: string;
+        }[] = [];
 
-            const meta = localMeta[cid] || { title: "Course", slug: "", cpd_points: null };
+        for (const cid of courseIds) {
+          if (realCertCourseIds.has(cid)) continue;
+          const exam = examByCourse[cid];
+          if (!exam) continue;
+          const att = latestByExam[exam.id];
+          const passed = !!(att && att.passed && (att.score ?? 0) >= (exam.pass_mark ?? 0));
+          const hundred = (progressByCourse[cid] ?? 0) >= 100;
+
+          if (passed && hundred) {
+            const meta = localMeta[cid] || { title: "Course", slug: "", cpd_points: null, img: null };
             provisional.push({
               course_id: cid,
               course_title: meta.title,
               course_slug: meta.slug,
-              img: null,
+              img: meta.img ?? null,
               cpd_points: (meta.cpd_points ?? null) as number | null,
-              score_pct: Math.round(Number(att.score ?? 0)),
-              passed_at: att.created_at,
+              score_pct: Math.round(Number(att?.score ?? 0)),
+              passed_at: att!.created_at,
             });
           }
-
-          setProvisionalCerts(provisional);
         }
+        setProvisionalCerts(provisional);
       }
 
       setLoading(false);
     })();
-  }, []);
+  }, [sessionReady, userId]);
 
-  // Name save
+  // Save display name (used by cert)
   async function saveName() {
     const trimmed = nameDraft.trim();
     if (!userId || !trimmed) return;
-    await supabase
-      .from("profiles")
-      .upsert({ id: userId, full_name: trimmed, updated_at: new Date().toISOString() });
+    await supabase.from("profiles").upsert({ id: userId, full_name: trimmed, updated_at: new Date().toISOString() });
     setFullName(trimmed);
     setIsEditingName(false);
   }
 
-  // Group quiz results by course & sort by chapter order
+  // Group quiz results by course
   const quizByCourse = useMemo(() => {
     const grouped: Record<string, { attempt: QuizAttempt; chapter: ChapterInfo }[]> = {};
     for (const a of quiz) {
@@ -472,22 +417,24 @@ export default function DashboardPage() {
     return grouped;
   }, [quiz, chaptersById]);
 
-  // Merge real certs + provisional (provisional shown after real)
   const hasAnyCerts = (certs?.length ?? 0) > 0 || (provisionalCerts?.length ?? 0) > 0;
+  const makeKdsCertId = (u: string, courseId?: string) => `KDS-${u.slice(0, 8).toUpperCase()}${courseId ? "-" + courseId.slice(0, 6).toUpperCase() : ""}`;
+  const origin = typeof window !== "undefined" && window.location ? window.location.origin : "https://kdslearning.com";
 
-  const makeKdsCertId = (u: string, courseId?: string) =>
-    `KDS-${u.slice(0, 8).toUpperCase()}${courseId ? "-" + courseId.slice(0, 6).toUpperCase() : ""}`;
-
-  const origin =
-    typeof window !== "undefined" && window.location ? window.location.origin : "https://kdslearning.com";
+  if (!sessionReady) {
+    return (
+      <div className="mx-auto max-w-screen-lg px-4 md:px-6 py-8">
+        <h1 className="text-2xl sm:text-3xl font-bold">Welcome</h1>
+        <p className="mt-2 text-xs text-gray-500">Checking your session…</p>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-screen-lg px-4 md:px-6 py-8">
       {/* Welcome header with persistent name */}
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl sm:text-3xl font-bold">
-          {fullName ? `Welcome, ${fullName}` : "Welcome"}
-        </h1>
+        <h1 className="text-2xl sm:text-3xl font-bold">{fullName ? `Welcome, ${fullName}` : "Welcome"}</h1>
 
         {!isEditingName ? (
           <button
@@ -506,11 +453,7 @@ export default function DashboardPage() {
               value={nameDraft}
               onChange={(e) => setNameDraft(e.target.value)}
             />
-            <button
-              type="button"
-              onClick={saveName}
-              className="rounded-lg bg-[color:#0a1156] text-white px-3 py-1.5 text-sm"
-            >
+            <button type="button" onClick={saveName} className="rounded-lg bg-[color:#0a1156] text-white px-3 py-1.5 text-sm">
               Save
             </button>
             <button
@@ -527,9 +470,7 @@ export default function DashboardPage() {
         )}
       </div>
 
-      <p className="mt-2 text-xs text-gray-500">
-        Your certificate displays the name set here. You can update it anytime and re-download.
-      </p>
+      <p className="mt-2 text-xs text-gray-500">Your certificate displays the name set here. You can update it anytime and re-download.</p>
 
       {loading && <p className="mt-4 text-muted">Loading…</p>}
 
@@ -550,21 +491,12 @@ export default function DashboardPage() {
                 {ebooks.map((b) => (
                   <div key={b.ebook_id} className="rounded-xl border border-light bg-white overflow-hidden">
                     <div className="relative w-full h-40">
-                      <Image
-                        src={b.cover_url || "/project-management.png"}
-                        alt={b.title}
-                        fill
-                        className="object-cover"
-                        sizes="(max-width: 768px) 100vw, 50vw"
-                      />
+                      <Image src={b.cover_url || "/project-management.png"} alt={b.title} fill className="object-cover" sizes="(max-width: 768px) 100vw, 50vw" />
                     </div>
                     <div className="p-4">
                       <div className="font-semibold line-clamp-1">{b.title}</div>
                       <div className="mt-1 text-xs text-muted">Purchased · {b.price_cedis}</div>
-                      <Link
-                        href={`/ebooks/${b.slug}`}
-                        className="mt-3 inline-block rounded-lg bg-[color:#0a1156] px-3 py-1.5 text-white"
-                      >
+                      <Link href={`/ebooks/${b.slug}`} className="mt-3 inline-block rounded-lg bg-[color:#0a1156] px-3 py-1.5 text-white">
                         Read
                       </Link>
                     </div>
@@ -589,21 +521,12 @@ export default function DashboardPage() {
                 {enrolled.map((c) => (
                   <div key={c.course_id} className="rounded-xl border border-light bg-white overflow-hidden">
                     <div className="relative w-full h-40">
-                      <Image
-                        src={c.img || "/project-management.png"}
-                        alt={c.title}
-                        fill
-                        className="object-cover"
-                        sizes="(max-width: 768px) 100vw, 50vw"
-                      />
+                      <Image src={c.img || "/project-management.png"} alt={c.title} fill className="object-cover" sizes="(max-width: 768px) 100vw, 50vw" />
                     </div>
                     <div className="p-4">
                       <div className="font-semibold line-clamp-1">{c.title}</div>
                       <div className="mt-2 h-2 w-full bg-[color:var(--color-light)] rounded">
-                        <div
-                          className="h-2 bg-[color:#0a1156] rounded"
-                          style={{ width: `${c.progress_pct}%` }}
-                        />
+                        <div className="h-2 bg-[color:#0a1156] rounded" style={{ width: `${c.progress_pct}%` }} />
                       </div>
                       <div className="mt-2 text-xs text-muted">{Math.round(c.progress_pct)}% complete</div>
                       <Link href={`/knowledge/${c.slug}/dashboard`} className="mt-3 inline-block rounded-lg bg-[color:#0a1156] px-3 py-1.5 text-white">
@@ -616,15 +539,15 @@ export default function DashboardPage() {
             )}
           </section>
 
-          {/* Course Certificates (real + provisional) */}
+          {/* Course Certificates (official + provisional) */}
           <section className="mt-10">
             <h2 className="text-xl font-semibold">Course Certificates</h2>
 
-            {!( (certs?.length ?? 0) > 0 || (provisionalCerts?.length ?? 0) > 0 ) ? (
+            {!hasAnyCerts ? (
               <p className="mt-3 text-muted">No certificates yet. Complete a course and pass the final exam to earn one.</p>
             ) : (
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                {/* Real certificates from table */}
+                {/* Official certificates */}
                 {certs.map((c) => {
                   const courseTitle = c.courses?.title ?? "Course";
                   const courseSlug = c.courses?.slug ?? "";
@@ -655,29 +578,22 @@ export default function DashboardPage() {
                           {cpd != null && <div className="text-muted text-xs">CPD/CPPD: {cpd}</div>}
                         </div>
 
-                        {/* Inline preview */}
                         <details className="mt-3 rounded-lg border border-dashed p-3 open:shadow-sm">
                           <summary className="cursor-pointer text-sm font-medium">Preview certificate</summary>
-                          <div ref={certPreviewContainerRef} className="mt-4">
-                            <SimpleCertificate
+                          <div ref={certPreviewRef} className="mt-4">
+                            <MinimalCertificate
                               recipient={fullName || "Your Name"}
                               course={courseTitle}
                               date={c.issued_at}
                               certId={kdsCertId}
-                              qrValue={verifyUrl}
-                              showPrint
+                              verifyUrl={verifyUrl}
                               accent="#0a1156"
                             />
                           </div>
                         </details>
 
                         <div className="mt-3 flex items-center gap-2">
-                          <Link
-                            href={verifyUrl}
-                            className="rounded-lg bg-[color:#0a1156] text-white px-3 py-1.5 text-sm"
-                          >
-                            View / Download (secure)
-                          </Link>
+                          <Link href={verifyUrl} className="rounded-lg bg-[color:#0a1156] text-white px-3 py-1.5 text-sm">View / Download (secure)</Link>
                           <div className="text-xs text-muted">Final score: {c.score_pct}%</div>
                         </div>
                       </div>
@@ -685,7 +601,7 @@ export default function DashboardPage() {
                   );
                 })}
 
-                {/* Provisional certs (passed attempt; no cert row yet) */}
+                {/* Provisional (when passed + 100% progress, but not yet issued) */}
                 {provisionalCerts.map((pc) => {
                   const kdsCertId = makeKdsCertId(userId, pc.course_id);
                   return (
@@ -713,22 +629,19 @@ export default function DashboardPage() {
                         <details className="mt-3 rounded-lg border border-dashed p-3 open:shadow-sm">
                           <summary className="cursor-pointer text-sm font-medium">Preview (print/save)</summary>
                           <div className="mt-4">
-                            <SimpleCertificate
+                            <MinimalCertificate
                               recipient={fullName || "Your Name"}
                               course={pc.course_title}
                               date={pc.passed_at}
                               certId={kdsCertId}
-                              qrProvider="none"   // no official verify until issued
-                              showPrint
+                              verifyUrl={undefined}
                               accent="#0a1156"
                             />
                           </div>
                         </details>
 
                         <div className="mt-3 flex items-center gap-2">
-                          <span className="rounded-lg px-3 py-1.5 text-xs bg-gray-100 text-gray-600">
-                            Official download available after issuance
-                          </span>
+                          <span className="rounded-lg px-3 py-1.5 text-xs bg-gray-100 text-gray-600">Official download available after issuance</span>
                           <div className="text-xs text-muted">Final score: {pc.score_pct}%</div>
                         </div>
                       </div>
@@ -761,15 +674,11 @@ export default function DashboardPage() {
 
                       <ul className="mt-3 grid gap-2">
                         {rows.map(({ attempt, chapter }) => (
-                          <li
-                            key={`${attempt.course_id}-${attempt.chapter_id}-${attempt.completed_at}`}
-                            className="flex flex-wrap items-center justify-between gap-2 rounded-lg ring-1 ring-[var(--color-light)] px-3 py-2"
-                          >
+                          <li key={`${attempt.course_id}-${attempt.chapter_id}-${attempt.completed_at}`} className="flex flex-wrap items-center justify-between gap-2 rounded-lg ring-1 ring-[var(--color-light)] px-3 py-2">
                             <div className="min-w-0">
                               <div className="font-medium line-clamp-1">{chapter.title}</div>
                               <div className="text-xs text-muted">
-                                {attempt.correct_count}/{attempt.total_count} correct ·{" "}
-                                {new Date(attempt.completed_at).toLocaleString()}
+                                {attempt.correct_count}/{attempt.total_count} correct · {new Date(attempt.completed_at).toLocaleString()}
                               </div>
                             </div>
                             <div className="shrink-0">
