@@ -69,7 +69,6 @@ export default function HomePage() {
 
   const featured = useMemo(() => courses.slice(0, 6), [courses]);
 
-  // Typed placeholders: null (not {})
   const featuredList: (Course | null)[] = loading
     ? Array.from({ length: 3 }, () => null)
     : featured;
@@ -82,16 +81,22 @@ export default function HomePage() {
     <>
       {/* ===== HERO ===== */}
       <section className="relative overflow-hidden">
+        {/* Top-bleeding gradient that blends under the header (no header changes needed) */}
         <div
-          className="pointer-events-none absolute -top-28 -left-24 h-[420px] w-[420px] rounded-full blur-3xl opacity-25"
-          style={{ background: `radial-gradient(closest-side, ${BRAND.primary}, transparent)` }}
+          className="pointer-events-none absolute inset-x-0 -top-40 h-[520px] opacity-90"
+          style={{
+            background:
+              "radial-gradient(90% 90% at 10% 10%, rgba(182,84,55,0.18) 0%, rgba(182,84,55,0.10) 30%, rgba(182,84,55,0.06) 55%, rgba(182,84,55,0.00) 100%)",
+          }}
         />
+        {/* Warm vignette on the right for depth */}
         <div
-          className="pointer-events-none absolute top-24 -right-24 h-[520px] w-[520px] rounded-full blur-3xl opacity-20"
-          style={{ background: "radial-gradient(closest-side, #f0b29f, transparent)" }}
+          className="pointer-events-none absolute top-16 -right-24 h-[600px] w-[600px] rounded-full blur-3xl opacity-25"
+          style={{ background: "radial-gradient(closest-side, rgba(182,84,55,0.25), transparent)" }}
         />
 
-        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-20 grid gap-10 lg:grid-cols-[1.08fr_.92fr] items-center">
+        <div className="relative mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-20 grid gap-10 lg:grid-cols-[1.08fr_.92fr] items-center">
+          {/* Left copy */}
           <div className="relative z-10">
             <span className="inline-flex items-center gap-2 rounded-full border border-[color:var(--color-light)] bg-white/70 px-3 py-1 text-xs">
               <span className="h-2 w-2 rounded-full" style={{ background: BRAND.primary }} />
@@ -116,6 +121,7 @@ export default function HomePage() {
               </Link>
             </div>
 
+            {/* trust pills remain */}
             <div className="mt-8 flex flex-wrap items-center gap-3 text-xs text-ink/70">
               <span className="inline-flex items-center gap-2 rounded-lg bg-white/70 ring-1 ring-[color:var(--color-light)] px-3 py-1">
                 ✅ Certified CPD (CPPD)
@@ -127,42 +133,39 @@ export default function HomePage() {
                 🔒 Verifiable certificates
               </span>
             </div>
+
+            {/* Nyansakasa quote (replaces KPI cards) */}
+            <figure className="mt-8">
+              <blockquote className="text-[15px] sm:text-[17px] leading-relaxed text-ink/80">
+                <span className="block font-semibold text-ink">Nyansakasa by Prof. Douglas Boateng</span>
+                <span className="mt-1 block italic">
+                  “What you plant in your mind grows in your life.”
+                </span>
+              </blockquote>
+            </figure>
           </div>
 
+          {/* Right visual — NO card, just the image with soft drop shadow */}
           <div className="relative z-10">
-            <div className="relative mx-auto w-full max-w-[560px]">
+            <div className="relative mx-auto w-full max-w-[620px]">
+              {/* subtle glow behind the image */}
               <div
-                className="absolute -inset-4 rounded-3xl opacity-30 blur-2xl"
-                style={{ background: `linear-gradient(45deg, ${BRAND.primary}, #f6c3b2)` }}
+                className="absolute -inset-6 rounded-[32px] blur-2xl opacity-30"
+                style={{ background: `linear-gradient(45deg, ${BRAND.primary}, rgba(246,195,178,0.8))` }}
               />
-              <div className="relative rounded-3xl bg-white/80 backdrop-blur-xl ring-1 ring-[color:var(--color-light)] shadow-xl">
-                <Image
-                  src="/hero-illustration.png"
-                  alt="KDS learning preview"
-                  width={1600}
-                  height={1200}
-                  priority
-                  className="h-auto w-full rounded-t-3xl"
-                />
-                <div className="p-5">
-                  <div className="grid grid-cols-3 gap-3 text-center">
-                    {[
-                      ["CPPD Points", "+20"],
-                      ["Pass Rate", "92%"],
-                      ["Issued Certs", "10k+"],
-                    ].map(([k, v]) => (
-                      <div key={k} className="rounded-xl ring-1 ring-[color:var(--color-light)] bg-white p-3">
-                        <div className="text-[10px] uppercase tracking-wide text-ink/60">{k}</div>
-                        <div className="text-lg font-bold">{v}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              <Image
+                src="/hero-illustration.png"
+                alt="KDS learning preview"
+                width={1600}
+                height={1200}
+                priority
+                className="relative z-10 h-auto w-full rounded-[28px] shadow-[0_30px_70px_rgba(0,0,0,0.15)]"
+              />
             </div>
           </div>
         </div>
 
+        {/* Bottom curve divider */}
         <svg className="block w-full text-white" viewBox="0 0 1440 80" aria-hidden>
           <path fill="currentColor" d="M0,64L1440,0L1440,80L0,80Z"></path>
         </svg>
@@ -230,6 +233,7 @@ export default function HomePage() {
                   <h3 className="font-semibold text-[17px] text-ink group-hover:opacity-90">
                     {c?.title ?? "Loading…"}
                   </h3>
+                  {/* No stars; show CPPD score + short description */}
                   <div className="mt-1 text-xs text-ink/60">
                     CPPD Score: <b>{c?.cpd_points ?? 0}</b>
                   </div>
@@ -322,8 +326,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
-      {/* (Final CTA removed per your request) */}
     </>
   );
 }
