@@ -176,7 +176,7 @@ export default function Header() {
           <div className="px-4 py-3 flex flex-col gap-3">
             <Link href="/courses" onClick={() => setOpen(false)} className="text-ink">Knowledge</Link>
             <Link href="/about" onClick={() => setOpen(false)} className="text-ink">About</Link>
-            <Link href="/leaderboard" onClick={() => setOpen(false)} className="text-ink">Leaderboard</Link>
+            <Link href="/leaderboard" onClick={() => setOpen(false)} className="text-ink">E-Books</Link>
 
             {/* Social: mobile */}
             <div className="pt-2">
