@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import type { PostgrestError } from "@supabase/supabase-js";
 
 /** lowercase, replace non-alnum with '-', trim dashes */
 function normaliseSlug(raw: string) {
@@ -7,6 +8,13 @@ function normaliseSlug(raw: string) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+function isUniqueViolation(err: PostgrestError | null | undefined): boolean {
+  if (!err) return false;
+  if (err.code === "23505") return true; // Postgres unique_violation
+  const msg = (err.message || "").toLowerCase();
+  return msg.includes("duplicate key value") || msg.includes("unique constraint");
 }
 
 const LIST_FIELDS =
@@ -25,32 +33,42 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
+    const body = (await req.json()) as unknown as {
+      id?: string;
+      slug?: string;
+      title?: string;
+      description?: string | null;
+      level?: string | null;
+      price?: number | string | null;
+      cpd_points?: number | string | null;
+      img?: string | null;
+      accredited?: unknown;
+      published?: boolean;
+    };
 
     const payload = {
-      id: (body?.id as string | undefined) || undefined,
-      slug: normaliseSlug((body?.slug as string) || ""),
-      title: String((body?.title as string) || ""),
-      description: (body?.description as string | null) ?? null,
-      level: (body?.level as string | null) ?? null,
+      id: body?.id || undefined,
+      slug: normaliseSlug(body?.slug || ""),
+      title: String(body?.title || ""),
+      description: (body?.description ?? null) as string | null,
+      level: (body?.level ?? null) as string | null,
       price:
-        typeof body?.price === "number"
-          ? (body.price as number)
-          : body?.price == null
+        body?.price == null
           ? null
+          : typeof body.price === "number"
+          ? body.price
           : Number(body.price),
       cpd_points:
-        typeof body?.cpd_points === "number"
-          ? (body.cpd_points as number)
-          : body?.cpd_points == null
+        body?.cpd_points == null
           ? null
+          : typeof body.cpd_points === "number"
+          ? body.cpd_points
           : Number(body.cpd_points),
-      img: (body?.img as string | null) ?? null,
+      img: (body?.img ?? null) as string | null,
       accredited: Array.isArray(body?.accredited)
         ? (body.accredited as unknown[]).map(String)
         : null,
-      published:
-        typeof body?.published === "boolean" ? (body.published as boolean) : true,
+      published: typeof body?.published === "boolean" ? body.published : true,
     };
 
     if (!payload.slug || !payload.title) {
@@ -60,8 +78,8 @@ export async function POST(req: Request) {
     const admin = getSupabaseAdmin();
 
     if (payload.id) {
-      // UPDATE (safe when slug changes)
-      const { data, error } = await admin
+      // UPDATE by id (safe for slug changes)
+      const { data, error: updErr } = await admin
         .from("courses")
         .update({
           slug: payload.slug,
@@ -78,18 +96,17 @@ export async function POST(req: Request) {
         .select(LIST_FIELDS)
         .single();
 
-      if (error) {
-        const msg = (error as any)?.message?.toLowerCase?.() ?? "";
-        if (msg.includes("duplicate key value") || msg.includes("unique constraint")) {
+      if (updErr) {
+        if (isUniqueViolation(updErr)) {
           return NextResponse.json({ error: "Slug already exists." }, { status: 409 });
         }
-        return NextResponse.json({ error: (error as any)?.message ?? "Update failed" }, { status: 500 });
+        return NextResponse.json({ error: updErr.message || "Update failed" }, { status: 500 });
       }
       return NextResponse.json(data ?? null);
     }
 
-    // CREATE (upsert by slug to keep behavior)
-    const { data, error } = await admin
+    // CREATE via upsert on slug
+    const { data, error: insErr } = await admin
       .from("courses")
       .upsert(
         [
@@ -110,17 +127,16 @@ export async function POST(req: Request) {
       .select(LIST_FIELDS)
       .single();
 
-    if (error) {
-      const msg = (error as any)?.message?.toLowerCase?.() ?? "";
-      if (msg.includes("duplicate key value") || msg.includes("unique constraint")) {
+    if (insErr) {
+      if (isUniqueViolation(insErr)) {
         return NextResponse.json({ error: "Slug already exists." }, { status: 409 });
       }
-      return NextResponse.json({ error: (error as any)?.message ?? "Create failed" }, { status: 500 });
+      return NextResponse.json({ error: insErr.message || "Create failed" }, { status: 500 });
     }
 
     return NextResponse.json(data ?? null);
-  } catch (e: unknown) {
-    const msg = (e as Error)?.message ?? String(e);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
