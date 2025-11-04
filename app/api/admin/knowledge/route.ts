@@ -11,8 +11,8 @@ export async function GET() {
   return NextResponse.json(data ?? []);
 }
 
-export async function POST(req) {
-  const body = await req.json();
+export async function POST(req: Request) {
+  const body = await req.json(); // if you want: `as any` to appease stricter configs
   const payload = {
     id: body.id ?? undefined,
     slug: String(body.slug || ""),
