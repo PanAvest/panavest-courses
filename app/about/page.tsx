@@ -1,8 +1,8 @@
 export default function AboutPage() {
   return (
-    <main className="w-full px-4 md:px-6 py-12">
+    <main className="w-full max-w-7xl mx-auto px-4 md:px-6 py-12">
       {/* Header */}
-      <section className="max-w-5xl">
+      <section className="w-full">
         <span className="inline-flex items-center gap-2 rounded-full bg-[#b6543715] px-3 py-1 text-xs font-semibold tracking-wide text-[#b65437] ring-1 ring-[#b6543726]">
           <svg aria-hidden="true" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 2l3 7 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z"/>
@@ -14,7 +14,7 @@ export default function AboutPage() {
           About KDS Learning
         </h1>
 
-        <p className="mt-4 max-w-3xl text-sm md:text-base text-muted-foreground/90">
+        <p className="mt-4 text-sm md:text-base text-muted-foreground/90 max-w-5xl">
           <strong className="font-semibold">KDS Learning</strong> is a modern, Africa-first learning ecosystem
           built by <strong>PanAvest International &amp; Partners</strong> and inspired by the work of
           <strong> Professor Douglas Boateng</strong>. We transform the <em>Knowledge Development Series (KDS)</em>
@@ -24,8 +24,8 @@ export default function AboutPage() {
       </section>
 
       {/* Mission & Why It Matters */}
-      <section className="mt-10 max-w-5xl space-y-8">
-        <div className="max-w-3xl">
+      <section className="mt-10 w-full grid gap-8 lg:grid-cols-2">
+        <div>
           <div className="flex items-start gap-3">
             <span className="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#b6543715] text-[#b65437] ring-1 ring-[#b6543726]">
               <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
@@ -43,7 +43,7 @@ export default function AboutPage() {
           </div>
         </div>
 
-        <div className="max-w-3xl">
+        <div>
           <div className="flex items-start gap-3">
             <span className="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#b6543715] text-[#b65437] ring-1 ring-[#b6543726]">
               <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
@@ -63,7 +63,7 @@ export default function AboutPage() {
       </section>
 
       {/* Ground-breaking Features */}
-      <section className="mt-12 max-w-5xl">
+      <section className="mt-12 w-full">
         <div className="flex items-center gap-2">
           <svg aria-hidden="true" className="h-5 w-5 text-[#b65437]" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 2a7 7 0 017 7c0 5-7 13-7 13S5 14 5 9a7 7 0 017-7zm0 9a2 2 0 100-4 2 2 0 000 4z"/>
@@ -71,8 +71,8 @@ export default function AboutPage() {
           <h2 className="text-xl md:text-2xl font-bold text-[#b65437]">Ground-Breaking Features</h2>
         </div>
 
-        <ul className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Feature card */}
+        <ul className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {/* cards unchanged */}
           <li className="group rounded-xl p-4 ring-1 ring-[#b6543726] bg-white hover:bg-[#b6543710] transition">
             <div className="flex items-start gap-3">
               <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#b6543715] text-[#b65437] ring-1 ring-[#b6543726]">
@@ -172,7 +172,7 @@ export default function AboutPage() {
       </section>
 
       {/* Mobile App Coming Soon */}
-      <section className="mt-12 max-w-5xl">
+      <section className="mt-12 w-full">
         <div className="flex items-start gap-3">
           <span className="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#b6543715] text-[#b65437] ring-1 ring-[#b6543726]">
             <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
@@ -181,7 +181,7 @@ export default function AboutPage() {
           </span>
           <div>
             <h2 className="text-xl md:text-2xl font-bold text-[#b65437]">Mobile App Coming Soon</h2>
-            <p className="mt-2 max-w-3xl text-muted-foreground/90">
+            <p className="mt-2 text-muted-foreground/90 max-w-5xl">
               Built with <strong>React + Capacitor</strong>, the KDS mobile app lets you enrol, learn, write
               quizzes, and download verified certificates—on the go and even offline—with secure cloud-synced progress.
             </p>
@@ -190,7 +190,7 @@ export default function AboutPage() {
       </section>
 
       {/* PanAvest Link */}
-      <section className="mt-12 max-w-5xl">
+      <section className="mt-12 w-full">
         <a
           href="https://panavest.com/"
           target="_blank"
@@ -202,7 +202,7 @@ export default function AboutPage() {
           Learn more about PanAvest International &amp; Partners
         </a>
 
-        <p className="mt-3 text-xs text-muted-foreground/90 max-w-3xl">
+        <p className="mt-3 text-xs text-muted-foreground/90 max-w-5xl">
           KDS Learning and its CPPD pathways are part of PanAvest’s mission to advance ethical leadership,
           industrialisation, and value-chain excellence across Africa.
         </p>
