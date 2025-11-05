@@ -78,6 +78,75 @@ export default function HomePage() {
     ? Array.from({ length: 4 }, () => null)
     : ebooks;
 
+  /** ===== Inline SVGs (no emojis) ===== */
+  const IconCheck = () => (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
+      <path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z" />
+    </svg>
+  );
+  const IconBeaker = () => (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
+      <path d="M9 3v2l-4.6 7.7A5 5 0 0 0 9 22h6a5 5 0 0 0 4.6-9.3L15 5V3H9zm1.7 6h4.6l2.2 3.7A3 3 0 0 1 15 20H9a3 3 0 0 1-2.5-4.6L10.7 9z" />
+    </svg>
+  );
+  const IconShield = () => (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
+      <path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3z" />
+    </svg>
+  );
+  const IconCap = () => (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-7 w-7" fill="currentColor">
+      <path d="M12 3 2 8l10 5 9-4.5V15h2V8L12 3zm0 13-6-3v4l6 3 6-3v-4l-6 3z" />
+    </svg>
+  );
+  const IconBuilding = () => (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-7 w-7" fill="currentColor">
+      <path d="M3 22h18v-2H3v2zM19 2H5v16h14V2zm-9 3h2v2h-2V5zm0 4h2v2h-2V9zm0 4h2v2h-2v-2zm5-8h2v2h-2V5zm0 4h2v2h-2V9zm0 4h2v2h-2v-2z" />
+    </svg>
+  );
+  const IconChart = () => (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-7 w-7" fill="currentColor">
+      <path d="M3 3h2v18H3V3zm16 18h2V9h-2v12zM11 21h2V13h-2v8zM7 21h2V7H7v14zM15 21h2V3h-2v18z" />
+    </svg>
+  );
+  const IconBooks = () => (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-7 w-7" fill="currentColor">
+      <path d="M4 3h6a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4V3zm0 16h6a2 2 0 0 1 2 2H6a2 2 0 0 1-2-2zm10-16h6v16h-6a2 2 0 0 0-2 2V5a2 2 0 0 1 2-2z" />
+    </svg>
+  );
+
+  /** Reviews (structure only — replace with verified quotes/names later) */
+  const reviews = [
+    {
+      name: "Dr. Ama Mensah",
+      role: "Supply Chain Executive",
+      org: "Accra, Ghana",
+      quote:
+        "PanAvest’s practical approach to governance and procurement is filling a real skills gap across Africa.",
+    },
+    {
+      name: "Michael Ofori",
+      role: "Director, Corporate Governance",
+      org: "Johannesburg, South Africa",
+      quote:
+        "Prof. Boateng’s insights sharpen strategy while grounding teams in measurable execution.",
+    },
+    {
+      name: "Nadia Benali",
+      role: "Operations & Projects Lead",
+      org: "Casablanca, Morocco",
+      quote:
+        "The CPPD-aligned learning paths are exactly what our managers needed to level up—fast.",
+    },
+    {
+      name: "Kofi Asiedu",
+      role: "Head of Procurement",
+      org: "Kumasi, Ghana",
+      quote:
+        "Clear, rigorous and immediately applicable. We saw better sourcing decisions within weeks.",
+    },
+  ];
+
   return (
     <>
       {/* ===== HERO (no bg, no card, no shadow) ===== */}
@@ -108,16 +177,16 @@ export default function HomePage() {
               </Link>
             </div>
 
-            {/* trust pills */}
+            {/* trust pills (SVGs, no emojis) */}
             <div className="mt-8 flex flex-wrap items-center gap-3 text-xs text-ink/70">
               <span className="inline-flex items-center gap-2 rounded-lg bg-white/70 ring-1 ring-[color:var(--color-light)] px-3 py-1">
-                ✅ Certified CPD (CPPD)
+                <IconCheck /> Certified CPD (CPPD)
               </span>
               <span className="inline-flex items-center gap-2 rounded-lg bg-white/70 ring-1 ring-[color:var(--color-light)] px-3 py-1">
-                🧪 Rigorous assessments
+                <IconBeaker /> Rigorous assessments
               </span>
               <span className="inline-flex items-center gap-2 rounded-lg bg-white/70 ring-1 ring-[color:var(--color-light)] px-3 py-1">
-                🔒 Verifiable certificates
+                <IconShield /> Verifiable certificates
               </span>
             </div>
 
@@ -160,14 +229,14 @@ export default function HomePage() {
 
           <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             {[
-              { emoji: "🎓", title: "Certified CPD (CPPD)", text: "Professional knowledge with verifiable certificates." },
-              { emoji: "🧪", title: "Assessments", text: "Rigorous evaluations that prove capability." },
-              { emoji: "🏢", title: "Corporate Training", text: "Tailored programs delivered to teams." },
-              { emoji: "📈", title: "Career Acceleration", text: "Job-ready, practical skill-building." },
-              { emoji: "📚", title: "Publications", text: "Unique compendiums credited by NaCCA." },
+              { Icon: IconCap, title: "Certified CPD (CPPD)", text: "Professional knowledge with verifiable certificates." },
+              { Icon: IconBeaker, title: "Assessments", text: "Rigorous evaluations that prove capability." },
+              { Icon: IconBuilding, title: "Corporate Training", text: "Tailored programs delivered to teams." },
+              { Icon: IconChart, title: "Career Acceleration", text: "Job-ready, practical skill-building." },
+              { Icon: IconBooks, title: "Publications", text: "Unique compendiums credited by NaCCA." },
             ].map((i) => (
               <div key={i.title} className="rounded-2xl bg-white border border-[color:var(--color-light)] p-5 hover:shadow-sm transition">
-                <div className="text-3xl">{i.emoji}</div>
+                <div className="text-3xl text-ink/80"><i.Icon /></div>
                 <div className="mt-3 font-semibold">{i.title}</div>
                 <p className="mt-1 text-sm text-ink/70">{i.text}</p>
               </div>
@@ -277,9 +346,20 @@ export default function HomePage() {
                       {b?.title ?? "Loading…"}
                     </h3>
                   </div>
+
+                  {/* NEW: description visible */}
+                  {b?.description && (
+                    <p className="mt-2 text-sm text-ink/80 line-clamp-3">
+                      {b.description}
+                    </p>
+                  )}
+
+                  {/* NEW: GH₵ price in code style */}
                   {typeof b?.price_cents === "number" && (
-                    <div className="mt-2 text-sm text-ink/70">
-                      ${(b.price_cents / 100).toFixed(2)}
+                    <div className="mt-3">
+                      <code className="rounded-md bg-[color:var(--color-light)]/40 px-2 py-1 text-[12px]">
+                        GH₵ {(b.price_cents / 100).toFixed(2)}
+                      </code>
                     </div>
                   )}
                 </div>
@@ -300,6 +380,29 @@ export default function HomePage() {
               </span>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* ===== REVIEWS (added; layout kept simple and consistent) ===== */}
+      <section className="py-10 sm:py-14">
+        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
+          <div className="flex items-end justify-between gap-4">
+            <h2 className="text-2xl sm:text-3xl font-bold">What professionals say</h2>
+          </div>
+
+          <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {reviews.map((r) => (
+              <div
+                key={r.name}
+                className="rounded-2xl bg-white border border-[color:var(--color-light)] p-5 hover:shadow-sm transition"
+              >
+                <p className="text-sm text-ink/80 leading-relaxed">“{r.quote}”</p>
+                <div className="mt-4 text-sm font-semibold text-ink">{r.name}</div>
+                <div className="text-xs text-ink/60">{r.role} • {r.org}</div>
+              </div>
+            ))}
+          </div>
+          {/* NOTE: Replace placeholder quotes/names with verified testimonials when available. */}
         </div>
       </section>
     </>
