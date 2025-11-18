@@ -809,7 +809,7 @@ export default function AdminPage() {
     setExamQForm({
       ...q,
       exam_id: exam?.id ?? q.exam_id ?? "",
-      prompt: q.prompt ?? q.question ?? "",
+      prompt: q.prompt ?? "",
       options: q.options ?? [],
       correct_index: q.correct_index ?? 0,
     });
