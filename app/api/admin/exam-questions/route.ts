@@ -1,7 +1,6 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { headers } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 
 function basicOk(h: Headers) {
@@ -17,7 +16,7 @@ function sb() {
 
 // GET /api/admin/exam-questions?exam_id=...
 export async function GET(req: Request) {
-  if (!basicOk(await headers())) return new NextResponse("Unauthorized", { status: 401 });
+  if (!basicOk(req.headers)) return new NextResponse("Unauthorized", { status: 401 });
   const { searchParams } = new URL(req.url);
   const exam_id = searchParams.get("exam_id");
   if (!exam_id) return NextResponse.json([], { status: 200 });
@@ -28,7 +27,7 @@ export async function GET(req: Request) {
 
 // POST { exam_id, question, options[], correct_index }
 export async function POST(req: Request) {
-  if (!basicOk(await headers())) return new NextResponse("Unauthorized", { status: 401 });
+  if (!basicOk(req.headers)) return new NextResponse("Unauthorized", { status: 401 });
   const body = await req.json().catch(() => ({}));
   const exam_id = String(body.exam_id ?? "");
   const id = body.id ? String(body.id) : undefined;
@@ -50,7 +49,7 @@ export async function POST(req: Request) {
 
 // DELETE /api/admin/exam-questions?id=...
 export async function DELETE(req: Request) {
-  if (!basicOk(await headers())) return new NextResponse("Unauthorized", { status: 401 });
+  if (!basicOk(req.headers)) return new NextResponse("Unauthorized", { status: 401 });
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });

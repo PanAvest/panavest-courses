@@ -2,20 +2,11 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { headers } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 
 /* ──────────────────────────────────────────────────────────────
    Helpers
    ────────────────────────────────────────────────────────────── */
-function basicOk(h: Headers) {
-  const auth = h.get("authorization") || "";
-  if (!auth.startsWith("Basic ")) return false;
-  const dec = Buffer.from(auth.slice(6), "base64").toString("utf8");
-  const [u, p] = dec.split(":");
-  return u === process.env.ADMIN_USER && p === process.env.ADMIN_PASS;
-}
-
 function sb() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -40,8 +31,6 @@ type ExamRow = {
    - Returns null if none.
    ────────────────────────────────────────────────────────────── */
 export async function GET(req: Request) {
-  if (!basicOk(await headers())) return new NextResponse("Unauthorized", { status: 401 });
-
   const { searchParams } = new URL(req.url);
   const course_id = searchParams.get("course_id");
   if (!course_id) return NextResponse.json(null, { status: 200 });
@@ -77,8 +66,6 @@ export async function GET(req: Request) {
    - Returns the saved row.
    ────────────────────────────────────────────────────────────── */
 export async function POST(req: Request) {
-  if (!basicOk(await headers())) return new NextResponse("Unauthorized", { status: 401 });
-
   const body = await req.json().catch(() => ({}));
   const course_id = String(body.course_id ?? "").trim();
   const title = String(body.title ?? "Final Exam").trim();
