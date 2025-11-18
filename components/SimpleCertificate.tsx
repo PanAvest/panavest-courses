@@ -73,10 +73,11 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
       return `https://quickchart.io/qr?text=${d}&size=${qrSize}&margin=1`;
     }, [value, qrProvider, qrSize]);
 
-    const safeSignature = useMemo(
+    const resolvedSignature = useMemo(
       () =>
+        signature ||
         "https://icujvqmqwacpysxjfkxd.supabase.co/storage/v1/object/public/public/admin-uploads/Prof%20Signature.png",
-      []
+      [signature],
     );
 
     return (
@@ -133,7 +134,7 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
             {/* Signature */}
             <div className="flex flex-col items-start">
               <img
-                src={safeSignature}
+                src={resolvedSignature}
                 alt="Prof. Douglas Boateng signature"
                 className="h-20 w-auto object-contain"
                 decoding="async"

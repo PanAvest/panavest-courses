@@ -52,10 +52,7 @@ export async function POST(req: NextRequest) {
     }
 
     // EBOOKS
-    const ebookId =
-      (md.ebook_id as string | undefined) ||
-      undefined;
-    const  _kind = (md.kind as "course" | "ebook" | undefined) || (md.purchase_type as "course" | "ebook" | undefined);
+    const ebookId = (md.ebook_id as string | undefined) || undefined;
 
     if (userId && ebookId) {
       await admin.from("ebook_purchases").upsert(

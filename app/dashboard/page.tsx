@@ -399,7 +399,6 @@ export default function DashboardPage() {
     return grouped;
   }, [quiz, chaptersById]);
 
-  const hasAnyCerts = (certs?.length ?? 0) > 0 || (provisionalCerts?.length ?? 0) > 0;
   const makeKdsCertId = (u: string, courseId?: string) => `KDS-${u.slice(0, 8).toUpperCase()}${courseId ? "-" + courseId.slice(0, 6).toUpperCase() : ""}`;
   const origin = typeof window !== "undefined" && window.location ? window.location.origin : "https://kdslearning.com";
 
