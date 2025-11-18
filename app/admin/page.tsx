@@ -379,6 +379,7 @@ export default function AdminPage() {
     options: [],
     correct_index: 0,
   });
+  const [bulkQuizStatus, setBulkQuizStatus] = useState<string>("");
 
   const chaptersAbort = useRef<AbortController | null>(null);
   const slidesAbort = useRef<AbortController | null>(null);
@@ -644,6 +645,22 @@ export default function AdminPage() {
     if (!r.ok) return alert("Delete failed");
     await refreshQuiz(quizSettings.chapter_id);
   }
+  async function uploadQuizCsv(file: File) {
+    setBulkQuizStatus("Uploading…");
+    const text = await file.text();
+    const r = await fetch("/api/admin/quiz-questions/bulk", {
+      method: "POST",
+      headers: { "content-type": "text/csv" },
+      body: text,
+    });
+    const d = await r.json();
+    if (r.ok) {
+      setBulkQuizStatus(`Uploaded ${d.inserted ?? 0} questions`);
+      if (chForm.id) await refreshQuiz(chForm.id);
+    } else {
+      setBulkQuizStatus(d?.error ? `Failed: ${d.error}` : "Failed");
+    }
+  }
   function startEditQuestion(q: QuizQuestion) {
     setEditingQuestionId(q.id ?? null);
     setEditingQ({ ...q });
@@ -688,6 +705,7 @@ export default function AdminPage() {
     correct_index: 0,
   });
   const [editingExamQId, setEditingExamQId] = useState<string | null>(null);
+  const [bulkExamStatus, setBulkExamStatus] = useState<string>("");
   const examAbort = useRef<AbortController | null>(null);
 
   const refreshExam = useCallback(async (courseId: string) => {
@@ -829,6 +847,22 @@ export default function AdminPage() {
     );
     if (!r.ok) return alert("Delete failed");
     await refreshExamQuestions(exam.id);
+  }
+  async function uploadExamCsv(file: File) {
+    setBulkExamStatus("Uploading…");
+    const text = await file.text();
+    const r = await fetch("/api/admin/exam-questions/bulk", {
+      method: "POST",
+      headers: { "content-type": "text/csv" },
+      body: text,
+    });
+    const d = await r.json();
+    if (r.ok) {
+      setBulkExamStatus(`Uploaded ${d.inserted ?? 0} questions`);
+      if (exam?.id) await refreshExamQuestions(exam.id);
+    } else {
+      setBulkExamStatus(d?.error ? `Failed: ${d.error}` : "Failed");
+    }
   }
 
   /* ── Ebooks ── */
@@ -1030,6 +1064,29 @@ export default function AdminPage() {
     const courses = Array.isArray(d?.courses) ? d.courses : [];
     const ebooks = Array.isArray(d?.ebooks) ? d.ebooks : [];
     setSelectedPurchases({ courses, ebooks });
+  }
+
+  async function removePurchase(kind: "course" | "ebook", target_id: string) {
+    if (!selectedUser?.id) return;
+    if (!confirm(`Remove this ${kind} from user?`)) return;
+    const r = await fetch(`/api/admin/users/${encodeURIComponent(selectedUser.id)}/purchases`, {
+      method: "DELETE",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kind, target_id }),
+    });
+    if (!r.ok) return alert("Failed to remove");
+    await loadPurchases(selectedUser.id);
+  }
+
+  async function unlockCourse(course_id: string) {
+    if (!selectedUser?.id) return;
+    const r = await fetch(`/api/admin/users/${encodeURIComponent(selectedUser.id)}/complete-course`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ course_id }),
+    });
+    if (!r.ok) return alert("Failed to unlock");
+    alert("Course marked complete and final exam unlocked for this user.");
   }
 
   /* ── Quick Prices ── */
@@ -1704,6 +1761,26 @@ export default function AdminPage() {
 
                   <div className="mt-6 grid gap-3">
                     <div className="text-sm font-semibold">Questions</div>
+                    <div className="rounded-lg border border-dashed border-slate-300 p-3 text-xs flex flex-col gap-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold text-slate-700">Bulk upload (CSV)</span>
+                        <a href="/templates/quiz-bulk-template.csv" className="underline text-blue-700" download>
+                          Download template
+                        </a>
+                      </div>
+                      <p className="text-slate-500">
+                        Columns: <code>chapter_id, question, options, correct_index</code>. Options separated by <code>;</code> or <code>|</code>.
+                      </p>
+                      <input
+                        type="file"
+                        accept=".csv,text/csv"
+                        onChange={(e) => {
+                          const f = (e.target as HTMLInputElement).files?.[0];
+                          if (f) void uploadQuizCsv(f);
+                        }}
+                      />
+                      {bulkQuizStatus && <div className="text-slate-600">{bulkQuizStatus}</div>}
+                    </div>
                     <div className="grid gap-2">
                       {questions.map((q, i) => (
                         <div key={q.id ?? i} className="rounded-lg p-3 ring-1 ring-slate-200">
@@ -1930,6 +2007,26 @@ export default function AdminPage() {
                   {exam?.id ? (
                     <div className="mt-6 grid gap-3">
                       <div className="text-sm font-semibold">Exam Questions</div>
+                      <div className="rounded-lg border border-dashed border-slate-300 p-3 text-xs flex flex-col gap-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-semibold text-slate-700">Bulk upload (CSV)</span>
+                          <a href="/templates/final-exam-bulk-template.csv" className="underline text-blue-700" download>
+                            Download template
+                          </a>
+                        </div>
+                        <p className="text-slate-500">
+                          Columns: <code>exam_id, prompt, options, correct_index</code>. Options separated by <code>;</code> or <code>|</code>.
+                        </p>
+                        <input
+                          type="file"
+                          accept=".csv,text/csv"
+                          onChange={(e) => {
+                            const f = (e.target as HTMLInputElement).files?.[0];
+                            if (f) void uploadExamCsv(f);
+                          }}
+                        />
+                        {bulkExamStatus && <div className="text-slate-600">{bulkExamStatus}</div>}
+                      </div>
                       <div className="grid gap-2">
                         {examQ.map((q, i) => (
                           <div key={q.id ?? i} className="rounded-lg p-3 ring-1 ring-slate-200">
@@ -2336,18 +2433,40 @@ export default function AdminPage() {
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     <div className="rounded-lg p-3 ring-1 ring-slate-200">
                       <div className="font-medium">Courses Purchased</div>
-                      <ul className="mt-2 text-sm list-disc ms-5">
+                      <ul className="mt-2 text-sm list-disc ms-5 space-y-1">
                         {(selectedPurchases?.courses ?? []).map((c, i) => (
-                          <li key={i}>{c.title}</li>
+                          <li key={i} className="flex items-center gap-2">
+                            <span>{c.title}</span>
+                            <button
+                              onClick={() => void unlockCourse(c.course_id || c.id)}
+                              className="text-[11px] rounded bg-green-100 px-2 py-0.5 text-green-800"
+                            >
+                              Unlock final exam
+                            </button>
+                            <button
+                              onClick={() => void removePurchase("course", c.course_id || c.id)}
+                              className="text-[11px] rounded bg-red-100 px-2 py-0.5 text-red-800"
+                            >
+                              Remove
+                            </button>
+                          </li>
                         ))}
                         {(selectedPurchases?.courses?.length ?? 0) === 0 && <li className="text-slate-500">None</li>}
                       </ul>
                     </div>
                     <div className="rounded-lg p-3 ring-1 ring-slate-200">
                       <div className="font-medium">E-books Purchased</div>
-                      <ul className="mt-2 text-sm list-disc ms-5">
+                      <ul className="mt-2 text-sm list-disc ms-5 space-y-1">
                         {(selectedPurchases?.ebooks ?? []).map((e, i) => (
-                          <li key={i}>{e.title}</li>
+                          <li key={i} className="flex items-center gap-2">
+                            <span>{e.title}</span>
+                            <button
+                              onClick={() => void removePurchase("ebook", e.ebook_id || e.id)}
+                              className="text-[11px] rounded bg-red-100 px-2 py-0.5 text-red-800"
+                            >
+                              Remove
+                            </button>
+                          </li>
                         ))}
                         {(selectedPurchases?.ebooks?.length ?? 0) === 0 && <li className="text-slate-500">None</li>}
                       </ul>

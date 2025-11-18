@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 const ALLOWED = ["ban", "unban", "revoke", "clear-history", "delete"] as const;
 type AllowedAction = (typeof ALLOWED)[number];
@@ -27,6 +28,34 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   }
 
-  // STUB: keep current behavior; plug in real admin logic later
-  return NextResponse.json({ ok: true, stub: true, id, action });
+  const admin = getSupabaseAdmin();
+
+  if (action === "clear-history") {
+    await admin.from("user_slide_progress").delete().eq("user_id", id);
+    await admin.from("user_chapter_quiz").delete().eq("user_id", id);
+    await admin.from("attempts").delete().eq("user_id", id);
+    return NextResponse.json({ ok: true });
+  }
+
+  if (action === "revoke") {
+    // Revoke all refresh tokens/sessions
+    await admin.auth.admin.invalidateAllUserRefreshTokens(id);
+    return NextResponse.json({ ok: true });
+  }
+
+  if (action === "ban") {
+    await admin.auth.admin.updateUserById(id, { user_metadata: { banned: true } });
+    return NextResponse.json({ ok: true });
+  }
+  if (action === "unban") {
+    await admin.auth.admin.updateUserById(id, { user_metadata: { banned: false } });
+    return NextResponse.json({ ok: true });
+  }
+
+  if (action === "delete") {
+    await admin.auth.admin.deleteUser(id);
+    return NextResponse.json({ ok: true });
+  }
+
+  return NextResponse.json({ ok: true });
 }
