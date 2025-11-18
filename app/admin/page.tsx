@@ -2470,17 +2470,22 @@ export default function AdminPage() {
                     <div className="rounded-lg p-3 ring-1 ring-slate-200">
                       <div className="font-medium">E-books Purchased</div>
                       <ul className="mt-2 text-sm list-disc ms-5 space-y-1">
-                        {(selectedPurchases?.ebooks ?? []).map((e, i) => (
-                          <li key={i} className="flex items-center gap-2">
-                            <span>{e.title}</span>
-                            <button
-                              onClick={() => void removePurchase("ebook", e.ebook_id || e.id)}
-                              className="text-[11px] rounded bg-red-100 px-2 py-0.5 text-red-800"
-                            >
-                              Remove
-                            </button>
-                          </li>
-                        ))}
+                        {(selectedPurchases?.ebooks ?? []).map((e, i) => {
+                          const ebookId = (e as { ebook_id?: string; id?: string }).ebook_id || (e as { id?: string }).id || "";
+                          return (
+                            <li key={i} className="flex items-center gap-2">
+                              <span>{e.title}</span>
+                              {ebookId && (
+                                <button
+                                  onClick={() => void removePurchase("ebook", ebookId)}
+                                  className="text-[11px] rounded bg-red-100 px-2 py-0.5 text-red-800"
+                                >
+                                  Remove
+                                </button>
+                              )}
+                            </li>
+                          );
+                        })}
                         {(selectedPurchases?.ebooks?.length ?? 0) === 0 && <li className="text-slate-500">None</li>}
                       </ul>
                     </div>
