@@ -22,15 +22,15 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     return NextResponse.json({ error: enrErr?.message || ebErr?.message || "Failed" }, { status: 500 });
   }
 
-  const courses = (enr ?? []).map((r) => ({
+  const courses = (enr ?? []).map((r: { course_id: string; paid: boolean | null; courses?: { title?: string | null } }) => ({
     course_id: r.course_id,
-    title: (r as any)?.courses?.title ?? r.course_id,
+    title: r.courses?.title ?? r.course_id,
     paid: r.paid,
   }));
 
-  const ebooks = (eb ?? []).map((r) => ({
+  const ebooks = (eb ?? []).map((r: { ebook_id: string; ebooks?: { title?: string | null } }) => ({
     ebook_id: r.ebook_id,
-    title: (r as any)?.ebooks?.title ?? r.ebook_id,
+    title: r.ebooks?.title ?? r.ebook_id,
   }));
 
   return NextResponse.json({ courses, ebooks });

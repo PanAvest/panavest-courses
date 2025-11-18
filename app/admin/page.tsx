@@ -414,7 +414,7 @@ export default function AdminPage() {
         setQForm({ chapter_id: "", question: "", options: [], correct_index: 0 });
       }
     },
-    [selectedCourseId, chForm.id],
+    [selectedCourseId, chForm.id, emptyChapter],
   );
 
   const refreshSlides = useCallback(
@@ -499,7 +499,7 @@ export default function AdminPage() {
     }
     void refreshChapters(selectedCourseId);
     void refreshExam(selectedCourseId);
-  }, [selectedCourseId, refreshChapters]);
+  }, [selectedCourseId, refreshChapters, refreshExam, resetContentState]);
 
   useEffect(() => {
     const id = chForm.id ?? "";
@@ -743,7 +743,7 @@ export default function AdminPage() {
       setExam(null);
       setExamQ([]);
     }
-  }, []);
+  }, [refreshExamQuestions]);
 
   const refreshExamQuestions = useCallback(async (examId: string) => {
     const r = await fetch(
