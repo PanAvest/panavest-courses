@@ -2440,23 +2440,30 @@ export default function AdminPage() {
                     <div className="rounded-lg p-3 ring-1 ring-slate-200">
                       <div className="font-medium">Courses Purchased</div>
                       <ul className="mt-2 text-sm list-disc ms-5 space-y-1">
-                        {(selectedPurchases?.courses ?? []).map((c, i) => (
-                          <li key={i} className="flex items-center gap-2">
-                            <span>{c.title}</span>
-                            <button
-                              onClick={() => void unlockCourse(c.course_id || c.id)}
-                              className="text-[11px] rounded bg-green-100 px-2 py-0.5 text-green-800"
-                            >
-                              Unlock final exam
-                            </button>
-                            <button
-                              onClick={() => void removePurchase("course", c.course_id || c.id)}
-                              className="text-[11px] rounded bg-red-100 px-2 py-0.5 text-red-800"
-                            >
-                              Remove
-                            </button>
-                          </li>
-                        ))}
+                        {(selectedPurchases?.courses ?? []).map((c, i) => {
+                          const courseId = (c as { course_id?: string; id?: string }).course_id || (c as { id?: string }).id || "";
+                          return (
+                            <li key={i} className="flex items-center gap-2">
+                              <span>{c.title}</span>
+                              {courseId && (
+                                <>
+                                  <button
+                                    onClick={() => void unlockCourse(courseId)}
+                                    className="text-[11px] rounded bg-green-100 px-2 py-0.5 text-green-800"
+                                  >
+                                    Unlock final exam
+                                  </button>
+                                  <button
+                                    onClick={() => void removePurchase("course", courseId)}
+                                    className="text-[11px] rounded bg-red-100 px-2 py-0.5 text-red-800"
+                                  >
+                                    Remove
+                                  </button>
+                                </>
+                              )}
+                            </li>
+                          );
+                        })}
                         {(selectedPurchases?.courses?.length ?? 0) === 0 && <li className="text-slate-500">None</li>}
                       </ul>
                     </div>
