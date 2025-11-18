@@ -38,8 +38,8 @@ export async function POST(req: Request) {
   }
 
   if (action === "revoke") {
-    // Revoke all refresh tokens/sessions
-    await admin.auth.admin.invalidateAllUserRefreshTokens(id);
+    // SDK v2 does not expose per-user revoke; mark user metadata and rely on client checks
+    await admin.auth.admin.updateUserById(id, { user_metadata: { revoked_at: new Date().toISOString() } });
     return NextResponse.json({ ok: true });
   }
 
