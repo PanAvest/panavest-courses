@@ -349,15 +349,21 @@ export default function AdminPage() {
     [knowledge, selectedCourseId],
   );
 
-  const emptyChapter: Chapter = { course_id: "", title: "", order_index: 0 };
-  const emptySlide: Slide = {
-    chapter_id: "",
-    title: "",
-    order_index: 0,
-    intro_video_url: "",
-    asset_url: "",
-    body: "",
-  };
+  const emptyChapter = useMemo<Chapter>(
+    () => ({ course_id: "", title: "", order_index: 0 }),
+    [],
+  );
+  const emptySlide = useMemo<Slide>(
+    () => ({
+      chapter_id: "",
+      title: "",
+      order_index: 0,
+      intro_video_url: "",
+      asset_url: "",
+      body: "",
+    }),
+    [],
+  );
 
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [chForm, setChForm] = useState<Chapter>(emptyChapter);
@@ -467,7 +473,7 @@ export default function AdminPage() {
     [chForm.id],
   );
 
-  function resetContentState() {
+  const resetContentState = useCallback(() => {
     setChapters([]);
     setChForm({ ...emptyChapter, course_id: "" });
     setSlides([]);
@@ -489,7 +495,7 @@ export default function AdminPage() {
       options: [],
       correct_index: 0,
     });
-  }
+  }, [emptyChapter, emptySlide]);
 
   // React to course / chapter changes
   useEffect(() => {
@@ -708,6 +714,15 @@ export default function AdminPage() {
   const [bulkExamStatus, setBulkExamStatus] = useState<string>("");
   const examAbort = useRef<AbortController | null>(null);
 
+  const refreshExamQuestions = useCallback(async (examId: string) => {
+    const r = await fetch(
+      `/api/admin/exam-questions?exam_id=${encodeURIComponent(examId)}`,
+      { cache: "no-store" },
+    );
+    const d = r.ok ? await r.json() : [];
+    setExamQ(asFinalExamQuestions(d));
+  }, []);
+
   const refreshExam = useCallback(async (courseId: string) => {
     examAbort.current?.abort();
     const ac = new AbortController();
@@ -744,15 +759,6 @@ export default function AdminPage() {
       setExamQ([]);
     }
   }, [refreshExamQuestions]);
-
-  const refreshExamQuestions = useCallback(async (examId: string) => {
-    const r = await fetch(
-      `/api/admin/exam-questions?exam_id=${encodeURIComponent(examId)}`,
-      { cache: "no-store" },
-    );
-    const d = r.ok ? await r.json() : [];
-    setExamQ(asFinalExamQuestions(d));
-  }, []);
 
   async function saveExam() {
     if (!selectedCourseId) return alert("Pick a course first");
