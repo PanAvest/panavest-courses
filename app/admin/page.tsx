@@ -497,23 +497,6 @@ export default function AdminPage() {
     });
   }, [emptyChapter, emptySlide]);
 
-  // React to course / chapter changes
-  useEffect(() => {
-    if (!selectedCourseId) {
-      resetContentState();
-      return;
-    }
-    void refreshChapters(selectedCourseId);
-    void refreshExam(selectedCourseId);
-  }, [selectedCourseId, refreshChapters, refreshExam, resetContentState]);
-
-  useEffect(() => {
-    const id = chForm.id ?? "";
-    void refreshSlides(id);
-    void refreshQuiz(id);
-    setSlForm((s) => ({ ...s, chapter_id: id }));
-  }, [chForm.id, refreshSlides, refreshQuiz]);
-
   async function saveChapter() {
     if (!selectedCourseId || !chForm.title.trim()) return alert("Course & Title required");
     setSavingChapter(true);
@@ -759,6 +742,23 @@ export default function AdminPage() {
       setExamQ([]);
     }
   }, [refreshExamQuestions]);
+
+  // React to course / chapter changes
+  useEffect(() => {
+    if (!selectedCourseId) {
+      resetContentState();
+      return;
+    }
+    void refreshChapters(selectedCourseId);
+    void refreshExam(selectedCourseId);
+  }, [selectedCourseId, refreshChapters, refreshExam, resetContentState]);
+
+  useEffect(() => {
+    const id = chForm.id ?? "";
+    void refreshSlides(id);
+    void refreshQuiz(id);
+    setSlForm((s) => ({ ...s, chapter_id: id }));
+  }, [chForm.id, refreshSlides, refreshQuiz]);
 
   async function saveExam() {
     if (!selectedCourseId) return alert("Pick a course first");
