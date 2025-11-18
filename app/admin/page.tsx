@@ -546,7 +546,7 @@ export default function AdminPage() {
       order_index: Number.isFinite(slForm.order_index) ? Number(slForm.order_index) : 0,
       intro_video_url: slForm.intro_video_url?.trim() || null,
       asset_url: slForm.asset_url?.trim() || null,
-      body: slForm.body?.trim() || null,
+      body: slForm.body ?? null, // preserve formatting/spacing
     };
     const r = await fetch("/api/admin/slides", {
       method: "POST",
@@ -687,6 +687,7 @@ export default function AdminPage() {
     options: [],
     correct_index: 0,
   });
+  const [editingExamQId, setEditingExamQId] = useState<string | null>(null);
   const examAbort = useRef<AbortController | null>(null);
 
   const refreshExam = useCallback(async (courseId: string) => {
@@ -799,7 +800,24 @@ export default function AdminPage() {
     });
     if (!r.ok) return alert("Save question failed");
     await refreshExamQuestions(exam.id);
-    setExamQForm({ exam_id: exam.id, prompt: "", options: [], correct_index: 0 });
+    setExamQForm({ exam_id: exam.id, prompt: "", options: [], correct_index: 0, id: undefined });
+    setEditingExamQId(null);
+  }
+
+  function startEditExamQuestion(q: FinalExamQuestion) {
+    setEditingExamQId(q.id ?? null);
+    setExamQForm({
+      ...q,
+      exam_id: exam?.id ?? q.exam_id ?? "",
+      prompt: q.prompt ?? q.question ?? "",
+      options: q.options ?? [],
+      correct_index: q.correct_index ?? 0,
+    });
+  }
+
+  function cancelEditExamQuestion() {
+    setEditingExamQId(null);
+    setExamQForm({ exam_id: exam?.id ?? "", prompt: "", options: [], correct_index: 0, id: undefined });
   }
 
   async function deleteExamQuestion(id?: string) {
@@ -1545,11 +1563,18 @@ export default function AdminPage() {
                 </div>
 
                 <label className="grid gap-1">
-                  <span className="text-xs text-slate-500">Body / Notes (optional)</span>
-                  <textarea
-                    value={slForm.body ?? ""}
-                    onChange={(e) => setSlForm((f) => ({ ...f, body: (e.target as HTMLTextAreaElement).value }))}
-                    className="min-h-[100px] rounded-lg bg-white px-3 py-2 ring-1 ring-slate-200"
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-slate-500">Body / Notes (supports rich text)</span>
+                    <span className="text-[11px] text-slate-400">Paste with formatting; saved as HTML</span>
+                  </div>
+                  <div
+                    contentEditable
+                    suppressContentEditableWarning
+                    className="min-h-[120px] rounded-lg bg-white px-3 py-2 ring-1 ring-slate-200 text-sm"
+                    onInput={(e) =>
+                      setSlForm((f) => ({ ...f, body: (e.target as HTMLDivElement).innerHTML }))
+                    }
+                    dangerouslySetInnerHTML={{ __html: slForm.body ?? "" }}
                   />
                 </label>
 
@@ -1908,37 +1933,89 @@ export default function AdminPage() {
                       <div className="grid gap-2">
                         {examQ.map((q, i) => (
                           <div key={q.id ?? i} className="rounded-lg p-3 ring-1 ring-slate-200">
-                            <div className="text-sm font-medium">{q.prompt}</div>
-                            <ol className="text-xs text-slate-500 mt-1 list-decimal ms-5">
-                              {q.options.map((opt, idx) => (
-                                <li key={idx} className={idx === q.correct_index ? "text-slate-900" : ""}>
-                                  {opt}
-                                  {idx === q.correct_index ? "  ← correct" : ""}
-                                </li>
-                              ))}
-                            </ol>
-                            <div className="mt-2 flex gap-2">
-                              <button
-                                onClick={() =>
-                                  setExamQForm({
-                                    ...q,
-                                    exam_id: exam.id!,
-                                    prompt: q.prompt ?? "",
-                                    options: q.options ?? [],
-                                    correct_index: q.correct_index ?? 0,
-                                  })
-                                }
-                                className="px-3 py-1.5 rounded-lg ring-1 ring-slate-200 text-sm"
-                              >
-                                Edit
-                              </button>
-                              <button
-                                onClick={() => void deleteExamQuestion(q.id)}
-                                className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm"
-                              >
-                                Delete
-                              </button>
-                            </div>
+                            {editingExamQId === (q.id ?? null) ? (
+                              <div className="grid gap-2">
+                                <input
+                                  value={examQForm.prompt}
+                                  onChange={(e) =>
+                                    setExamQForm((f) => ({
+                                      ...f,
+                                      prompt: (e.target as HTMLInputElement).value,
+                                      exam_id: exam.id!,
+                                      id: q.id,
+                                    }))
+                                  }
+                                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200 text-sm"
+                                />
+                                <input
+                                  value={toCsv(examQForm.options)}
+                                  onChange={(e) =>
+                                    setExamQForm((f) => ({
+                                      ...f,
+                                      options: fromCsv((e.target as HTMLInputElement).value),
+                                      exam_id: exam.id!,
+                                      id: q.id,
+                                    }))
+                                  }
+                                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200 text-sm"
+                                  placeholder="Options (comma separated)"
+                                />
+                                <input
+                                  type="number"
+                                  value={examQForm.correct_index}
+                                  onChange={(e) =>
+                                    setExamQForm((f) => ({
+                                      ...f,
+                                      correct_index: Number((e.target as HTMLInputElement).value || 0),
+                                      exam_id: exam.id!,
+                                      id: q.id,
+                                    }))
+                                  }
+                                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200 text-sm"
+                                  placeholder="Correct index (0-based)"
+                                />
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => void saveExamQuestion()}
+                                    className="px-3 py-1.5 rounded-lg bg-[#0a1156] text-white text-sm"
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    onClick={cancelEditExamQuestion}
+                                    className="px-3 py-1.5 rounded-lg ring-1 ring-slate-200 text-sm"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="text-sm font-medium">{q.prompt}</div>
+                                <ol className="text-xs text-slate-500 mt-1 list-decimal ms-5">
+                                  {q.options.map((opt, idx) => (
+                                    <li key={idx} className={idx === q.correct_index ? "text-slate-900" : ""}>
+                                      {opt}
+                                      {idx === q.correct_index ? "  ← correct" : ""}
+                                    </li>
+                                  ))}
+                                </ol>
+                                <div className="mt-2 flex gap-2">
+                                  <button
+                                    onClick={() => startEditExamQuestion(q)}
+                                    className="px-3 py-1.5 rounded-lg ring-1 ring-slate-200 text-sm"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    onClick={() => void deleteExamQuestion(q.id)}
+                                    className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              </>
+                            )}
                           </div>
                         ))}
                         {examQ.length === 0 && <div className="text-xs text-slate-500">No questions yet.</div>}

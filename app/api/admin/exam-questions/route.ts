@@ -14,15 +14,50 @@ function sb() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth:{ persistSession:false }});
 }
 
+// Helper to migrate legacy exam_questions → questions (if needed)
+async function migrateIfNeeded(exam_id: string, client = sb()) {
+  const { data: current } = await client
+    .from("questions")
+    .select("*")
+    .eq("exam_id", exam_id);
+  if (current && current.length > 0) return current;
+
+  const { data: legacy } = await client
+    .from("exam_questions")
+    .select("*")
+    .eq("exam_id", exam_id);
+  if (!legacy || legacy.length === 0) return [];
+
+  const rows = legacy.map((r) => ({
+    exam_id,
+    prompt: String((r as Record<string, unknown>).prompt ?? (r as Record<string, unknown>).question ?? ""),
+    options: Array.isArray((r as Record<string, unknown>).options)
+      ? ((r as Record<string, unknown>).options as unknown[]).map(String)
+      : [],
+    correct_index: Number((r as Record<string, unknown>).correct_index ?? 0),
+  }));
+
+  await client.from("questions").upsert(rows);
+  return rows as unknown[];
+}
+
 // GET /api/admin/exam-questions?exam_id=...
 export async function GET(req: Request) {
   if (!basicOk(req.headers)) return new NextResponse("Unauthorized", { status: 401 });
   const { searchParams } = new URL(req.url);
   const exam_id = searchParams.get("exam_id");
   if (!exam_id) return NextResponse.json([], { status: 200 });
-  const { data, error } = await sb().from("exam_questions").select("*").eq("exam_id", exam_id).order("created_at",{ascending:true});
+  const client = sb();
+  const migrated = await migrateIfNeeded(exam_id, client);
+
+  const { data, error } = await client
+    .from("questions")
+    .select("*")
+    .eq("exam_id", exam_id)
+    .order("created_at", { ascending: true });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data ?? []);
+  const rows = data && data.length > 0 ? data : migrated;
+  return NextResponse.json(rows ?? []);
 }
 
 // POST { exam_id, question, options[], correct_index }
@@ -37,9 +72,9 @@ export async function POST(req: Request) {
   if (!exam_id || !question || options.length < 2 || correct_index < 0 || correct_index >= options.length) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
-  const row = { id, exam_id, question, options, correct_index };
+  const row = { id, exam_id, prompt: question, options, correct_index };
   const { data, error } = await sb()
-    .from("exam_questions")
+    .from("questions")
     .upsert(row, { onConflict: "id" })
     .select()
     .maybeSingle();
@@ -53,7 +88,7 @@ export async function DELETE(req: Request) {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
-  const { error } = await sb().from("exam_questions").delete().eq("id", id);
+  const { error } = await sb().from("questions").delete().eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
 }
