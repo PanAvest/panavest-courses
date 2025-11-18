@@ -22,16 +22,30 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     return NextResponse.json({ error: enrErr?.message || ebErr?.message || "Failed" }, { status: 500 });
   }
 
-  const courses = (enr ?? []).map((r: { course_id: string; paid: boolean | null; courses?: { title?: string | null } }) => ({
-    course_id: r.course_id,
-    title: r.courses?.title ?? r.course_id,
-    paid: r.paid,
-  }));
+  const courses = (enr ?? [])
+    .map((row) => {
+      const course_id = String((row as Record<string, unknown>).course_id ?? "");
+      const paid = Boolean((row as Record<string, unknown>).paid ?? false);
+      const coursesField = (row as Record<string, unknown>).courses;
+      const title =
+        Array.isArray(coursesField)
+          ? (coursesField[0] as { title?: string | null })?.title
+          : (coursesField as { title?: string | null } | null | undefined)?.title;
+      return course_id ? { course_id, title: title ?? course_id, paid } : null;
+    })
+    .filter(Boolean);
 
-  const ebooks = (eb ?? []).map((r: { ebook_id: string; ebooks?: { title?: string | null } }) => ({
-    ebook_id: r.ebook_id,
-    title: r.ebooks?.title ?? r.ebook_id,
-  }));
+  const ebooks = (eb ?? [])
+    .map((row) => {
+      const ebook_id = String((row as Record<string, unknown>).ebook_id ?? "");
+      const ebooksField = (row as Record<string, unknown>).ebooks;
+      const title =
+        Array.isArray(ebooksField)
+          ? (ebooksField[0] as { title?: string | null })?.title
+          : (ebooksField as { title?: string | null } | null | undefined)?.title;
+      return ebook_id ? { ebook_id, title: title ?? ebook_id } : null;
+    })
+    .filter(Boolean);
 
   return NextResponse.json({ courses, ebooks });
 }
