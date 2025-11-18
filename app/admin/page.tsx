@@ -1917,7 +1917,21 @@ export default function AdminPage() {
                                 </li>
                               ))}
                             </ol>
-                            <div className="mt-2">
+                            <div className="mt-2 flex gap-2">
+                              <button
+                                onClick={() =>
+                                  setExamQForm({
+                                    ...q,
+                                    exam_id: exam.id!,
+                                    prompt: q.prompt ?? "",
+                                    options: q.options ?? [],
+                                    correct_index: q.correct_index ?? 0,
+                                  })
+                                }
+                                className="px-3 py-1.5 rounded-lg ring-1 ring-slate-200 text-sm"
+                              >
+                                Edit
+                              </button>
                               <button
                                 onClick={() => void deleteExamQuestion(q.id)}
                                 className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm"
@@ -1931,7 +1945,12 @@ export default function AdminPage() {
                       </div>
 
                       <div className="mt-2 grid gap-3">
-                        <div className="text-sm font-semibold">Add Exam Question</div>
+                        <div className="text-sm font-semibold">
+                          {examQForm.id ? "Edit Exam Question" : "Add Exam Question"}
+                          {examQForm.id && (
+                            <span className="ms-2 text-xs text-slate-500">(saving will update this question)</span>
+                          )}
+                        </div>
                         <label className="grid gap-1">
                           <span className="text-xs text-slate-500">Question</span>
                           <input

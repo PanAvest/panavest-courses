@@ -31,13 +31,19 @@ export async function POST(req: Request) {
   if (!basicOk(await headers())) return new NextResponse("Unauthorized", { status: 401 });
   const body = await req.json().catch(() => ({}));
   const exam_id = String(body.exam_id ?? "");
+  const id = body.id ? String(body.id) : undefined;
   const question = String(body.question ?? "");
   const options = Array.isArray(body.options) ? body.options.map(String) : [];
   const correct_index = Number(body.correct_index ?? 0);
   if (!exam_id || !question || options.length < 2 || correct_index < 0 || correct_index >= options.length) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
-  const { data, error } = await sb().from("exam_questions").insert({ exam_id, question, options, correct_index }).select().maybeSingle();
+  const row = { id, exam_id, question, options, correct_index };
+  const { data, error } = await sb()
+    .from("exam_questions")
+    .upsert(row, { onConflict: "id" })
+    .select()
+    .maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data);
 }
