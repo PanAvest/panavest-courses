@@ -31,7 +31,7 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const exam_id = String(body.exam_id ?? "");
   const id = body.id ? String(body.id) : undefined;
-  const question = String(body.question ?? "");
+  const question = String(body.question ?? body.prompt ?? "");
   const options = Array.isArray(body.options) ? body.options.map(String) : [];
   const correct_index = Number(body.correct_index ?? 0);
   if (!exam_id || !question || options.length < 2 || correct_index < 0 || correct_index >= options.length) {

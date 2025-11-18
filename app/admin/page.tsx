@@ -234,7 +234,7 @@ function asFinalExamQuestions(x: unknown): FinalExamQuestion[] {
     return {
       id: isStr(r["id"]) ? r["id"] : undefined,
       exam_id: String(r["exam_id"] ?? ""),
-      prompt: String(r["prompt"] ?? ""),
+      prompt: String(r["prompt"] ?? r["question"] ?? ""),
       options: opts,
       correct_index: Number(r["correct_index"] ?? 0),
       created_at: isStr(r["created_at"]) ? r["created_at"] : undefined,
@@ -791,7 +791,7 @@ export default function AdminPage() {
     if (examQForm.correct_index < 0 || examQForm.correct_index >= examQForm.options.length)
       return alert("Correct index out of range");
 
-    const payload = { ...examQForm, exam_id: exam.id };
+    const payload = { ...examQForm, exam_id: exam.id, question: examQForm.prompt };
     const r = await fetch("/api/admin/exam-questions", {
       method: "POST",
       headers: { "content-type": "application/json" },
