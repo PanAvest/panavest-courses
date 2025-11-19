@@ -832,6 +832,22 @@ export default function CourseDashboard() {
       console.error("attempt insert failed", err);
     }
 
+    if (!attemptId) {
+      try {
+        const { data: fallbackRow } = await supabase
+          .from("attempts")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("exam_id", finalExam.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        attemptId = fallbackRow?.id ?? null;
+      } catch (err) {
+        console.error("attempt fallback fetch failed", err);
+      }
+    }
+
     setFinalExamOpen(false);
     setFinalTimeLeft(0);
     setFinalAnswers({});
