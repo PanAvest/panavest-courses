@@ -4,8 +4,8 @@ import { generateCertificateNumber } from "@/lib/certificates";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { getSupabaseRouteHandlerClient } from "@/lib/supabaseServer";
 
-export async function POST(_req: Request, { params }: { params: { id: string } }) {
-  const { id } = params;
+export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   if (!id) {
     return NextResponse.json({ error: "CERT_ID_REQUIRED" }, { status: 400 });
   }
