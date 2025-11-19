@@ -813,10 +813,13 @@ export default function CourseDashboard() {
 
     let attemptId: string | null = null;
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
       const res = await fetch(`/api/exams/${encodeURIComponent(finalExam.id)}/attempts`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
+        headers,
         body: JSON.stringify({ score: scorePct, passed, total, correct: correctCount, autoSubmit: auto }),
       });
       if (res.ok) {
