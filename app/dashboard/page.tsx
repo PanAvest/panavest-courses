@@ -23,7 +23,7 @@ type CertificateRow = {
   user_id: string;
   course_id: string;
   attempt_id: string | null;
-  score_pct: number;
+  score_pct: number | null;
   certificate_no: string;
   issued_at: string;
   courses: { title: string; slug: string; img: string | null; cpd_points?: number | null } | null;
@@ -275,7 +275,7 @@ export default function DashboardPage() {
       /* ───────── Certificates (no join; hydrate meta) ───────── */
       const { data: certRows, error: certErr } = await supabase
         .from("certificates")
-        .select("id,user_id,course_id,attempt_id,score_pct,certificate_no,issued_at")
+        .select("id,user_id,course_id,attempt_id,certificate_no,issued_at")
         .eq("user_id", userId)
         .order("issued_at", { ascending: false });
       if (!guard()) return;
@@ -283,8 +283,22 @@ export default function DashboardPage() {
       if (certErr) console.error("certificates fetch error", certErr);
 
       const bare = (certRows ?? []) as {
-        id: string; user_id: string; course_id: string; attempt_id: string | null; score_pct: number; certificate_no: string; issued_at: string;
+        id: string; user_id: string; course_id: string; attempt_id: string | null; certificate_no: string; issued_at: string;
       }[];
+
+      const attemptIds = Array.from(new Set(bare.map((c) => c.attempt_id).filter(Boolean))) as string[];
+      const attemptScores: Record<string, number> = {};
+      if (attemptIds.length > 0) {
+        const { data: attemptRows, error: attemptErr } = await supabase
+          .from("attempts")
+          .select("id,score")
+          .in("id", attemptIds);
+        if (!guard()) return;
+        if (attemptErr) console.error("attempts fetch error", attemptErr);
+        (attemptRows ?? []).forEach((row: { id: string; score: number | null }) => {
+          attemptScores[row.id] = Math.round(Number(row.score ?? 0));
+        });
+      }
 
       const certCourseIds = Array.from(new Set(bare.map((c) => c.course_id))).filter(Boolean);
       const missingForCerts = certCourseIds.filter((cid) => !courseMetaMap[cid]);
@@ -301,6 +315,7 @@ export default function DashboardPage() {
         const meta = courseMetaMap[c.course_id];
         return {
           ...c,
+          score_pct: c.attempt_id ? attemptScores[c.attempt_id] ?? null : null,
           courses: meta
             ? { title: meta.title, slug: meta.slug, img: meta.img ?? null, cpd_points: meta.cpd_points ?? null }
             : { title: "Course", slug: "", img: null, cpd_points: null },
@@ -611,7 +626,7 @@ export default function DashboardPage() {
                           >
                             {refreshingCertId === c.id ? "Refreshing…" : "Refresh ID"}
                           </button>
-                          <div className="text-xs text-muted">Final score: {c.score_pct}%</div>
+                          <div className="text-xs text-muted">Final score: {c.score_pct != null ? `${c.score_pct}%` : "—"}</div>
                         </div>
                       </div>
                     </div>
