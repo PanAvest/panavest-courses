@@ -10,6 +10,11 @@ export async function POST(req: Request) {
   } = await supabase.auth.getSession();
   const user = session?.user;
   if (!user) {
+    console.warn("/api/exams/attempt: no session", {
+      cookieKeys: req.headers.get("cookie")?.split(";").map((c) => c.split("=")[0].trim()).slice(0, 5),
+      origin: req.headers.get("origin"),
+      referer: req.headers.get("referer"),
+    });
     return NextResponse.json({ error: "NOT_AUTHENTICATED" }, { status: 401 });
   }
 
@@ -39,6 +44,12 @@ export async function POST(req: Request) {
     .single();
 
   if (error || !data) {
+    console.error("/api/exams/attempt insert failed", {
+      user_id: user.id,
+      exam_id,
+      error: error?.message,
+      code: (error as { code?: string } | null)?.code,
+    });
     return NextResponse.json({ error: error?.message ?? "Failed to record attempt" }, { status: 500 });
   }
 
