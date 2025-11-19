@@ -519,7 +519,7 @@ export default function AdminPage() {
   async function deleteChapter(id?: string) {
     if (!id) return;
     if (!confirm("Delete this chapter and its slides?")) return;
-    const r = await fetch(`/api/admin/chapters?id=${encodeURIComponent(id)}`, {
+    const r = await fetch(`/api/admin/chapters/${encodeURIComponent(id)}`, {
       method: "DELETE",
     });
     if (!r.ok) return alert("Delete failed");
