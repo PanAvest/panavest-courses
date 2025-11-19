@@ -851,13 +851,10 @@ export default function CourseDashboard() {
 
     let attemptId: string | null = null;
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (token) headers.Authorization = `Bearer ${token}`;
       const res = await fetch("/api/exams/attempt", {
         method: "POST",
-        headers,
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           exam_id: finalExam.id,
           score: scorePct,
