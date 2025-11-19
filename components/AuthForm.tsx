@@ -2,18 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { getSupabaseClient } from "@/lib/supabaseClient";
 
 type Mode = "sign-in" | "sign-up";
 
 // Create the client only in the browser to avoid SSR issues
-const supabase: SupabaseClient | null =
-  typeof window !== "undefined"
-    ? createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL as string,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
-      )
-    : null;
+const supabase: SupabaseClient | null = typeof window !== "undefined" ? getSupabaseClient() : null;
 
 export default function AuthForm({ mode }: { mode: Mode }) {
   const router = useRouter();

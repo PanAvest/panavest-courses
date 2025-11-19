@@ -816,6 +816,7 @@ export default function CourseDashboard() {
       const res = await fetch(`/api/exams/${encodeURIComponent(finalExam.id)}/attempts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ score: scorePct, passed, total, correct: correctCount, autoSubmit: auto }),
       });
       if (res.ok) {

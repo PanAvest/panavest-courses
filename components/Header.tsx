@@ -3,8 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import logo from "@/public/logo.png"; // high-res, static import
+import { getSupabaseClient } from "@/lib/supabaseClient";
 
 // --- Small helper for external social links ---
 function SocialLink({
@@ -33,13 +34,7 @@ function SocialLink({
 }
 
 // Browser-only Supabase client
-const supabase: SupabaseClient | null =
-  typeof window !== "undefined"
-    ? createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
-    : null;
+const supabase: SupabaseClient | null = typeof window !== "undefined" ? getSupabaseClient() : null;
 
 export default function Header() {
   const [open, setOpen] = useState(false);
