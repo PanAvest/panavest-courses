@@ -74,6 +74,11 @@ type ExamGuards = {
   onVisibility: () => void;
 };
 
+type CertificateNotice = {
+  type: "success" | "error" | "info";
+  message: string;
+};
+
 declare global {
   interface Window {
     __pv_exam_guards__?: ExamGuards;
@@ -230,6 +235,7 @@ export default function CourseDashboard() {
   // results modal
   const [resultOpen, setResultOpen] = useState(false);
   const [finalResult, setFinalResult] = useState<{ scorePct: number; correct: number; total: number; passed: boolean } | null>(null);
+  const [certificateNotice, setCertificateNotice] = useState<CertificateNotice | null>(null);
 
   // misc
   const [isOnline, setIsOnline] = useState<boolean>(true);
@@ -791,6 +797,7 @@ export default function CourseDashboard() {
 
   async function submitFinalExam(auto = false) {
     if (!finalExamOpen || !finalExam || !userId) return;
+    setCertificateNotice(null);
 
     const answered = finalExamQuestions.map(q => ({
       id: q.id,
@@ -804,23 +811,66 @@ export default function CourseDashboard() {
     const passMark = Number(finalExam.pass_mark ?? 0);
     const passed = scorePct >= passMark;
 
+    let attemptId: string | null = null;
     try {
-      await supabase.from("attempts").insert({
-        user_id: userId,
-        exam_id: finalExam.id,
-        score: scorePct,
-        passed,
-        created_at: new Date().toISOString(),
-        meta: { autoSubmit: auto, total, correctCount } as Record<string, unknown>,
-      });
+      const { data: attemptRow, error: attemptErr } = await supabase
+        .from("attempts")
+        .insert({
+          user_id: userId,
+          exam_id: finalExam.id,
+          score: scorePct,
+          passed,
+          created_at: new Date().toISOString(),
+          meta: { autoSubmit: auto, total, correctCount } as Record<string, unknown>,
+        })
+        .select("id")
+        .single();
+      if (attemptErr) throw attemptErr;
+      attemptId = attemptRow?.id ?? null;
       setFinalAttemptExists(true);
-    } catch {}
+    } catch (err) {
+      console.error("attempt insert failed", err);
+    }
 
     setFinalExamOpen(false);
     setFinalTimeLeft(0);
     setFinalAnswers({});
     setFinalResult({ scorePct, correct: correctCount, total, passed });
     setResultOpen(true);
+
+    if (passed) {
+      if (!attemptId) {
+        setCertificateNotice({
+          type: "error",
+          message: "We recorded your pass but could not capture the attempt reference. Contact support to issue your certificate.",
+        });
+        return;
+      }
+
+      setCertificateNotice({ type: "info", message: "Issuing your certificate…" });
+      try {
+        const res = await fetch("/api/certificates", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ course_id: finalExam.course_id, attempt_id: attemptId }),
+        });
+        if (res.ok) {
+          setCertificateNotice({ type: "success", message: "Certificate issued! Visit your Dashboard to download it." });
+        } else {
+          const payload = await res.json().catch(() => ({}));
+          if (payload?.error === "NAME_REQUIRED") {
+            setCertificateNotice({ type: "error", message: "Add your full name on the Dashboard before we can issue your certificate." });
+          } else if (payload?.error === "NOT_ELIGIBLE") {
+            setCertificateNotice({ type: "error", message: "We could not verify the attempt. Please contact support." });
+          } else {
+            setCertificateNotice({ type: "error", message: "We could not issue the certificate automatically. You can retry from the Dashboard." });
+          }
+        }
+      } catch (err) {
+        console.error("certificate issue failed", err);
+        setCertificateNotice({ type: "error", message: "We could not issue the certificate automatically. You can retry from the Dashboard." });
+      }
+    }
   }
 
   /** UI helpers */
@@ -1368,6 +1418,23 @@ export default function CourseDashboard() {
                 )}
               </div>
             </div>
+
+            {finalResult.passed && (
+              <div
+                className={`mt-4 rounded-lg p-3 text-sm ${
+                  certificateNotice?.type === "error"
+                    ? "bg-red-50 border border-red-200 text-red-800"
+                    : certificateNotice?.type === "success"
+                      ? "bg-green-50 border border-green-200 text-green-800"
+                      : "bg-blue-50 border border-blue-200 text-blue-900"
+                }`}
+              >
+                {certificateNotice?.message ?? "Visit your Dashboard to download your certificate."}
+                <div className="mt-1 text-xs text-muted">
+                  Need to edit the name on the certificate? Update it via the Dashboard before downloading.
+                </div>
+              </div>
+            )}
 
             <div className="mt-5 flex items-center justify-end">
               <button

@@ -67,6 +67,7 @@ export default function DashboardPage() {
   >([]);
   const [courseMetaMap, setCourseMetaMap] = useState<Record<string, CourseMeta>>({});
   const certPreviewContainerRef = useRef<HTMLDivElement | null>(null);
+  const [refreshingCertId, setRefreshingCertId] = useState<string | null>(null);
 
   /* ── Stable auth gate ── */
   useEffect(() => {
@@ -385,6 +386,29 @@ export default function DashboardPage() {
     setIsEditingName(false);
   }
 
+  async function refreshCertificate(certId: string) {
+    if (!certId) return;
+    if (typeof window !== "undefined") {
+      const confirmRefresh = window.confirm("Generate a new Certificate ID? This replaces the previous ID.");
+      if (!confirmRefresh) return;
+    }
+    setRefreshingCertId(certId);
+    try {
+      const res = await fetch(`/api/certificates/${certId}/refresh`, { method: "POST" });
+      if (!res.ok) throw new Error("refresh failed");
+      const payload = (await res.json().catch(() => ({}))) as { certificate_no?: string };
+      if (!payload?.certificate_no) throw new Error("missing certificate number");
+      setCerts((prev) => prev.map((c) => (c.id === certId ? { ...c, certificate_no: payload.certificate_no! } : c)));
+    } catch (err) {
+      console.error("certificate refresh error", err);
+      if (typeof window !== "undefined") {
+        window.alert("We couldn't refresh the certificate ID. Please try again.");
+      }
+    } finally {
+      setRefreshingCertId(null);
+    }
+  }
+
   // Group quiz results by course
   const quizByCourse = useMemo(() => {
     const grouped: Record<string, { attempt: QuizAttempt; chapter: ChapterInfo }[]> = {};
@@ -575,10 +599,18 @@ export default function DashboardPage() {
                           </div>
                         </details>
 
-                        <div className="mt-3 flex items-center gap-2">
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
                           <Link href={verifyUrl} className="rounded-lg bg-[color:#0a1156] text-white px-3 py-1.5 text-sm">
                             View / Download (secure)
                           </Link>
+                          <button
+                            type="button"
+                            onClick={() => refreshCertificate(c.id)}
+                            disabled={refreshingCertId === c.id}
+                            className="rounded-lg border px-3 py-1.5 text-sm disabled:opacity-50"
+                          >
+                            {refreshingCertId === c.id ? "Refreshing…" : "Refresh ID"}
+                          </button>
                           <div className="text-xs text-muted">Final score: {c.score_pct}%</div>
                         </div>
                       </div>
