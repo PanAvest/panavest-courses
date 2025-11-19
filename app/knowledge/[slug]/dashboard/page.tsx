@@ -813,21 +813,18 @@ export default function CourseDashboard() {
 
     let attemptId: string | null = null;
     try {
-      const { data: attemptRow, error: attemptErr } = await supabase
-        .from("attempts")
-        .insert({
-          user_id: userId,
-          exam_id: finalExam.id,
-          score: scorePct,
-          passed,
-          created_at: new Date().toISOString(),
-          meta: { autoSubmit: auto, total, correctCount } as Record<string, unknown>,
-        })
-        .select("id")
-        .single();
-      if (attemptErr) throw attemptErr;
-      attemptId = attemptRow?.id ?? null;
-      setFinalAttemptExists(true);
+      const res = await fetch(`/api/exams/${encodeURIComponent(finalExam.id)}/attempts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ score: scorePct, passed, total, correct: correctCount, autoSubmit: auto }),
+      });
+      if (res.ok) {
+        const payload = (await res.json().catch(() => ({}))) as { id?: string };
+        attemptId = payload?.id ?? null;
+        setFinalAttemptExists(true);
+      } else {
+        console.error("attempt insert failed", await res.text());
+      }
     } catch (err) {
       console.error("attempt insert failed", err);
     }
