@@ -4,6 +4,8 @@ alter table public.courses add column if not exists img text;
 alter table public.enrollments add column if not exists paid boolean default false;
 alter table public.enrollments add column if not exists progress_pct numeric default 0;
 
+alter table public.exams add column if not exists num_questions int;
+
 create table if not exists public.course_chapters (
   id uuid primary key default gen_random_uuid(),
   course_id uuid references public.courses (id) on delete cascade,

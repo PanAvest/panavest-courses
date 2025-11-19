@@ -20,6 +20,7 @@ type ExamRow = {
   title: string;
   pass_mark: number;
   time_limit_minutes: number | null;
+  num_questions: number | null;
   created_at: string | null;
 };
 
@@ -87,10 +88,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "course_id required" }, { status: 400 });
   }
 
+  let num_questions: number | null;
+  if (body.num_questions === null || body.num_questions === undefined || body.num_questions === "") {
+    num_questions = null;
+  } else {
+    const nq = Number(body.num_questions);
+    num_questions = Number.isFinite(nq) && nq > 0 ? Math.floor(nq) : null;
+  }
+
   const { data, error } = await sb()
     .from("exams")
     .upsert(
-      { course_id, title, pass_mark, time_limit_minutes },
+      { course_id, title, pass_mark, time_limit_minutes, num_questions },
       { onConflict: "course_id" }
     )
     .select()

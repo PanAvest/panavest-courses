@@ -46,6 +46,7 @@ type Exam = {
   title: string | null;
   pass_mark: number | null;
   time_limit_minutes: number | null;
+  num_questions?: number | null;
 };
 
 type ExamQuestion = {
@@ -222,6 +223,7 @@ export default function CourseDashboard() {
   // final exam
   const [finalExam, setFinalExam] = useState<Exam | null>(null);
   const [finalExamQuestions, setFinalExamQuestions] = useState<ExamQuestion[]>([]);
+  const [activeExamQuestions, setActiveExamQuestions] = useState<ExamQuestion[]>([]);
   const [finalExamOpen, setFinalExamOpen] = useState(false);
   const [finalAnswers, setFinalAnswers] = useState<Record<string, number | null>>({});
   const [finalTimeLeft, setFinalTimeLeft] = useState<number>(0);
@@ -412,7 +414,7 @@ export default function CourseDashboard() {
       try {
         const { data: ex } = await supabase
           .from("exams")
-          .select("id,course_id,title,pass_mark,time_limit_minutes")
+          .select("id,course_id,title,pass_mark,time_limit_minutes,num_questions")
           .eq("course_id", c.id)
           .limit(1)
           .maybeSingle();
@@ -436,9 +438,12 @@ export default function CourseDashboard() {
           setFinalExamQuestions(
             (qs2 ?? []).map(q => ({ ...q, options: Array.isArray(q.options) ? q.options : [] }))
           );
+          setActiveExamQuestions([]);
+          setFinalAnswers({});
         } else {
           setFinalExam(null);
           setFinalExamQuestions([]);
+          setActiveExamQuestions([]);
           setFinalAttemptExists(false);
         }
       } catch {}
@@ -758,8 +763,22 @@ export default function CourseDashboard() {
       return;
     }
     const randomized = shuffle(finalExamQuestions);
+    const limitRaw = Number(finalExam?.num_questions ?? 50);
+    const limit = Math.max(1, Math.min(randomized.length, Number.isFinite(limitRaw) ? Math.floor(limitRaw) : randomized.length));
+    const selected = randomized.slice(0, limit).map((q) => ({
+      ...q,
+      options: shuffle(q.options),
+    }));
+    if (selected.length === 0) {
+      setNotice("Final exam does not have any questions yet.");
+      setTimeout(() => setNotice(""), 1800);
+      return;
+    }
     const answers: Record<string, number | null> = {};
-    randomized.forEach(q => { answers[q.id] = null; });
+    selected.forEach((q) => {
+      answers[q.id] = null;
+    });
+    setActiveExamQuestions(selected);
     setFinalAnswers(answers);
 
     const limitMinutes = Math.max(1, Number(finalExam?.time_limit_minutes ?? 60));
@@ -799,13 +818,20 @@ export default function CourseDashboard() {
     if (!finalExamOpen || !finalExam || !userId) return;
     setCertificateNotice(null);
 
-    const answered = finalExamQuestions.map(q => ({
+    const questionSet = activeExamQuestions.length > 0 ? activeExamQuestions : finalExamQuestions;
+    if (questionSet.length === 0) {
+      setNotice("Final exam questions not found.");
+      setTimeout(() => setNotice(""), 1800);
+      return;
+    }
+
+    const answered = questionSet.map(q => ({
       id: q.id,
       chosen: finalAnswers[q.id],
       correct: q.correct_index,
     }));
 
-    const total = finalExamQuestions.length;
+    const total = questionSet.length;
     const correctCount = answered.reduce((acc, a) => acc + (a.chosen === a.correct ? 1 : 0), 0);
     const scorePct = Math.round((correctCount / Math.max(1, total)) * 100);
     const passMark = Number(finalExam.pass_mark ?? 0);
@@ -813,22 +839,21 @@ export default function CourseDashboard() {
 
     let attemptId: string | null = null;
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData.session?.access_token;
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-      const res = await fetch(`/api/exams/${encodeURIComponent(finalExam.id)}/attempts`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ score: scorePct, passed, total, correct: correctCount, autoSubmit: auto }),
-      });
-      if (res.ok) {
-        const payload = (await res.json().catch(() => ({}))) as { id?: string };
-        attemptId = payload?.id ?? null;
-        setFinalAttemptExists(true);
-      } else {
-        console.error("attempt insert failed", await res.text());
-      }
+      const { data: attemptRow, error: attemptErr } = await supabase
+        .from("attempts")
+        .insert({
+          user_id: userId,
+          exam_id: finalExam.id,
+          score: scorePct,
+          passed,
+          created_at: new Date().toISOString(),
+          meta: { autoSubmit: auto, total, correctCount } as Record<string, unknown>,
+        })
+        .select("id")
+        .single();
+      if (attemptErr) throw attemptErr;
+      attemptId = attemptRow?.id ?? null;
+      setFinalAttemptExists(true);
     } catch (err) {
       console.error("attempt insert failed", err);
     }
@@ -852,6 +877,7 @@ export default function CourseDashboard() {
     setFinalExamOpen(false);
     setFinalTimeLeft(0);
     setFinalAnswers({});
+    setActiveExamQuestions([]);
     setFinalResult({ scorePct, correct: correctCount, total, passed });
     setResultOpen(true);
 
@@ -1347,28 +1373,32 @@ export default function CourseDashboard() {
             )}
 
             <div className="mt-4 grid gap-4">
-              {finalExamQuestions.map((q, idx) => (
-                <div key={q.id} className="rounded-lg p-3 ring-1 ring-[var(--color-light)]">
-                  <div className="font-medium text-sm">{idx + 1}. {q.prompt}</div>
-                  <div className="mt-2 grid gap-2">
-                    {q.options.map((opt, i) => {
-                      const name = `f_${q.id}`;
-                      const checked = finalAnswers[q.id] === i;
-                      return (
-                        <label key={i} className="inline-flex items-center gap-2 text-sm">
-                          <input
-                            type="radio"
-                            name={name}
-                            checked={checked}
-                            onChange={() => setFinalAnswers(a => ({ ...a, [q.id]: i }))}
-                          />
-                          <span>{opt}</span>
-                        </label>
-                      );
-                    })}
+              {activeExamQuestions.length === 0 ? (
+                <div className="rounded-lg p-3 ring-1 ring-[var(--color-light)] text-sm text-muted">Preparing questions…</div>
+              ) : (
+                activeExamQuestions.map((q, idx) => (
+                  <div key={q.id} className="rounded-lg p-3 ring-1 ring-[var(--color-light)]">
+                    <div className="font-medium text-sm">{idx + 1}. {q.prompt}</div>
+                    <div className="mt-2 grid gap-2">
+                      {q.options.map((opt, i) => {
+                        const name = `f_${q.id}`;
+                        const checked = finalAnswers[q.id] === i;
+                        return (
+                          <label key={i} className="inline-flex items-center gap-2 text-sm">
+                            <input
+                              type="radio"
+                              name={name}
+                              checked={checked}
+                              onChange={() => setFinalAnswers((a) => ({ ...a, [q.id]: i }))}
+                            />
+                            <span>{opt}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
 
             <div className="mt-5 flex items-center justify-end gap-2">

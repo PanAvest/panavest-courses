@@ -73,6 +73,7 @@ type FinalExam = {
   title: string;
   pass_mark: number; // %
   time_limit_minutes?: number | null;
+  num_questions?: number | null;
   created_at?: string | null;
 };
 type FinalExamQuestion = {
@@ -220,6 +221,10 @@ function asFinalExam(x: unknown, course_id: string): FinalExam | null {
     time_limit_minutes:
       typeof r["time_limit_minutes"] === "number"
         ? r["time_limit_minutes"]
+        : null,
+    num_questions:
+      typeof r["num_questions"] === "number" && Number.isFinite(r["num_questions"])
+        ? Math.max(1, Math.floor(Number(r["num_questions"])))
         : null,
     created_at: isStr(r["created_at"]) ? r["created_at"] : null,
   };
@@ -683,6 +688,7 @@ export default function AdminPage() {
     title: "Final Exam",
     pass_mark: 50,
     time_limit_minutes: 30,
+    num_questions: 50,
   });
   const [examSaving, setExamSaving] = useState(false);
 
@@ -734,6 +740,7 @@ export default function AdminPage() {
           title: "Final Exam",
           pass_mark: 50,
           time_limit_minutes: 30,
+          num_questions: 50,
         });
         setExamQForm({ exam_id: "", prompt: "", options: [], correct_index: 0 });
       }
@@ -772,6 +779,10 @@ export default function AdminPage() {
         examForm.time_limit_minutes == null
           ? null
           : Math.max(1, Math.floor(num(examForm.time_limit_minutes, 30))),
+      num_questions:
+        examForm.num_questions == null
+          ? null
+          : Math.max(1, Math.floor(num(examForm.num_questions, 50))),
     };
     setExamSaving(true);
     const r = await fetch("/api/admin/exams", {
@@ -2003,6 +2014,24 @@ export default function AdminPage() {
                               (e.target as HTMLInputElement).value === ""
                                 ? null
                                 : Number((e.target as HTMLInputElement).value),
+                          }))
+                        }
+                        className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+                      />
+                    </label>
+                    <label className="grid gap-1">
+                      <span className="text-xs text-slate-500">Number of questions</span>
+                      <input
+                        type="number"
+                        value={examForm.num_questions ?? ""}
+                        onChange={(e) =>
+                          setExamForm((f) => ({
+                            ...f,
+                            course_id: selectedCourseId,
+                            num_questions:
+                              (e.target as HTMLInputElement).value === ""
+                                ? null
+                                : Math.max(1, Number((e.target as HTMLInputElement).value)),
                           }))
                         }
                         className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
