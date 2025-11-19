@@ -1039,6 +1039,7 @@ export default function AdminPage() {
   }
 
   const [userActionBusy, setUserActionBusy] = useState<string | null>(null);
+  const [courseActionBusy, setCourseActionBusy] = useState<string | null>(null);
   async function act(userId: string, endpoint: UserAction): Promise<void> {
     setUserActionBusy(`${endpoint}:${userId}`);
     const url =
@@ -1086,13 +1087,35 @@ export default function AdminPage() {
 
   async function unlockCourse(course_id: string) {
     if (!selectedUser?.id) return;
+    setCourseActionBusy(`unlock:${course_id}`);
     const r = await fetch(`/api/admin/users/${encodeURIComponent(selectedUser.id)}/complete-course`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ course_id }),
     });
+    setCourseActionBusy(null);
     if (!r.ok) return alert("Failed to unlock");
     alert("Course marked complete and final exam unlocked for this user.");
+  }
+
+  async function resetCourse(scope: "exam" | "course", course_id: string) {
+    if (!selectedUser?.id) return;
+    const msg = scope === "course" ? "Reset this course progress for the user?" : "Reset the final exam for this user?";
+    if (!confirm(msg)) return;
+    setCourseActionBusy(`${scope}:${course_id}`);
+    const r = await fetch(`/api/admin/users/${encodeURIComponent(selectedUser.id)}/reset-course`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ course_id, scope }),
+    });
+    setCourseActionBusy(null);
+    if (!r.ok) return alert("Failed to reset. Please try again.");
+    if (scope === "course") {
+      await loadPurchases(selectedUser.id);
+      alert("Course progress reset. The learner can start fresh.");
+    } else {
+      alert("Final exam reset. The learner can retake it.");
+    }
   }
 
   /* ── Quick Prices ── */
@@ -2446,20 +2469,35 @@ export default function AdminPage() {
                             <li key={i} className="flex items-center gap-2">
                               <span>{c.title}</span>
                               {courseId && (
-                                <>
+                                <div className="flex flex-wrap gap-1 text-[11px]">
                                   <button
                                     onClick={() => void unlockCourse(courseId)}
-                                    className="text-[11px] rounded bg-green-100 px-2 py-0.5 text-green-800"
+                                    disabled={courseActionBusy === `unlock:${courseId}`}
+                                    className="rounded bg-green-100 px-2 py-0.5 text-green-800 disabled:opacity-50"
                                   >
-                                    Unlock final exam
+                                    {courseActionBusy === `unlock:${courseId}` ? "Unlocking…" : "Unlock final exam"}
+                                  </button>
+                                  <button
+                                    onClick={() => void resetCourse("exam", courseId)}
+                                    disabled={courseActionBusy === `exam:${courseId}`}
+                                    className="rounded bg-amber-100 px-2 py-0.5 text-amber-800 disabled:opacity-50"
+                                  >
+                                    {courseActionBusy === `exam:${courseId}` ? "Resetting…" : "Reset exam"}
+                                  </button>
+                                  <button
+                                    onClick={() => void resetCourse("course", courseId)}
+                                    disabled={courseActionBusy === `course:${courseId}`}
+                                    className="rounded bg-blue-100 px-2 py-0.5 text-blue-800 disabled:opacity-50"
+                                  >
+                                    {courseActionBusy === `course:${courseId}` ? "Resetting…" : "Reset course"}
                                   </button>
                                   <button
                                     onClick={() => void removePurchase("course", courseId)}
-                                    className="text-[11px] rounded bg-red-100 px-2 py-0.5 text-red-800"
+                                    className="rounded bg-red-100 px-2 py-0.5 text-red-800"
                                   >
                                     Remove
                                   </button>
-                                </>
+                                </div>
                               )}
                             </li>
                           );
