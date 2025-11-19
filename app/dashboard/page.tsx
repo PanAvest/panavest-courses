@@ -273,17 +273,32 @@ export default function DashboardPage() {
       }
 
       /* ───────── Certificates (no join; hydrate meta) ───────── */
-      const { data: certRows, error: certErr } = await supabase
+      let certificateNoMissing = false;
+      let certRows: unknown[] | null = null;
+      let certErr: unknown = null;
+      const primary = await supabase
         .from("certificates")
         .select("id,user_id,course_id,attempt_id,certificate_no,issued_at")
         .eq("user_id", userId)
         .order("issued_at", { ascending: false });
       if (!guard()) return;
-
+      certRows = primary.data ?? [];
+      certErr = primary.error;
+      if (certErr && typeof certErr === "object" && (certErr as { code?: string }).code === "42703") {
+        certificateNoMissing = true;
+        const fallback = await supabase
+          .from("certificates")
+          .select("id,user_id,course_id,attempt_id,issued_at")
+          .eq("user_id", userId)
+          .order("issued_at", { ascending: false });
+        if (!guard()) return;
+        certRows = fallback.data ?? [];
+        certErr = fallback.error;
+      }
       if (certErr) console.error("certificates fetch error", certErr);
 
       const bare = (certRows ?? []) as {
-        id: string; user_id: string; course_id: string; attempt_id: string | null; certificate_no: string; issued_at: string;
+        id: string; user_id: string; course_id: string; attempt_id: string | null; certificate_no?: string | null; issued_at: string;
       }[];
 
       const attemptIds = Array.from(new Set(bare.map((c) => c.attempt_id).filter(Boolean))) as string[];
@@ -312,9 +327,16 @@ export default function DashboardPage() {
       }
 
       const mergedCerts: CertificateRow[] = bare.map((c) => {
+        const certificateNumber =
+          typeof c.certificate_no === "string" && c.certificate_no.trim().length > 0
+            ? c.certificate_no
+            : certificateNoMissing
+              ? makeKdsCertId(userId, c.course_id)
+              : makeKdsCertId(userId, c.course_id);
         const meta = courseMetaMap[c.course_id];
         return {
           ...c,
+          certificate_no: certificateNumber,
           score_pct: c.attempt_id ? attemptScores[c.attempt_id] ?? null : null,
           courses: meta
             ? { title: meta.title, slug: meta.slug, img: meta.img ?? null, cpd_points: meta.cpd_points ?? null }
