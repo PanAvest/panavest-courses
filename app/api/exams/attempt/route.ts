@@ -1,15 +1,11 @@
 import { NextResponse } from "next/server";
 
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
-import { getSupabaseRouteHandlerClient } from "@/lib/supabaseServer";
 
 export async function POST(req: Request) {
-  const supabase = getSupabaseRouteHandlerClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const user = session?.user;
-  if (!user) {
+  const authHeader = req.headers.get("authorization") || "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+  if (!token) {
     return NextResponse.json({ error: "NOT_AUTHENTICATED" }, { status: 401 });
   }
 
@@ -25,6 +21,11 @@ export async function POST(req: Request) {
   const autoSubmit = Boolean(body.autoSubmit);
 
   const admin = getSupabaseAdmin();
+  const { data: userData, error: userErr } = await admin.auth.getUser(token);
+  const user = userData?.user;
+  if (userErr || !user) {
+    return NextResponse.json({ error: "NOT_AUTHENTICATED" }, { status: 401 });
+  }
   const { data, error } = await admin
     .from("attempts")
     .insert({
