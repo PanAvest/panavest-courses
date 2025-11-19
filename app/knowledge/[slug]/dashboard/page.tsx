@@ -96,6 +96,14 @@ function shuffle<T>(arr: T[]) {
   return a;
 }
 
+function shuffleOptionsWithAnswer(options: string[], correctIndex: number) {
+  const mapped = options.map((opt, idx) => ({ opt, idx }));
+  const shuffled = shuffle(mapped);
+  const newOptions = shuffled.map((s) => s.opt);
+  const newIndex = Math.max(0, shuffled.findIndex((s) => s.idx === correctIndex));
+  return { newOptions, newIndex: newIndex === -1 ? 0 : newIndex };
+}
+
 function secondsToClock(s: number) {
   const m = Math.floor(s / 60);
   const ss = s % 60;
@@ -765,10 +773,14 @@ export default function CourseDashboard() {
     const randomized = shuffle(finalExamQuestions);
     const limitRaw = Number(finalExam?.num_questions ?? 50);
     const limit = Math.max(1, Math.min(randomized.length, Number.isFinite(limitRaw) ? Math.floor(limitRaw) : randomized.length));
-    const selected = randomized.slice(0, limit).map((q) => ({
-      ...q,
-      options: shuffle(q.options),
-    }));
+    const selected = randomized.slice(0, limit).map((q) => {
+      const { newOptions, newIndex } = shuffleOptionsWithAnswer(q.options, q.correct_index);
+      return {
+        ...q,
+        options: newOptions,
+        correct_index: newIndex,
+      };
+    });
     if (selected.length === 0) {
       setNotice("Final exam does not have any questions yet.");
       setTimeout(() => setNotice(""), 1800);
@@ -839,21 +851,26 @@ export default function CourseDashboard() {
 
     let attemptId: string | null = null;
     try {
-      const { data: attemptRow, error: attemptErr } = await supabase
-        .from("attempts")
-        .insert({
-          user_id: userId,
+      const res = await fetch("/api/exams/attempt", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           exam_id: finalExam.id,
           score: scorePct,
           passed,
-          created_at: new Date().toISOString(),
-          meta: { autoSubmit: auto, total, correctCount } as Record<string, unknown>,
-        })
-        .select("id")
-        .single();
-      if (attemptErr) throw attemptErr;
-      attemptId = attemptRow?.id ?? null;
-      setFinalAttemptExists(true);
+          total,
+          correct: correctCount,
+          autoSubmit: auto,
+        }),
+      });
+      if (res.ok) {
+        const payload = (await res.json().catch(() => ({}))) as { id?: string };
+        attemptId = payload?.id ?? null;
+        setFinalAttemptExists(true);
+      } else {
+        console.error("attempt insert failed", await res.text());
+      }
     } catch (err) {
       console.error("attempt insert failed", err);
     }
