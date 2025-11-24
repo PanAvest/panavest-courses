@@ -83,26 +83,26 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
       }
     };
 
-    return (
-      <div className="w-full">
-        <div
-          ref={ref}
-          className={`kds-cert-print-root bg-white shadow-lg rounded-xl relative ${className}`}
-          style={{
-            border: `6px solid ${accent}`,
-            width: "100%",
-            maxWidth: "760px",
-            aspectRatio: "297 / 210",
-            margin: "0 auto",
-            padding: "0",
-            boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
-            overflow: "hidden",
-            boxSizing: "border-box",
-          }}
-        >
-          <div className="h-full flex flex-col">
-            {/* Banner */}
-            <div
+  return (
+    <div className="w-full">
+      <div
+        ref={ref}
+        className={`kds-cert-print-root bg-white shadow-lg rounded-xl relative ${className}`}
+        style={{
+          border: `6px solid ${accent}`,
+          width: "100%",
+          maxWidth: "740px",
+          aspectRatio: "297 / 210",
+          margin: "0 auto",
+          padding: "0",
+          boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
+          overflow: "hidden",
+          boxSizing: "border-box",
+        }}
+      >
+        <div className="h-full flex flex-col">
+          {/* Banner */}
+          <div
               style={{
                 background: "linear-gradient(135deg, #0a1156 0%, #0a1156 60%, #d2a756 60%, #f1d48f 100%)",
                 padding: "18px 28px",

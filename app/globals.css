@@ -57,12 +57,10 @@ body {
   }
   body * {
     visibility: hidden !important;
-    display: none !important;
   }
   .kds-cert-print-root,
   .kds-cert-print-root * {
     visibility: visible !important;
-    display: block !important;
   }
   .kds-cert-print-root {
     position: fixed;
