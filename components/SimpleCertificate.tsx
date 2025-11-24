@@ -41,12 +41,9 @@ const SVG_PLACEHOLDER =
 const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
   (
     {
-      panavestLogo =
-        "https://icujvqmqwacpysxjfkxd.supabase.co/storage/v1/object/public/public/admin-uploads/Panavest.png",
-      kdsLogo =
-        "https://icujvqmqwacpysxjfkxd.supabase.co/storage/v1/object/public/public/admin-uploads/KDS.png",
-      signature =
-        "https://icujvqmqwacpysxjfkxd.supabase.co/storage/v1/object/public/public/admin-uploads/Prof%20Signature.png",
+      panavestLogo = "https://icujvqmqwacpysxjfkxd.supabase.co/storage/v1/object/public/Cert%20Assets/panavestlogo.png",
+      kdsLogo = "https://icujvqmqwacpysxjfkxd.supabase.co/storage/v1/object/public/Cert%20Assets/logo.png",
+      signature = "https://icujvqmqwacpysxjfkxd.supabase.co/storage/v1/object/public/Cert%20Assets/Prof%20Signature.png",
       recipient,
       course,
       blurb = "For successfully completing the prescribed curriculum and assessments.",
@@ -76,7 +73,7 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
     const resolvedSignature = useMemo(
       () =>
         signature ||
-        "https://icujvqmqwacpysxjfkxd.supabase.co/storage/v1/object/public/public/admin-uploads/Prof%20Signature.png",
+        "https://icujvqmqwacpysxjfkxd.supabase.co/storage/v1/object/public/Cert%20Assets/Prof%20Signature.png",
       [signature],
     );
 
@@ -99,20 +96,19 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
             margin: "0 auto",
             padding: "32px",
             boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
-            overflow: "hidden",
+            overflow: "auto",
           }}
         >
           <div className="h-full flex flex-col">
             {/* Header */}
             <div className="flex items-center justify-between gap-6">
-              <img src={panavestLogo} alt="PanAvest" className="h-14 w-auto" />
-              <div className="text-center grow">
+              <div className="text-left">
                 <p className="text-[10px] tracking-[0.35em] uppercase" style={{ color: accent }}>
                   Certificate of Completion
                 </p>
                 <h1 className="mt-1 text-3xl font-serif font-bold">PanAvest Knowledge Development Series</h1>
               </div>
-              <img src={kdsLogo} alt="KDS" className="h-14 w-auto" />
+              <img src={kdsLogo} alt="KDS" className="h-16 w-auto" />
             </div>
 
             <div className="my-6 h-px" style={{ background: `linear-gradient(90deg, ${accent}, transparent)` }} />
@@ -140,7 +136,7 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
                 <img
                   src={resolvedSignature}
                   alt="Prof. Douglas Boateng signature"
-                  className="h-16 w-auto object-contain"
+                  className="h-14 w-auto object-contain"
                   decoding="async"
                   loading="eager"
                   onError={(e) => {
@@ -161,6 +157,10 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
                   <p className="text-[11px] text-gray-700 font-medium mt-2">{resolvedId}</p>
                 </div>
               )}
+            </div>
+
+            <div className="mt-6 flex items-center justify-start">
+              <img src={panavestLogo} alt="PanAvest" className="h-12 w-auto" />
             </div>
           </div>
         </div>
