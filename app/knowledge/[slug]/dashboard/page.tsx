@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { flushSync } from "react-dom";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { issueCertificateForCourse, IssueCertificateError } from "@/lib/client/issueCertificate";
 import ProgressBar from "@/components/ProgressBar";
 
 /** Types */
@@ -850,49 +851,6 @@ export default function CourseDashboard() {
     const passed = scorePct >= passMark;
 
     let attemptId: string | null = null;
-    try {
-      const res = await fetch("/api/exams/attempt", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          exam_id: finalExam.id,
-          score: scorePct,
-          passed,
-          total,
-          correct: correctCount,
-          autoSubmit: auto,
-        }),
-      });
-      if (res.ok) {
-        const payload = (await res.json().catch(() => ({}))) as { id?: string };
-        attemptId = payload?.id ?? null;
-        setFinalAttemptExists(true);
-      } else {
-        console.error("attempt insert failed", await res.text());
-      }
-    } catch (err) {
-      console.error("attempt insert failed", err);
-    }
-
-    if (!attemptId) {
-      try {
-        const { data: fallbackRow } = await supabase
-          .from("attempts")
-          .select("id")
-          .eq("user_id", userId)
-          .eq("exam_id", finalExam.id)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        attemptId = fallbackRow?.id ?? null;
-      } catch (err) {
-        console.error("attempt fallback fetch failed", err);
-      }
-    }
-    if (attemptId) {
-      setFinalAttemptExists(true);
-    }
 
     setFinalExamOpen(false);
     setFinalTimeLeft(0);
@@ -902,27 +860,64 @@ export default function CourseDashboard() {
     setResultOpen(true);
 
     if (passed) {
-      setCertificateNotice({ type: "info", message: "Issuing your certificate…" });
       try {
-        const res = await fetch("/api/certificates", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ course_id: finalExam.course_id }),
+        setCertificateNotice({ type: "info", message: "Issuing your certificate…" });
+        const result = await issueCertificateForCourse({
+          courseId: finalExam.course_id,
+          examId: finalExam.id,
+          score: scorePct,
+          total,
+          correctCount,
+          autoSubmit: auto,
         });
-        if (res.ok) {
-          setCertificateNotice({ type: "success", message: "Certificate issued! Visit your Dashboard to download it." });
-        } else {
-          const payload = await res.json().catch(() => ({}));
-          if (payload?.error === "MISSING_FULL_NAME") {
-            setCertificateNotice({ type: "error", message: "Add your full name on the Dashboard before we can issue your certificate." });
-          } else {
-            setCertificateNotice({ type: "error", message: "We could not issue your certificate right now. Please try again or contact support." });
-          }
-        }
+        attemptId = result.attemptId ?? null;
+        setFinalAttemptExists(true);
+        setCertificateNotice({ type: "success", message: "Certificate issued! Visit your Dashboard to download it." });
       } catch (err) {
-        console.error("certificate issue failed", err);
-        setCertificateNotice({ type: "error", message: "We could not issue your certificate right now. Please try again or contact support." });
+        const code = err instanceof IssueCertificateError ? err.code : null;
+        if (code === "NOT_AUTHENTICATED") {
+          setCertificateNotice({ type: "error", message: "Please sign in again before issuing your certificate." });
+        } else if (code === "MISSING_FULL_NAME") {
+          setCertificateNotice({ type: "error", message: "Add your full name on the Dashboard before we can issue your certificate." });
+        } else {
+          console.error("certificate issue failed", err);
+          setCertificateNotice({ type: "error", message: "We could not issue your certificate right now. Please try again or contact support." });
+        }
+      }
+    } else {
+      // Record failed attempt for history
+      try {
+        const { data: attemptRow, error: attemptErr } = await supabase
+          .from("attempts")
+          .insert({
+            user_id: userId,
+            exam_id: finalExam.id,
+            score: scorePct,
+            passed: false,
+            created_at: new Date().toISOString(),
+            meta: { autoSubmit: auto, total, correctCount },
+          })
+          .select("id")
+          .single();
+        attemptId = attemptRow?.id ?? null;
+      } catch (err) {
+        console.error("attempt insert failed", err);
+      }
+
+      if (!attemptId) {
+        try {
+          const { data: fallbackRow } = await supabase
+            .from("attempts")
+            .select("id")
+            .eq("user_id", userId)
+            .eq("exam_id", finalExam.id)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          attemptId = fallbackRow?.id ?? null;
+        } catch (err) {
+          console.error("attempt fallback fetch failed", err);
+        }
       }
     }
   }
