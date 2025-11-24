@@ -887,7 +887,7 @@ export default function CourseDashboard() {
     } else {
       // Record failed attempt for history
       try {
-        const { data: attemptRow, error: attemptErr } = await supabase
+        const { data: attemptRow } = await supabase
           .from("attempts")
           .insert({
             user_id: userId,

@@ -67,7 +67,6 @@ export default function DashboardPage() {
   >([]);
   const [courseMetaMap, setCourseMetaMap] = useState<Record<string, CourseMeta>>({});
   const certPreviewContainerRef = useRef<HTMLDivElement | null>(null);
-  const [refreshingCertId, setRefreshingCertId] = useState<string | null>(null);
 
   /* ── Stable auth gate ── */
   useEffect(() => {
@@ -135,6 +134,19 @@ export default function DashboardPage() {
 
       // Helper: short-circuit if aborted
       const guard = () => !(signal.aborted || !alive);
+
+      const safeSelect = async <T,>(label: string, fn: () => Promise<{ data: T | null; error: unknown }>): Promise<T> => {
+        try {
+          const { data, error } = await fn();
+          if (error) {
+            console.warn(`${label} fetch error`, error);
+          }
+      return (data as T) ?? ([] as unknown as T);
+    } catch (err) {
+      console.warn(`${label} fetch failed`, err);
+      return [] as unknown as T;
+    }
+  };
 
       // Profile
       const { data: prof } = await supabase.from("profiles").select("id, full_name, updated_at").eq("id", userId).maybeSingle();
@@ -237,10 +249,14 @@ export default function DashboardPage() {
       }
 
       // Quiz attempts
-      const { data: quizRows } = await supabase
-        .from("user_chapter_quiz")
-        .select("course_id, chapter_id, total_count, correct_count, score_pct, completed_at")
-        .eq("user_id", userId);
+      const quizRows = await safeSelect(
+        "user_chapter_quiz",
+        async () =>
+          await supabase
+            .from("user_chapter_quiz")
+            .select("course_id, chapter_id, total_count, correct_count, score_pct, completed_at")
+            .eq("user_id", userId),
+      );
       if (!guard()) return;
 
       const attempts = (quizRows as unknown as QuizAttempt[]) ?? [];
@@ -276,24 +292,36 @@ export default function DashboardPage() {
       let certificateNoMissing = false;
       let certRows: unknown[] | null = null;
       let certErr: unknown = null;
-      const primary = await supabase
-        .from("certificates")
-        .select("id,user_id,course_id,attempt_id,certificate_no,issued_at")
-        .eq("user_id", userId)
-        .order("issued_at", { ascending: false });
-      if (!guard()) return;
-      certRows = primary.data ?? [];
-      certErr = primary.error;
-      if (certErr && typeof certErr === "object" && (certErr as { code?: string }).code === "42703") {
-        certificateNoMissing = true;
-        const fallback = await supabase
+      try {
+        const primary = await supabase
           .from("certificates")
-          .select("id,user_id,course_id,attempt_id,issued_at")
+          .select("id,user_id,course_id,attempt_id,certificate_no,issued_at")
           .eq("user_id", userId)
           .order("issued_at", { ascending: false });
         if (!guard()) return;
-        certRows = fallback.data ?? [];
-        certErr = fallback.error;
+        certRows = primary.data ?? [];
+        certErr = primary.error;
+      } catch (err) {
+        console.warn("certificates fetch failed", err);
+        certRows = [];
+        certErr = err;
+      }
+      if (certErr && typeof certErr === "object" && (certErr as { code?: string }).code === "42703") {
+        certificateNoMissing = true;
+        try {
+          const fallback = await supabase
+            .from("certificates")
+            .select("id,user_id,course_id,attempt_id,issued_at")
+            .eq("user_id", userId)
+            .order("issued_at", { ascending: false });
+          if (!guard()) return;
+          certRows = fallback.data ?? [];
+          certErr = fallback.error;
+        } catch (err) {
+          console.warn("certificates fallback fetch failed", err);
+          certRows = [];
+          certErr = err;
+        }
       }
       if (certErr) console.error("certificates fetch error", certErr);
 
@@ -304,15 +332,19 @@ export default function DashboardPage() {
       const attemptIds = Array.from(new Set(bare.map((c) => c.attempt_id).filter(Boolean))) as string[];
       const attemptScores: Record<string, number> = {};
       if (attemptIds.length > 0) {
-        const { data: attemptRows, error: attemptErr } = await supabase
-          .from("attempts")
-          .select("id,score")
-          .in("id", attemptIds);
-        if (!guard()) return;
-        if (attemptErr) console.error("attempts fetch error", attemptErr);
-        (attemptRows ?? []).forEach((row: { id: string; score: number | null }) => {
-          attemptScores[row.id] = Math.round(Number(row.score ?? 0));
-        });
+        try {
+          const { data: attemptRows, error: attemptErr } = await supabase
+            .from("attempts")
+            .select("id,score")
+            .in("id", attemptIds);
+          if (!guard()) return;
+          if (attemptErr) console.error("attempts fetch error", attemptErr);
+          (attemptRows ?? []).forEach((row: { id: string; score: number | null }) => {
+            attemptScores[row.id] = Math.round(Number(row.score ?? 0));
+          });
+        } catch (err) {
+          console.warn("attempts fetch failed", err);
+        }
       }
 
       const certCourseIds = Array.from(new Set(bare.map((c) => c.course_id))).filter(Boolean);
@@ -347,8 +379,9 @@ export default function DashboardPage() {
 
       /* ───────── Provisional (passed + 100% progress) ───────── */
       if (courseIds.length > 0) {
-        const { data: examRows } = await supabase.from("exams").select("id,course_id,title,pass_mark").in("course_id", courseIds);
+        const { data: examRows, error: examErr } = await supabase.from("exams").select("id,course_id,title,pass_mark").in("course_id", courseIds);
         if (!guard()) return;
+        if (examErr) console.warn("exams fetch error", examErr);
         const examByCourse: Record<string, ExamRow> = {};
         const examIds: string[] = [];
         (examRows ?? []).forEach((e: ExamRow) => {
@@ -358,13 +391,14 @@ export default function DashboardPage() {
 
         let latestByExam: Record<string, AttemptRow> = {};
         if (examIds.length > 0) {
-          const { data: attRows } = await supabase
+          const { data: attRows, error: attErr } = await supabase
             .from("attempts")
             .select("id,user_id,exam_id,score,passed,created_at")
             .eq("user_id", userId)
             .in("exam_id", examIds)
             .order("created_at", { ascending: false });
           if (!guard()) return;
+          if (attErr) console.warn("attempts fetch error", attErr);
 
           latestByExam = {};
           (attRows ?? []).forEach((a: AttemptRow) => {
@@ -423,27 +457,9 @@ export default function DashboardPage() {
     setIsEditingName(false);
   }
 
-  async function refreshCertificate(certId: string) {
-    if (!certId) return;
-    if (typeof window !== "undefined") {
-      const confirmRefresh = window.confirm("Generate a new Certificate ID? This replaces the previous ID.");
-      if (!confirmRefresh) return;
-    }
-    setRefreshingCertId(certId);
-    try {
-      const res = await fetch(`/api/certificates/${certId}/refresh`, { method: "POST" });
-      if (!res.ok) throw new Error("refresh failed");
-      const payload = (await res.json().catch(() => ({}))) as { certificate_no?: string };
-      if (!payload?.certificate_no) throw new Error("missing certificate number");
-      setCerts((prev) => prev.map((c) => (c.id === certId ? { ...c, certificate_no: payload.certificate_no! } : c)));
-    } catch (err) {
-      console.error("certificate refresh error", err);
-      if (typeof window !== "undefined") {
-        window.alert("We couldn't refresh the certificate ID. Please try again.");
-      }
-    } finally {
-      setRefreshingCertId(null);
-    }
+  // Refresh ID temporarily disabled (legacy endpoint noisy)
+  async function refreshCertificate() {
+    console.warn("Refresh ID is temporarily disabled.");
   }
 
   // Group quiz results by course
@@ -642,11 +658,12 @@ export default function DashboardPage() {
                           </Link>
                           <button
                             type="button"
-                            onClick={() => refreshCertificate(c.id)}
-                            disabled={refreshingCertId === c.id}
+                            onClick={refreshCertificate}
+                            disabled
+                            title="Refresh ID (coming soon)"
                             className="rounded-lg border px-3 py-1.5 text-sm disabled:opacity-50"
                           >
-                            {refreshingCertId === c.id ? "Refreshing…" : "Refresh ID"}
+                            Refresh ID (coming soon)
                           </button>
                           <div className="text-xs text-muted">Final score: {c.score_pct != null ? `${c.score_pct}%` : "—"}</div>
                         </div>
