@@ -83,11 +83,12 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
 
     const handleDownloadPdf = async () => {
       if (typeof window === "undefined") return;
-      const node = captureRef.current;
+      const node = captureRef.current || document.getElementById("certificate-capture");
       if (!node) {
         console.error("Certificate capture element missing");
         return;
       }
+      console.log("Generating certificate PDF…");
       const canvas = await html2canvas(node, {
         scale: 2,
         useCORS: true,
@@ -209,7 +210,7 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
         </div>
 
       {showPrint && (
-        <div className="mt-3 flex justify-end relative z-10">
+        <div className="mt-3 flex justify-end relative z-50 pointer-events-auto">
           <button
             type="button"
             onClick={handleDownloadPdf}
