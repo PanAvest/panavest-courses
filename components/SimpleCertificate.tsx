@@ -88,7 +88,14 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
         console.error("Certificate capture element missing");
         return;
       }
-      const canvas = await html2canvas(node, { scale: 2, useCORS: true });
+      const canvas = await html2canvas(node, {
+        scale: 2,
+        useCORS: true,
+        ignoreElements: (el: Element) => {
+          const tag = el.tagName?.toLowerCase?.() ?? "";
+          return tag === "svg" || tag === "path";
+        },
+      });
       const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
       const pageWidth = 210;
@@ -115,11 +122,11 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
   return (
     <div className="w-full">
         <div
-          ref={(el) => {
-            if (typeof ref === "function") ref(el);
-            else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = el;
-            certRef.current = el;
-          }}
+        ref={(el) => {
+          if (typeof ref === "function") ref(el);
+          else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = el;
+          certRef.current = el;
+        }}
           className={`kds-cert-print-root bg-white shadow-lg rounded-xl relative ${className}`}
           style={{
             border: `6px solid ${accent}`,
@@ -133,7 +140,7 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
             boxSizing: "border-box",
         }}
       >
-        <div ref={captureRef} className="h-full flex flex-col">
+        <div ref={captureRef} id="certificate-capture" className="h-full flex flex-col">
           {/* Banner */}
           <div
               style={{
