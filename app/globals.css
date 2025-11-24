@@ -57,15 +57,17 @@ body {
     visibility: visible;
   }
   .kds-cert-print-root {
-    position: absolute;
-    inset: 0;
+    position: fixed;
+    top: 0;
+    left: 0;
     width: 297mm;
     height: 210mm;
-    margin: 0;
-    padding: 0;
+    margin: 0 !important;
+    padding: 0 !important;
     border-radius: 0 !important;
     box-shadow: none !important;
-    background: white;
+    background: white !important;
+    overflow: hidden !important;
   }
 }
 
