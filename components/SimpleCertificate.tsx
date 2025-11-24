@@ -93,9 +93,9 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
           className={`kds-cert-print-root bg-white shadow-lg rounded-xl relative ${className}`}
           style={{
             border: `6px solid ${accent}`,
-            width: "210mm",
-            maxWidth: "100%",
-            aspectRatio: "210 / 297",
+            width: "100%",
+            maxWidth: "297mm",      // landscape width cap
+            aspectRatio: "297 / 210", // A4 landscape ratio
             margin: "0 auto",
             padding: "40px",
             boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
