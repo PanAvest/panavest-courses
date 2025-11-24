@@ -2,7 +2,7 @@ import React, { forwardRef, useMemo } from "react";
 
 /**
  * SimpleCertificate (A4 preview + print-only)
- * - Card-sized A4 proportions (210 x 297 mm scaled to container)
+ * - Card-sized A4 landscape proportions (297 x 210 mm scaled to container)
  * - Single Print/Save button; no external links
  * - @media print hides everything except the certificate
  */
@@ -93,11 +93,11 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
           className={`kds-cert-print-root bg-white shadow-lg rounded-xl relative ${className}`}
           style={{
             border: `6px solid ${accent}`,
-            width: "100%",
-            maxWidth: "297mm",      // landscape width cap
-            aspectRatio: "297 / 210", // A4 landscape ratio
+            width: "297mm",
+            maxWidth: "100%",
+            aspectRatio: "297 / 210",
             margin: "0 auto",
-            padding: "40px",
+            padding: "32px",
             boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
           }}
         >
@@ -117,7 +117,7 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
             <div className="my-6 h-px" style={{ background: `linear-gradient(90deg, ${accent}, transparent)` }} />
 
             {/* Recipient & Course */}
-            <div className="text-center py-10 flex-1 flex flex-col justify-center">
+            <div className="text-center py-8 flex-1 flex flex-col justify-center">
               <p className="text-sm text-gray-600">This certifies that</p>
               <div className="mt-5 text-5xl font-serif font-bold" data-testid="recipient">
                 {recipient}
