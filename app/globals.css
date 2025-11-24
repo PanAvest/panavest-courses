@@ -49,12 +49,20 @@ body {
 }
 
 @media print {
+  html, body {
+    width: 100%;
+    height: 100%;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
   body * {
-    visibility: hidden;
+    visibility: hidden !important;
+    display: none !important;
   }
   .kds-cert-print-root,
   .kds-cert-print-root * {
-    visibility: visible;
+    visibility: visible !important;
+    display: block !important;
   }
   .kds-cert-print-root {
     position: fixed;
