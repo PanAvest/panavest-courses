@@ -23,6 +23,7 @@ export type CertificateProps = {
   qrValue?: string;
   qrSize?: number;
   qrProvider?: "quickchart" | "goqr" | "none";
+  onViewFull?: () => void;
 };
 
 const fmt = (d?: string | Date) => {
@@ -60,6 +61,7 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
       qrValue,
       qrSize = 96,
     qrProvider = "quickchart",
+    onViewFull,
   },
     ref
   ) => {
@@ -87,14 +89,7 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
       [signature],
     );
 
-    const handlePrint = () => {
-      if (typeof window === "undefined") return;
-      const node = localRef.current;
-      if (!node) return;
-      const w = window.open("", "_blank");
-      if (!w) return;
-      const html = node.outerHTML;
-      w.document.write(`
+    const buildWindowHtml = (content: string, autoPrint: boolean) => `
         <html>
           <head>
             <title>Certificate</title>
@@ -102,16 +97,32 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
               @page { size: 210mm 297mm; margin: 10mm; }
               html, body { margin: 0; padding: 0; background: #fff; }
               .cert-print-wrapper { width: 210mm; margin: 0 auto; }
+              * { box-sizing: border-box; }
             </style>
           </head>
           <body>
-            <div class="cert-print-wrapper">${html}</div>
+            <div class="cert-print-wrapper">${content}</div>
+            ${autoPrint ? "<script>window.onload = function(){ window.print(); }</script>" : ""}
           </body>
         </html>
-      `);
+      `;
+
+    const openCertificateWindow = ({ autoPrint }: { autoPrint: boolean }) => {
+      if (typeof window === "undefined") return;
+      const node = localRef.current;
+      if (!node) return;
+      const w = window.open("", "_blank", "noopener,noreferrer");
+      if (!w) return;
+      const html = node.outerHTML;
+      w.document.write(buildWindowHtml(html, autoPrint));
       w.document.close();
       w.focus();
-      w.print();
+    };
+
+    const handlePrint = () => openCertificateWindow({ autoPrint: true });
+    const handleViewFull = () => {
+      if (onViewFull) onViewFull();
+      else openCertificateWindow({ autoPrint: false });
     };
 
     return (
@@ -130,6 +141,15 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
             className="absolute right-3 top-3 rounded px-3 py-1 text-xs border hover:bg-gray-50 print:hidden"
           >
             Print / Save as PDF
+          </button>
+        )}
+        {showPrint && (
+          <button
+            onClick={handleViewFull}
+            aria-label="view-full-cert"
+            className="absolute right-3 top-12 rounded px-3 py-1 text-xs border hover:bg-gray-50 print:hidden"
+          >
+            View full certificate
           </button>
         )}
 
