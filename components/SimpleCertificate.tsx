@@ -63,6 +63,7 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
     ref
   ) => {
     const certRef = useRef<HTMLDivElement | null>(null);
+    const captureRef = useRef<HTMLDivElement | null>(null);
     const resolvedId = useMemo(() => certId || genId(), [certId]);
     const value = qrValue || resolvedId;
     const qrUrl = useMemo(() => {
@@ -82,8 +83,11 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
 
     const handleDownloadPdf = async () => {
       if (typeof window === "undefined") return;
-      if (!certRef.current) return;
-      const node = certRef.current;
+      const node = captureRef.current;
+      if (!node) {
+        console.error("Certificate capture element missing");
+        return;
+      }
       const canvas = await html2canvas(node, { scale: 2, useCORS: true });
       const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -110,12 +114,12 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
 
   return (
     <div className="w-full">
-      <div
-        ref={(el) => {
-          if (typeof ref === "function") ref(el);
-          else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = el;
-          certRef.current = el;
-        }}
+        <div
+          ref={(el) => {
+            if (typeof ref === "function") ref(el);
+            else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = el;
+            certRef.current = el;
+          }}
           className={`kds-cert-print-root bg-white shadow-lg rounded-xl relative ${className}`}
           style={{
             border: `6px solid ${accent}`,
@@ -129,7 +133,7 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
             boxSizing: "border-box",
         }}
       >
-        <div className="h-full flex flex-col">
+        <div ref={captureRef} className="h-full flex flex-col">
           {/* Banner */}
           <div
               style={{
