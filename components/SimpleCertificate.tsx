@@ -93,8 +93,8 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
           className={`kds-cert-print-root bg-white shadow-lg rounded-xl relative ${className}`}
           style={{
             border: `6px solid ${accent}`,
-            width: "297mm",
-            maxWidth: "100%",
+            width: "100%",
+            maxWidth: "1120px",
             aspectRatio: "297 / 210",
             margin: "0 auto",
             padding: "32px",
@@ -176,6 +176,10 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
         )}
 
         <style jsx global>{`
+          @page {
+            size: 297mm 210mm;
+            margin: 10mm;
+          }
           @media print {
             body * {
               visibility: hidden;
@@ -185,9 +189,11 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
               visibility: visible;
             }
             .kds-cert-print-root {
-              position: absolute;
-              inset: 0;
-              margin: 0;
+              position: relative;
+              width: auto;
+              max-width: none;
+              height: auto;
+              margin: 0 auto;
               border-radius: 0;
               box-shadow: none !important;
             }
