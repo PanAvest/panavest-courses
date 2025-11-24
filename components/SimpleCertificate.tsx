@@ -1,4 +1,4 @@
-import React, { forwardRef, useMemo } from "react";
+import React, { forwardRef, useMemo, useRef } from "react";
 
 /**
  * SimpleCertificate (signature fixed + balanced layout)
@@ -59,10 +59,17 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
       showPrint = true,
       qrValue,
       qrSize = 96,
-      qrProvider = "quickchart",
-    },
+    qrProvider = "quickchart",
+  },
     ref
   ) => {
+    const localRef = useRef<HTMLDivElement | null>(null);
+    const setRefs = (node: HTMLDivElement | null) => {
+      localRef.current = node;
+      if (typeof ref === "function") ref(node);
+      else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
+    };
+
     const resolvedId = useMemo(() => certId || genId(), [certId]);
     const value = qrValue || resolvedId;
     const qrUrl = useMemo(() => {
@@ -80,15 +87,46 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
       [signature],
     );
 
+    const handlePrint = () => {
+      if (typeof window === "undefined") return;
+      const node = localRef.current;
+      if (!node) return;
+      const w = window.open("", "_blank");
+      if (!w) return;
+      const html = node.outerHTML;
+      w.document.write(`
+        <html>
+          <head>
+            <title>Certificate</title>
+            <style>
+              @page { size: 210mm 297mm; margin: 10mm; }
+              html, body { margin: 0; padding: 0; background: #fff; }
+              .cert-print-wrapper { width: 210mm; margin: 0 auto; }
+            </style>
+          </head>
+          <body>
+            <div class="cert-print-wrapper">${html}</div>
+          </body>
+        </html>
+      `);
+      w.document.close();
+      w.focus();
+      w.print();
+    };
+
     return (
       <div
-        ref={ref}
-        className={`mx-auto w-full max-w-4xl bg-white print:shadow-none shadow relative ${className}`}
-        style={{ border: `6px solid ${accent}` }}
+        ref={setRefs}
+        className={`mx-auto w-full bg-white print:shadow-none shadow relative ${className}`}
+        style={{
+          border: `6px solid ${accent}`,
+          width: "210mm",
+          maxWidth: "100%",
+        }}
       >
         {showPrint && (
           <button
-            onClick={() => window.print()}
+            onClick={handlePrint}
             className="absolute right-3 top-3 rounded px-3 py-1 text-xs border hover:bg-gray-50 print:hidden"
           >
             Print / Save as PDF

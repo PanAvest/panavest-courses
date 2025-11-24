@@ -653,8 +653,8 @@ export default function DashboardPage() {
                         </details>
 
                         <div className="mt-3 flex flex-wrap items-center gap-2">
-                          <Link href={verifyUrl} className="rounded-lg bg-[color:#0a1156] text-white px-3 py-1.5 text-sm">
-                            View / Download (secure)
+                          <Link href={verifyUrl} target="_blank" rel="noreferrer" className="rounded-lg bg-[color:#0a1156] text-white px-3 py-1.5 text-sm">
+                            View full certificate
                           </Link>
                           <button
                             type="button"
