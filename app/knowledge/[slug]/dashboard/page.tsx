@@ -874,7 +874,7 @@ export default function CourseDashboard() {
         setFinalAttemptExists(true);
         setCertificateNotice({ type: "success", message: "Certificate issued! Visit your Dashboard to download it." });
       } catch (err) {
-        const code = err instanceof IssueCertificateError ? err.code : null;
+        const code = err instanceof IssueCertificateError ? err.code : (err as { code?: string } | null)?.code ?? null;
         if (code === "NOT_AUTHENTICATED") {
           setCertificateNotice({ type: "error", message: "Please sign in again before issuing your certificate." });
         } else if (code === "MISSING_FULL_NAME") {

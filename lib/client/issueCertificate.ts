@@ -67,13 +67,13 @@ export async function issueCertificateForCourse(args: IssueArgs): Promise<IssueC
   }
 
   // Ensure display name set
-  const { data: profile } = await supabase
+  const { data: profile, error: profileErr } = await supabase
     .from("profiles")
     .select("full_name")
     .eq("id", user.id)
     .maybeSingle();
   const fullName = (profile?.full_name ?? "").trim();
-  if (!fullName) {
+  if (profileErr || !fullName) {
     throw new IssueCertificateError("MISSING_FULL_NAME", "Add your full name on the Dashboard before issuing a certificate.");
   }
 
