@@ -96,7 +96,8 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
             margin: "0 auto",
             padding: "0",
             boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
-            overflow: "auto",
+            overflow: "hidden",
+            boxSizing: "border-box",
           }}
         >
           <div className="h-full flex flex-col">
