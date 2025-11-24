@@ -655,11 +655,9 @@ export default function DashboardPage() {
                         <div className="mt-3 flex flex-wrap items-center gap-2">
                           <button
                             type="button"
-                            onClick={() => {
-                              const btn = certPreviewContainerRef.current?.querySelector<HTMLButtonElement>("button[aria-label='view-full-cert']");
-                              btn?.click();
-                            }}
-                            className="rounded-lg bg-[color:#0a1156] text-white px-3 py-1.5 text-sm"
+                            disabled
+                            className="rounded-lg bg-[color:#0a1156] text-white px-3 py-1.5 text-sm opacity-60 cursor-not-allowed"
+                            title="Full view disabled"
                           >
                             View full certificate
                           </button>

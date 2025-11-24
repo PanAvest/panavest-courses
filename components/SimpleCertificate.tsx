@@ -1,10 +1,10 @@
-import React, { forwardRef, useMemo, useRef } from "react";
+import React, { forwardRef, useMemo } from "react";
 
 /**
- * SimpleCertificate (signature fixed + balanced layout)
- * - QR and Signature truly side-by-side
- * - Larger recipient space and typography
- * - US Letter (8.5x11 portrait)
+ * SimpleCertificate (A4 preview + print-only)
+ * - Card-sized A4 proportions (210 x 297 mm scaled to container)
+ * - Single Print/Save button; no external links
+ * - @media print hides everything except the certificate
  */
 export type CertificateProps = {
   panavestLogo?: string;
@@ -23,7 +23,6 @@ export type CertificateProps = {
   qrValue?: string;
   qrSize?: number;
   qrProvider?: "quickchart" | "goqr" | "none";
-  onViewFull?: () => void;
 };
 
 const fmt = (d?: string | Date) => {
@@ -60,18 +59,10 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
       showPrint = true,
       qrValue,
       qrSize = 96,
-    qrProvider = "quickchart",
-    onViewFull,
-  },
+      qrProvider = "quickchart",
+    },
     ref
   ) => {
-    const localRef = useRef<HTMLDivElement | null>(null);
-    const setRefs = (node: HTMLDivElement | null) => {
-      localRef.current = node;
-      if (typeof ref === "function") ref(node);
-      else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
-    };
-
     const resolvedId = useMemo(() => certId || genId(), [certId]);
     const value = qrValue || resolvedId;
     const qrUrl = useMemo(() => {
@@ -89,137 +80,119 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
       [signature],
     );
 
-    const buildWindowHtml = (content: string, autoPrint: boolean) => `
-        <html>
-          <head>
-            <title>Certificate</title>
-            <style>
-              @page { size: 210mm 297mm; margin: 10mm; }
-              html, body { margin: 0; padding: 0; background: #fff; }
-              .cert-print-wrapper { width: 210mm; margin: 0 auto; }
-              * { box-sizing: border-box; }
-            </style>
-          </head>
-          <body>
-            <div class="cert-print-wrapper">${content}</div>
-            ${autoPrint ? "<script>window.onload = function(){ window.print(); }</script>" : ""}
-          </body>
-        </html>
-      `;
-
-    const openCertificateWindow = ({ autoPrint }: { autoPrint: boolean }) => {
-      if (typeof window === "undefined") return;
-      const node = localRef.current;
-      if (!node) return;
-      const w = window.open("", "_blank", "noopener,noreferrer");
-      if (!w) return;
-      const html = node.outerHTML;
-      w.document.write(buildWindowHtml(html, autoPrint));
-      w.document.close();
-      w.focus();
-    };
-
-    const handlePrint = () => openCertificateWindow({ autoPrint: true });
-    const handleViewFull = () => {
-      if (onViewFull) onViewFull();
-      else openCertificateWindow({ autoPrint: false });
+    const handlePrint = () => {
+      if (typeof window !== "undefined") {
+        window.print();
+      }
     };
 
     return (
-      <div
-        ref={setRefs}
-        className={`mx-auto w-full bg-white print:shadow-none shadow relative ${className}`}
-        style={{
-          border: `6px solid ${accent}`,
-          width: "210mm",
-          maxWidth: "100%",
-        }}
-      >
-        {showPrint && (
-          <button
-            onClick={handlePrint}
-            className="absolute right-3 top-3 rounded px-3 py-1 text-xs border hover:bg-gray-50 print:hidden"
-          >
-            Print / Save as PDF
-          </button>
-        )}
-        {showPrint && (
-          <button
-            onClick={handleViewFull}
-            aria-label="view-full-cert"
-            className="absolute right-3 top-12 rounded px-3 py-1 text-xs border hover:bg-gray-50 print:hidden"
-          >
-            View full certificate
-          </button>
-        )}
-
-        <div className="p-10 sm:p-16">
-          {/* Header */}
-          <div className="flex items-center justify-between gap-6">
-            <img src={panavestLogo} alt="PanAvest" className="h-16 w-auto" />
-            <div className="text-center grow">
-              <p className="text-[10px] tracking-[0.35em] uppercase" style={{ color: accent }}>
-                Certificate of Completion
-              </p>
-              <h1 className="mt-1 text-3xl sm:text-4xl font-serif font-bold">
-                PanAvest Knowledge Development Series
-              </h1>
-            </div>
-            <img src={kdsLogo} alt="KDS" className="h-16 w-auto" />
-          </div>
-
-          <div className="my-8 h-px" style={{ background: `linear-gradient(90deg, ${accent}, transparent)` }} />
-
-          {/* Recipient & Course */}
-          <div className="text-center py-14">
-            <p className="text-sm text-gray-600">This certifies that</p>
-            <div className="mt-6 text-5xl sm:text-7xl font-serif font-bold" data-testid="recipient">
-              {recipient}
-            </div>
-            <p className="mt-6 text-sm text-gray-600">has successfully completed</p>
-            <div className="mt-3 text-2xl sm:text-3xl italic" data-testid="course">
-              {course}
-            </div>
-            {blurb && (
-              <p className="mx-auto mt-8 max-w-2xl text-base leading-7 text-gray-700" data-testid="blurb">
-                {blurb}
-              </p>
-            )}
-          </div>
-
-          {/* Signature + QR side-by-side */}
-          <div className="mt-20 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-10">
-            {/* Signature */}
-            <div className="flex flex-col items-start">
-              <img
-                src={resolvedSignature}
-                alt="Prof. Douglas Boateng signature"
-                className="h-20 w-auto object-contain"
-                decoding="async"
-                loading="eager"
-                onError={(e) => {
-                  const img = e.currentTarget as HTMLImageElement;
-                  img.src = SVG_PLACEHOLDER;
-                }}
-              />
-              <div className="mt-3 h-px bg-gray-400 w-56" />
-              <p className="mt-2 font-medium text-gray-900">{signerName}</p>
-              {signerTitle && <p className="text-xs text-gray-600">{signerTitle}</p>}
-              {date && <p className="text-xs text-gray-500 mt-1">Date: {fmt(date)}</p>}
-            </div>
-
-            {/* QR */}
-            {qrProvider !== "none" && qrUrl && (
-              <div className="flex flex-col items-center sm:items-end text-right">
-                <p className="text-[10px] text-gray-500 mb-1">Scan to verify</p>
-                <img src={qrUrl} alt="Certificate QR" width={qrSize} height={qrSize} className="inline-block" />
-                <p className="text-[11px] text-gray-700 font-medium mt-2">{resolvedId}</p>
+      <div className="w-full">
+        <div
+          ref={ref}
+          className={`kds-cert-print-root bg-white shadow-lg rounded-xl relative ${className}`}
+          style={{
+            border: `6px solid ${accent}`,
+            width: "210mm",
+            maxWidth: "100%",
+            aspectRatio: "210 / 297",
+            margin: "0 auto",
+            padding: "40px",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
+          }}
+        >
+          <div className="h-full flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between gap-6">
+              <img src={panavestLogo} alt="PanAvest" className="h-14 w-auto" />
+              <div className="text-center grow">
+                <p className="text-[10px] tracking-[0.35em] uppercase" style={{ color: accent }}>
+                  Certificate of Completion
+                </p>
+                <h1 className="mt-1 text-3xl font-serif font-bold">PanAvest Knowledge Development Series</h1>
               </div>
-            )}
+              <img src={kdsLogo} alt="KDS" className="h-14 w-auto" />
+            </div>
+
+            <div className="my-6 h-px" style={{ background: `linear-gradient(90deg, ${accent}, transparent)` }} />
+
+            {/* Recipient & Course */}
+            <div className="text-center py-10 flex-1 flex flex-col justify-center">
+              <p className="text-sm text-gray-600">This certifies that</p>
+              <div className="mt-5 text-5xl font-serif font-bold" data-testid="recipient">
+                {recipient}
+              </div>
+              <p className="mt-5 text-sm text-gray-600">has successfully completed</p>
+              <div className="mt-3 text-2xl italic" data-testid="course">
+                {course}
+              </div>
+              {blurb && (
+                <p className="mx-auto mt-6 max-w-2xl text-base leading-7 text-gray-700" data-testid="blurb">
+                  {blurb}
+                </p>
+              )}
+            </div>
+
+            {/* Signature + QR */}
+            <div className="mt-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-10">
+              <div className="flex flex-col items-start">
+                <img
+                  src={resolvedSignature}
+                  alt="Prof. Douglas Boateng signature"
+                  className="h-16 w-auto object-contain"
+                  decoding="async"
+                  loading="eager"
+                  onError={(e) => {
+                    const img = e.currentTarget as HTMLImageElement;
+                    img.src = SVG_PLACEHOLDER;
+                  }}
+                />
+                <div className="mt-2 h-px bg-gray-400 w-44" />
+                <p className="mt-1 font-medium text-gray-900">{signerName}</p>
+                {signerTitle && <p className="text-xs text-gray-600">{signerTitle}</p>}
+                {date && <p className="text-xs text-gray-500 mt-1">Date: {fmt(date)}</p>}
+              </div>
+
+              {qrProvider !== "none" && qrUrl && (
+                <div className="flex flex-col items-center sm:items-end text-right">
+                  <p className="text-[10px] text-gray-500 mb-1">Scan to verify</p>
+                  <img src={qrUrl} alt="Certificate QR" width={qrSize} height={qrSize} className="inline-block" />
+                  <p className="text-[11px] text-gray-700 font-medium mt-2">{resolvedId}</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        <style>{`@media print { @page { size: 8.5in 11in; margin: 0.5in; } html, body { background: white !important; } }`}</style>
+        {showPrint && (
+          <div className="mt-3 flex justify-end">
+            <button
+              onClick={handlePrint}
+              className="rounded px-3 py-1 text-xs border hover:bg-gray-50"
+            >
+              Print / Save as PDF
+            </button>
+          </div>
+        )}
+
+        <style jsx global>{`
+          @media print {
+            body * {
+              visibility: hidden;
+            }
+            .kds-cert-print-root,
+            .kds-cert-print-root * {
+              visibility: visible;
+            }
+            .kds-cert-print-root {
+              position: absolute;
+              inset: 0;
+              margin: 0;
+              border-radius: 0;
+              box-shadow: none !important;
+            }
+          }
+        `}</style>
       </div>
     );
   }
