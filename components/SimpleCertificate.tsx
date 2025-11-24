@@ -209,12 +209,13 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
         </div>
 
       {showPrint && (
-        <div className="mt-3 flex justify-end">
+        <div className="mt-3 flex justify-end relative z-10">
           <button
-              onClick={handleDownloadPdf}
-              className="rounded px-3 py-1 text-xs border hover:bg-gray-50"
-            >
-              Download certificate (PDF)
+            type="button"
+            onClick={handleDownloadPdf}
+            className="rounded px-3 py-1 text-xs border hover:bg-gray-50"
+          >
+            Download certificate (PDF)
           </button>
         </div>
       )}
