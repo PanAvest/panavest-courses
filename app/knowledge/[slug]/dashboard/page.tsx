@@ -890,6 +890,9 @@ export default function CourseDashboard() {
         console.error("attempt fallback fetch failed", err);
       }
     }
+    if (attemptId) {
+      setFinalAttemptExists(true);
+    }
 
     setFinalExamOpen(false);
     setFinalTimeLeft(0);
@@ -899,36 +902,27 @@ export default function CourseDashboard() {
     setResultOpen(true);
 
     if (passed) {
-      if (!attemptId) {
-        setCertificateNotice({
-          type: "error",
-          message: "We recorded your pass but could not capture the attempt reference. Contact support to issue your certificate.",
-        });
-        return;
-      }
-
       setCertificateNotice({ type: "info", message: "Issuing your certificate…" });
       try {
         const res = await fetch("/api/certificates", {
           method: "POST",
+          credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ course_id: finalExam.course_id, attempt_id: attemptId }),
+          body: JSON.stringify({ course_id: finalExam.course_id }),
         });
         if (res.ok) {
           setCertificateNotice({ type: "success", message: "Certificate issued! Visit your Dashboard to download it." });
         } else {
           const payload = await res.json().catch(() => ({}));
-          if (payload?.error === "NAME_REQUIRED") {
+          if (payload?.error === "MISSING_FULL_NAME") {
             setCertificateNotice({ type: "error", message: "Add your full name on the Dashboard before we can issue your certificate." });
-          } else if (payload?.error === "NOT_ELIGIBLE") {
-            setCertificateNotice({ type: "error", message: "We could not verify the attempt. Please contact support." });
           } else {
-            setCertificateNotice({ type: "error", message: "We could not issue the certificate automatically. You can retry from the Dashboard." });
+            setCertificateNotice({ type: "error", message: "We could not issue your certificate right now. Please try again or contact support." });
           }
         }
       } catch (err) {
         console.error("certificate issue failed", err);
-        setCertificateNotice({ type: "error", message: "We could not issue the certificate automatically. You can retry from the Dashboard." });
+        setCertificateNotice({ type: "error", message: "We could not issue your certificate right now. Please try again or contact support." });
       }
     }
   }

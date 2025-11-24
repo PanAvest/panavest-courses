@@ -1,15 +1,17 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
-import { getSupabaseRouteHandlerClient } from "@/lib/supabaseServer";
+import type { Database } from "@/lib/types";
 
 export async function POST(req: Request) {
-  const supabase = getSupabaseRouteHandlerClient();
+  const supabase = createRouteHandlerClient<Database>({ cookies });
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const user = session?.user;
-  if (!user) {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+  if (authError || !user) {
     console.warn("/api/exams/attempt: no session", {
       cookieKeys: req.headers.get("cookie")?.split(";").map((c) => c.split("=")[0].trim()).slice(0, 5),
       origin: req.headers.get("origin"),

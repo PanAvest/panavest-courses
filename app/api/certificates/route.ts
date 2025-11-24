@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 
 import { generateCertificateNumber } from "@/lib/certificates";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
-import { getSupabaseRouteHandlerClient } from "@/lib/supabaseServer";
+import type { Database } from "@/lib/types";
 
 export async function POST(req: Request) {
-  const supabase = getSupabaseRouteHandlerClient();
+  const supabase = createRouteHandlerClient<Database>({ cookies });
   const {
     data: { session },
   } = await supabase.auth.getSession();
@@ -14,13 +16,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "NOT_AUTHENTICATED" }, { status: 401 });
   }
 
-  const body = await req
-    .json()
-    .catch(() => null) as { course_id?: string; attempt_id?: string } | null;
-
+  const body = (await req.json().catch(() => ({}))) as { course_id?: string } | null;
   const course_id = body?.course_id?.trim();
-  const attempt_id = body?.attempt_id?.trim();
-
   if (!course_id) {
     return NextResponse.json({ error: "COURSE_REQUIRED" }, { status: 400 });
   }
@@ -36,7 +33,7 @@ export async function POST(req: Request) {
 
   const fullName = (profile?.full_name ?? "").trim();
   if (!fullName) {
-    return NextResponse.json({ error: "NAME_REQUIRED", message: "Add your full name on the Dashboard before issuing a certificate." }, { status: 400 });
+    return NextResponse.json({ error: "MISSING_FULL_NAME", message: "Add your full name on the Dashboard before issuing a certificate." }, { status: 400 });
   }
 
   // Load the final exam for the course (one exam per course).
@@ -47,33 +44,25 @@ export async function POST(req: Request) {
     .maybeSingle();
 
   if (!exam) {
-    return NextResponse.json({ error: "EXAM_NOT_FOUND" }, { status: 400 });
+    return NextResponse.json({ error: "EXAM_NOT_FOUND" }, { status: 404 });
   }
 
-  // Look up the learner's attempt (latest if no attempt_id provided).
-  const attemptQuery = admin
+  // Find the latest passing attempt for this user + exam.
+  const { data: attempt } = await admin
     .from("attempts")
-    .select("id,user_id,exam_id,score,passed,created_at")
+    .select("id,score,passed,created_at")
     .eq("exam_id", exam.id)
     .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
+    .eq("passed", true)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-  const attemptResponse = attempt_id
-    ? await attemptQuery.eq("id", attempt_id).maybeSingle()
-    : await attemptQuery.limit(1).maybeSingle();
-
-  const attempt = attemptResponse.data;
-  if (!attempt) {
-    return NextResponse.json({ error: "ATTEMPT_NOT_FOUND" }, { status: 400 });
-  }
-  if (attempt.user_id !== user.id || attempt.exam_id !== exam.id) {
-    return NextResponse.json({ error: "NOT_ELIGIBLE" }, { status: 403 });
-  }
-
-  const score = Math.round(Number(attempt.score ?? 0));
   const passMark = Math.round(Number(exam.pass_mark ?? 0));
-  if (!attempt.passed || score < passMark) {
-    return NextResponse.json({ error: "NOT_ELIGIBLE", message: "Final exam not passed yet." }, { status: 400 });
+  const score = Math.round(Number(attempt?.score ?? 0));
+  const isPassing = !!attempt && !!attempt.passed && score >= passMark;
+  if (!attempt || !isPassing) {
+    return NextResponse.json({ error: "NO_PASSING_ATTEMPT" }, { status: 400 });
   }
 
   const nowIso = new Date().toISOString();
@@ -81,7 +70,7 @@ export async function POST(req: Request) {
   // Ensure we only issue one certificate per (user, course).
   const { data: existing } = await admin
     .from("certificates")
-    .select("id,certificate_no,issued_at,score_pct")
+    .select("id,certificate_no,issued_at,score_pct,attempt_id")
     .eq("user_id", user.id)
     .eq("course_id", course_id)
     .maybeSingle();
@@ -101,7 +90,7 @@ export async function POST(req: Request) {
       certificate_no,
       issued_at: nowIso,
     })
-    .select("id,certificate_no,issued_at,score_pct")
+    .select("id,certificate_no,issued_at,score_pct,attempt_id")
     .single();
 
   if (insertErr || !inserted) {
