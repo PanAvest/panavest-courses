@@ -1,4 +1,6 @@
-import React, { forwardRef, useMemo } from "react";
+import React, { forwardRef, useMemo, useRef } from "react";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 
 /**
  * SimpleCertificate (A4 preview + print-only)
@@ -60,6 +62,7 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
     },
     ref
   ) => {
+    const certRef = useRef<HTMLDivElement | null>(null);
     const resolvedId = useMemo(() => certId || genId(), [certId]);
     const value = qrValue || resolvedId;
     const qrUrl = useMemo(() => {
@@ -77,16 +80,42 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
       [signature],
     );
 
-    const handlePrint = () => {
-      if (typeof window !== "undefined") {
-        window.print();
+    const handleDownloadPdf = async () => {
+      if (typeof window === "undefined") return;
+      if (!certRef.current) return;
+      const node = certRef.current;
+      const canvas = await html2canvas(node, { scale: 2, useCORS: true });
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const pageWidth = 210;
+      const pageHeight = 297;
+      const imgProps = { width: canvas.width, height: canvas.height };
+      const imgRatio = imgProps.height / imgProps.width;
+      const targetWidth = pageWidth;
+      const targetHeight = targetWidth * imgRatio;
+      let drawWidth = targetWidth;
+      let drawHeight = targetHeight;
+      let marginTop = 0;
+      if (drawHeight > pageHeight) {
+        drawHeight = pageHeight;
+        drawWidth = drawHeight / imgRatio;
+      } else {
+        marginTop = (pageHeight - drawHeight) / 2;
       }
+      const marginLeft = (pageWidth - drawWidth) / 2;
+      pdf.addImage(imgData, "PNG", marginLeft, marginTop, drawWidth, drawHeight, undefined, "FAST");
+      const filename = resolvedId ? `PanAvest-Certificate-${resolvedId}.pdf` : "PanAvest-Certificate.pdf";
+      pdf.save(filename);
     };
 
   return (
     <div className="w-full">
       <div
-        ref={ref}
+        ref={(el) => {
+          if (typeof ref === "function") ref(el);
+          else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = el;
+          certRef.current = el;
+        }}
           className={`kds-cert-print-root bg-white shadow-lg rounded-xl relative ${className}`}
           style={{
             border: `6px solid ${accent}`,
@@ -168,23 +197,19 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
           </div>
         </div>
 
-        {showPrint && (
-          <div className="mt-3 flex justify-end">
-            <button
-              onClick={handlePrint}
+      {showPrint && (
+        <div className="mt-3 flex justify-end">
+          <button
+              onClick={handleDownloadPdf}
               className="rounded px-3 py-1 text-xs border hover:bg-gray-50"
             >
-              Print / Save as PDF
-            </button>
-          </div>
-        )}
-
-        <style jsx global>{`
-          /* moved to global stylesheet */
-        `}</style>
-      </div>
-    );
-  }
+              Download certificate (PDF)
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 );
 
 SimpleCertificate.displayName = "SimpleCertificate";
