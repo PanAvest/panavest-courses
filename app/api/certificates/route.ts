@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 
@@ -6,13 +6,19 @@ import { generateCertificateNumber } from "@/lib/certificates";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import type { Database } from "@/lib/types";
 
-export async function POST(req: Request) {
+export const dynamic = "force-dynamic";
+
+export async function POST(req: NextRequest) {
   const supabase = createRouteHandlerClient<Database>({ cookies });
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const user = session?.user;
-  if (!user) {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  // Temporary visibility to debug auth in this route (no secrets)
+  console.log("[cert-route] user", { hasUser: !!user, authError: authError?.message });
+
+  if (authError || !user) {
     return NextResponse.json({ error: "NOT_AUTHENTICATED" }, { status: 401 });
   }
 

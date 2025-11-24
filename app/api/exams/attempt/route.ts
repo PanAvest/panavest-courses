@@ -1,16 +1,22 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import type { Database } from "@/lib/types";
 
-export async function POST(req: Request) {
+export const dynamic = "force-dynamic";
+
+export async function POST(req: NextRequest) {
   const supabase = createRouteHandlerClient<Database>({ cookies });
   const {
     data: { user },
     error: authError,
   } = await supabase.auth.getUser();
+
+  // Temporary visibility to debug auth in this route (no secrets)
+  console.log("[attempt-route] user", { hasUser: !!user, authError: authError?.message });
+
   if (authError || !user) {
     console.warn("/api/exams/attempt: no session", {
       cookieKeys: req.headers.get("cookie")?.split(";").map((c) => c.split("=")[0].trim()).slice(0, 5),
