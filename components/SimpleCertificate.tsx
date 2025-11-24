@@ -2,7 +2,7 @@ import React, { forwardRef, useMemo } from "react";
 
 /**
  * SimpleCertificate (A4 preview + print-only)
- * - Card-sized A4 landscape proportions (297 x 210 mm scaled to container)
+ * - Card-sized A4 portrait proportions (210 x 297 mm scaled to container)
  * - Single Print/Save button; no external links
  * - @media print hides everything except the certificate
  */
@@ -87,17 +87,17 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
     <div className="w-full">
       <div
         ref={ref}
-        className={`kds-cert-print-root bg-white shadow-lg rounded-xl relative ${className}`}
-        style={{
-          border: `6px solid ${accent}`,
-          width: "100%",
-          maxWidth: "740px",
-          aspectRatio: "297 / 210",
-          margin: "0 auto",
-          padding: "0",
-          boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
-          overflow: "hidden",
-          boxSizing: "border-box",
+          className={`kds-cert-print-root bg-white shadow-lg rounded-xl relative ${className}`}
+          style={{
+            border: `6px solid ${accent}`,
+            width: "100%",
+            maxWidth: "680px",
+            aspectRatio: "210 / 297",
+            margin: "0 auto",
+            padding: "0",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
+            overflow: "hidden",
+            boxSizing: "border-box",
         }}
       >
         <div className="h-full flex flex-col">

@@ -56,18 +56,20 @@ body {
     padding: 0 !important;
   }
   body * {
+    display: none !important;
     visibility: hidden !important;
   }
   .kds-cert-print-root,
   .kds-cert-print-root * {
+    display: block !important;
     visibility: visible !important;
   }
   .kds-cert-print-root {
     position: fixed;
     top: 0;
     left: 0;
-    width: 297mm;
-    height: 210mm;
+    width: 210mm;
+    height: 297mm;
     margin: 0 !important;
     padding: 0 !important;
     border-radius: 0 !important;
