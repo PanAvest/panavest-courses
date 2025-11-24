@@ -42,6 +42,33 @@ body {
 }
 .animate-float { animation: float 3s ease-in-out infinite; }
 
+/* ─────────── Certificate print isolation ─────────── */
+@page {
+  size: A4 landscape;
+  margin: 0;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .kds-cert-print-root,
+  .kds-cert-print-root * {
+    visibility: visible;
+  }
+  .kds-cert-print-root {
+    position: absolute;
+    inset: 0;
+    width: 297mm;
+    height: 210mm;
+    margin: 0;
+    padding: 0;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: white;
+  }
+}
+
 /* PanAvest Exam */
 html.exam-active, body.exam-active {
   -webkit-user-select: none;

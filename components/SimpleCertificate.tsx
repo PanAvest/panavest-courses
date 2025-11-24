@@ -94,11 +94,12 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
           style={{
             border: `6px solid ${accent}`,
             width: "100%",
-            maxWidth: "1120px",
+            maxWidth: "760px",
             aspectRatio: "297 / 210",
             margin: "0 auto",
             padding: "32px",
             boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
+            overflow: "hidden",
           }}
         >
           <div className="h-full flex flex-col">
@@ -176,28 +177,7 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
         )}
 
         <style jsx global>{`
-          @page {
-            size: 297mm 210mm;
-            margin: 10mm;
-          }
-          @media print {
-            body * {
-              visibility: hidden;
-            }
-            .kds-cert-print-root,
-            .kds-cert-print-root * {
-              visibility: visible;
-            }
-            .kds-cert-print-root {
-              position: relative;
-              width: auto;
-              max-width: none;
-              height: auto;
-              margin: 0 auto;
-              border-radius: 0;
-              box-shadow: none !important;
-            }
-          }
+          /* moved to global stylesheet */
         `}</style>
       </div>
     );
