@@ -483,21 +483,43 @@ export default function DashboardPage() {
       if (!node) throw new Error("Certificate preview not ready");
       const { default: html2canvas } = await import("html2canvas");
 
+      // Wait for images in the hidden preview to finish (or give up after 5s each) before capture.
+      const waitForImages = async () => {
+        const imgs = Array.from(node.querySelectorAll("img"));
+        await Promise.all(
+          imgs.map(
+            (img) =>
+              new Promise<void>((resolve) => {
+                if (img.complete && img.naturalWidth > 0) return resolve();
+                const timer = setTimeout(resolve, 5000);
+                const done = () => {
+                  clearTimeout(timer);
+                  resolve();
+                };
+                img.addEventListener("load", done, { once: true });
+                img.addEventListener("error", done, { once: true });
+              }),
+          ),
+        );
+      };
+
       const withTimeout = <T,>(p: Promise<T>, ms: number) =>
         Promise.race<T>([
           p,
           new Promise<T>((_, reject) => setTimeout(() => reject(new Error("timed out")), ms)),
         ]);
 
+      await waitForImages();
+
       const canvas = await withTimeout(
         html2canvas(node, {
-          scale: 2,
+          scale: 1.8,
           useCORS: true,
           backgroundColor: "#ffffff",
           logging: false,
-          imageTimeout: 8000,
+          imageTimeout: 12000,
         }),
-        12000,
+        20000,
       );
       const dataUrl = canvas.toDataURL("image/png");
       const link = document.createElement("a");
