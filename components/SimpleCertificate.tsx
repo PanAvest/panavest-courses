@@ -37,9 +37,6 @@ const fmt = (d?: string | Date) => {
 
 const genId = () => `KDS-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 
-const SVG_PLACEHOLDER =
-  "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='48'%3E%3Crect width='100%25' height='100%25' fill='none' stroke='gray'/%3E%3Ctext x='5' y='30' font-size='12' fill='gray'%3ESignature%20Unavailable%3C/text%3E%3C/svg%3E";
-
 const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
   (
     {
