@@ -102,7 +102,11 @@ export default async function Footer() {
                 <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
                   <path
                     fill="currentColor"
-                    d="M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5Z m10 2H7a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3Z m-5 3.5A5.5 5.5 0 1 1 6.5 13 5.5 5.5 0 0 1 12 7.5Z m0 2A3.5 3.5 0 1 0 15.5 13 3.5 3.5 0 0 0 12 9.5Z m5.75-2.75a1 1 0 1 1-1 1 1 0 0 1 1-1Z"
+                    d="M9 4h6l1 2h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2l1-2Z"
+                  />
+                  <path
+                    fill="currentColor"
+                    d="M12 9.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9Zm0 2a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5Z"
                   />
                 </svg>
               </SocialLink>
