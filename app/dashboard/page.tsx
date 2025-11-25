@@ -481,12 +481,47 @@ export default function DashboardPage() {
       course,
       issuedAt,
       certNumber,
-    }: { recipient: string; course: string; issuedAt: string | Date; certNumber: string },
+      verifyUrl,
+    }: { recipient: string; course: string; issuedAt: string | Date; certNumber: string; verifyUrl?: string },
   ) => {
     try {
       if (downloadingCertId) return;
       setDownloadingCertId(certId);
       const { jsPDF } = await import("jspdf");
+      if (typeof window === "undefined") throw new Error("No window");
+
+      const toDataUrl = async (url: string) => {
+        const res = await fetch(url);
+        const blob = await res.blob();
+        const buf = await blob.arrayBuffer();
+        const base64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+        return `data:${blob.type};base64,${base64}`;
+      };
+
+      const makeGradient = (w: number, h: number, stops: { offset: number; color: string }[]) => {
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return "";
+        const g = ctx.createLinearGradient(0, 0, w, 0);
+        stops.forEach((s) => g.addColorStop(s.offset, s.color));
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, w, h);
+        return canvas.toDataURL("image/png");
+      };
+
+      const [logoData, sigData, qrData] = await Promise.all([
+        toDataUrl("/logo.png"),
+        toDataUrl("/logo.png"), // fallback signature; replace with real if needed
+        verifyUrl ? toDataUrl(`https://quickchart.io/qr?text=${encodeURIComponent(verifyUrl)}&size=240&margin=1`) : Promise.resolve(""),
+      ]);
+      const headerGradient = makeGradient(1600, 200, [
+        { offset: 0, color: "#0a1156" },
+        { offset: 0.65, color: "#0a1156" },
+        { offset: 0.72, color: "#d2a756" },
+        { offset: 1, color: "#f1d48f" },
+      ]);
 
       const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
       const pageWidth = doc.internal.pageSize.getWidth();
@@ -503,57 +538,72 @@ export default function DashboardPage() {
       doc.rect(margin, margin, pageWidth - margin * 2, pageHeight - margin * 2);
 
       // Header band
-      doc.setFillColor(10, 17, 86);
-      doc.rect(margin + 4, margin + 4, pageWidth - (margin + 4) * 2, 18, "F");
+      if (headerGradient) {
+        doc.addImage(headerGradient, "PNG", margin + 2, margin + 2, pageWidth - (margin + 2) * 2, 24);
+      } else {
+        doc.setFillColor(10, 17, 86);
+        doc.rect(margin + 2, margin + 2, pageWidth - (margin + 2) * 2, 24, "F");
+      }
       doc.setTextColor(255, 255, 255);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
-      doc.text("CERTIFICATE OF COMPLETION", pageWidth / 2, margin + 17, { align: "center" });
+      doc.text("CERTIFICATE", margin + 10, margin + 16, { align: "left" });
+      doc.text("of Appreciation", margin + 10, margin + 24, { align: "left" });
+      if (logoData) {
+        doc.addImage(logoData, "PNG", pageWidth - margin - 26, margin + 4, 24, 12, undefined, "FAST");
+      }
 
       // Body
       doc.setTextColor(10, 17, 86);
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      doc.text("Awarded to", pageWidth / 2, margin + 40, { align: "center" });
+      doc.text("Proudly Presented To", pageWidth / 2, margin + 42, { align: "center" });
 
       doc.setFontSize(30);
       doc.setFont("helvetica", "bold");
-      doc.text(recipient || "Your Name", pageWidth / 2, margin + 58, { align: "center" });
+      doc.text(recipient || "Your Name", pageWidth / 2, margin + 60, { align: "center" });
 
       doc.setFontSize(12);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(55, 65, 81);
-      doc.text("for successfully completing", pageWidth / 2, margin + 72, { align: "center" });
+      doc.text("for successfully completing", pageWidth / 2, margin + 74, { align: "center" });
 
       doc.setFont("helvetica", "italic");
       doc.setFontSize(18);
       doc.setTextColor(31, 41, 55);
-      doc.text(course, pageWidth / 2, margin + 86, { align: "center" });
+      doc.text(course, pageWidth / 2, margin + 88, { align: "center" });
 
       doc.setFont("helvetica", "normal");
       doc.setFontSize(11);
       doc.setTextColor(55, 65, 81);
-      doc.text(`Certificate No: ${certNumber}`, pageWidth / 2, margin + 102, { align: "center" });
-      doc.text(`Issued: ${new Date(issuedAt).toLocaleDateString()}`, pageWidth / 2, margin + 114, { align: "center" });
+      doc.text(`Certificate No: ${certNumber}`, pageWidth / 2, margin + 104, { align: "center" });
+      doc.text(`Issued: ${new Date(issuedAt).toLocaleDateString()}`, pageWidth / 2, margin + 116, { align: "center" });
 
-      // Signature line and logo placeholder
-      const leftX = margin + 20;
-      const rightX = pageWidth - margin - 20;
-      const baseY = pageHeight - margin - 24;
+      const leftX = margin + 22;
+      const rightX = pageWidth - margin - 22;
+      const baseY = pageHeight - margin - 26;
+      if (sigData) {
+        doc.addImage(sigData, "PNG", leftX, baseY - 20, 60, 18, undefined, "FAST");
+      }
       doc.setDrawColor(156, 163, 175);
       doc.setLineWidth(0.5);
-      doc.line(leftX, baseY, leftX + 60, baseY);
+      doc.line(leftX, baseY, leftX + 70, baseY);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
       doc.setTextColor(10, 17, 86);
-      doc.text("Authorized Signatory", leftX + 30, baseY + 8, { align: "center" });
+      doc.text("Authorized Signatory", leftX + 35, baseY + 8, { align: "center" });
 
-      doc.setFillColor(10, 17, 86);
-      doc.roundedRect(rightX - 40, baseY - 12, 80, 24, 2, 2, "S");
-      doc.setTextColor(10, 17, 86);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(55, 65, 81);
+      doc.text("Scan to verify", rightX, baseY - 22, { align: "center" });
+      if (qrData) {
+        doc.addImage(qrData, "PNG", rightX - 20, baseY - 20, 40, 40, undefined, "FAST");
+      }
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(12);
-      doc.text("PanAvest", rightX, baseY + 6, { align: "center" });
+      doc.setFontSize(10);
+      doc.setTextColor(10, 17, 86);
+      doc.text(certNumber, rightX, baseY + 22, { align: "center" });
 
       const filename = certNumber ? `PanAvest-Certificate-${certNumber}.pdf` : "PanAvest-Certificate.pdf";
       doc.save(filename);
@@ -752,6 +802,7 @@ export default function DashboardPage() {
                                 course: courseTitle,
                                 issuedAt: c.issued_at,
                                 certNumber: kdsCertId,
+                                verifyUrl,
                               })
                             }
                             disabled={downloadingCertId === c.id}
