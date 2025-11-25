@@ -693,18 +693,54 @@ export default function DashboardPage() {
                           zIndex: -1,
                         }}
                       >
-                        <SimpleCertificate
-                          recipient={fullName || "Your Name"}
-                          course={courseTitle}
-                          date={c.issued_at}
-                          certId={kdsCertId}
-                          qrProvider="none"
-                          panavestLogo="/logo.png"
-                          kdsLogo="/logo.png"
-                          signature=""
-                          showPrint={false}
-                          accent="#0a1156"
-                        />
+                        <div
+                          style={{
+                            width: "100%",
+                            maxWidth: "720px",
+                            border: "6px solid #0a1156",
+                            borderRadius: "12px",
+                            background: "#ffffff",
+                            boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
+                            overflow: "hidden",
+                            fontFamily: "Helvetica, Arial, sans-serif",
+                          }}
+                        >
+                          <div
+                            style={{
+                              background: "linear-gradient(135deg, #0a1156 0%, #0a1156 65%, #d2a756 65%, #f1d48f 100%)",
+                              padding: "16px 24px",
+                              color: "#ffffff",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                            }}
+                          >
+                            <div style={{ fontSize: "11px", letterSpacing: "0.28em", textTransform: "uppercase", lineHeight: 1.4 }}>
+                              <div>Certificate</div>
+                              <div style={{ letterSpacing: "0.16em" }}>of Completion</div>
+                            </div>
+                            <img src="/logo.png" alt="Logo" style={{ height: "52px", width: "auto" }} crossOrigin="anonymous" />
+                          </div>
+
+                          <div style={{ padding: "28px 32px 32px", color: "#0a1156" }}>
+                            <div style={{ textAlign: "center" }}>
+                              <div style={{ fontSize: "12px", letterSpacing: "0.18em", textTransform: "uppercase", color: "#6b7280" }}>Awarded To</div>
+                              <div style={{ marginTop: "10px", fontSize: "36px", fontWeight: 700, color: "#0a1156" }}>{fullName || "Your Name"}</div>
+                              <div style={{ marginTop: "8px", fontSize: "14px", color: "#4b5563" }}>for successfully completing</div>
+                              <div style={{ marginTop: "6px", fontSize: "22px", fontStyle: "italic", color: "#1f2937" }}>{courseTitle}</div>
+                              <div style={{ marginTop: "8px", fontSize: "12px", color: "#4b5563" }}>Certificate No: {kdsCertId}</div>
+                              <div style={{ fontSize: "12px", color: "#4b5563" }}>Issued: {new Date(c.issued_at).toLocaleDateString()}</div>
+                            </div>
+
+                            <div style={{ marginTop: "24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                              <div>
+                                <div style={{ height: "1px", background: "#9ca3af", width: "180px", marginBottom: "6px" }} />
+                                <div style={{ fontSize: "13px", fontWeight: 600, color: "#0a1156" }}>Authorized Signatory</div>
+                              </div>
+                              <img src="/logo.png" alt="PanAvest" style={{ height: "46px", width: "auto" }} crossOrigin="anonymous" />
+                            </div>
+                          </div>
+                        </div>
                       </div>
 
                       <div className="relative w-full h-36">
