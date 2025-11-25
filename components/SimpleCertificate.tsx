@@ -84,6 +84,15 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
 
     const [downloading, setDownloading] = useState(false);
 
+    const triggerDownload = (dataUrl: string, filename: string) => {
+      const link = document.createElement("a");
+      link.href = dataUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    };
+
     const handleDownloadPdf = async () => {
       try {
         if (downloading) return;
@@ -95,8 +104,7 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
         const bounds = node.getBoundingClientRect();
         if (!bounds.width || !bounds.height) throw new Error("Certificate preview is not visible");
 
-        const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import("html2canvas"), import("jspdf")]);
-
+        const { default: html2canvas } = await import("html2canvas");
         const canvas = await html2canvas(node as HTMLElement, {
           scale: 2,
           useCORS: true,
@@ -107,30 +115,40 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
           },
         });
         const imgData = canvas.toDataURL("image/png");
-        const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-        const pageWidth = 210;
-        const pageHeight = 297;
-        const imgProps = { width: canvas.width, height: canvas.height };
-        const imgRatio = imgProps.height / imgProps.width;
-        const targetWidth = pageWidth;
-        const targetHeight = targetWidth * imgRatio;
-        let drawWidth = targetWidth;
-        let drawHeight = targetHeight;
-        let marginTop = 0;
-        if (drawHeight > pageHeight) {
-          drawHeight = pageHeight;
-          drawWidth = drawHeight / imgRatio;
-        } else {
-          marginTop = (pageHeight - drawHeight) / 2;
+        const baseName = resolvedId ? `PanAvest-Certificate-${resolvedId}` : "PanAvest-Certificate";
+
+        try {
+          const { jsPDF } = await import("jspdf");
+          const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+          const pageWidth = 210;
+          const pageHeight = 297;
+          const imgProps = { width: canvas.width, height: canvas.height };
+          const imgRatio = imgProps.height / imgProps.width;
+          const targetWidth = pageWidth;
+          const targetHeight = targetWidth * imgRatio;
+          let drawWidth = targetWidth;
+          let drawHeight = targetHeight;
+          let marginTop = 0;
+          if (drawHeight > pageHeight) {
+            drawHeight = pageHeight;
+            drawWidth = drawHeight / imgRatio;
+          } else {
+            marginTop = (pageHeight - drawHeight) / 2;
+          }
+          const marginLeft = (pageWidth - drawWidth) / 2;
+          pdf.addImage(imgData, "PNG", marginLeft, marginTop, drawWidth, drawHeight, undefined, "FAST");
+          pdf.save(`${baseName}.pdf`);
+        } catch (pdfErr) {
+          console.warn("PDF generation failed; downloading PNG instead.", pdfErr);
+          triggerDownload(imgData, `${baseName}.png`);
+          if (typeof window !== "undefined") {
+            window.alert("PDF download failed. We saved the certificate as an image instead.");
+          }
         }
-        const marginLeft = (pageWidth - drawWidth) / 2;
-        pdf.addImage(imgData, "PNG", marginLeft, marginTop, drawWidth, drawHeight, undefined, "FAST");
-        const filename = resolvedId ? `PanAvest-Certificate-${resolvedId}.pdf` : "PanAvest-Certificate.pdf";
-        pdf.save(filename);
       } catch (err) {
         console.error("Certificate PDF generation failed", err);
         if (typeof window !== "undefined") {
-          window.alert("We could not generate the certificate PDF. Please keep the preview open and try again.");
+            window.alert("We could not generate the certificate. Please keep the preview open and try again.");
         }
       } finally {
         setDownloading(false);
