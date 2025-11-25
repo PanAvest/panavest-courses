@@ -698,7 +698,10 @@ export default function DashboardPage() {
                           course={courseTitle}
                           date={c.issued_at}
                           certId={kdsCertId}
-                          qrValue={verifyUrl}
+                          qrProvider="none"
+                          panavestLogo="/logo.png"
+                          kdsLogo="/logo.png"
+                          signature=""
                           showPrint={false}
                           accent="#0a1156"
                         />
@@ -733,7 +736,10 @@ export default function DashboardPage() {
                               course={courseTitle}
                               date={c.issued_at}
                               certId={kdsCertId}
-                              qrValue={verifyUrl}
+                              qrProvider="none"
+                              panavestLogo="/logo.png"
+                              kdsLogo="/logo.png"
+                              signature=""
                               showPrint={false}
                               accent="#0a1156"
                             />
