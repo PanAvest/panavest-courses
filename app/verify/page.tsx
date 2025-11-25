@@ -31,12 +31,18 @@ export default async function VerifyPage({ searchParams }: VerifyPageProps) {
         .maybeSingle();
       if (err) throw err;
       if (data) {
+        const prof = Array.isArray((data as any).profiles)
+          ? (data as any).profiles[0]
+          : (data as any).profiles;
+        const course = Array.isArray((data as any).courses)
+          ? (data as any).courses[0]
+          : (data as any).courses;
         cert = {
           id: data.id,
           certificate_no: data.certificate_no ?? null,
           issued_at: data.issued_at ?? null,
-          profiles: data.profiles ? { full_name: data.profiles.full_name ?? null } : null,
-          courses: data.courses ? { title: data.courses.title ?? null } : null,
+          profiles: prof ? { full_name: prof.full_name ?? null } : null,
+          courses: course ? { title: course.title ?? null } : null,
         };
       } else {
         cert = null;
