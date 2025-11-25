@@ -17,6 +17,8 @@ type Knowledge = {
   img?: string | null;
   accredited?: string[] | null;
   published?: boolean | null;
+  delivery_mode?: "slides" | "interactive";
+  interactive_path?: string | null;
 };
 type AdminUser = {
   id: string;
@@ -129,6 +131,8 @@ function asKnowledgeArray(x: unknown): Knowledge[] {
         ? (r["accredited"] as string[])
         : null,
       published: typeof r["published"] === "boolean" ? r["published"] : null,
+      delivery_mode: r["delivery_mode"] === "interactive" ? "interactive" : "slides",
+      interactive_path: isStr(r["interactive_path"]) ? r["interactive_path"] : null,
     };
   });
 }
@@ -286,6 +290,8 @@ export default function AdminPage() {
     img: "",
     accredited: [],
     published: true,
+    delivery_mode: "slides",
+    interactive_path: "",
   });
   const [savingK, setSavingK] = useState(false);
 
@@ -311,6 +317,7 @@ export default function AdminPage() {
     const payload: Knowledge = {
       ...kForm,
       accredited: fromCsv(toCsv(kForm.accredited ?? [])),
+      interactive_path: kForm.interactive_path?.trim() || null,
     };
     const r = await fetch("/api/admin/knowledge", {
       method: "POST",
@@ -329,6 +336,8 @@ export default function AdminPage() {
       img: "",
       accredited: [],
       published: true,
+      delivery_mode: "slides",
+      interactive_path: "",
     });
     await refreshKnowledge();
   }
@@ -1238,6 +1247,33 @@ export default function AdminPage() {
                   />
                 </label>
               ))}
+              <label className="grid gap-1">
+                <span className="text-xs text-slate-500">Course type</span>
+                <select
+                  value={kForm.delivery_mode ?? "slides"}
+                  onChange={(e) => setKForm((f) => ({ ...f, delivery_mode: (e.target as HTMLSelectElement).value as "slides" | "interactive" }))}
+                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+                >
+                  <option value="slides">Standard</option>
+                  <option value="interactive">Interactive (Storyline)</option>
+                </select>
+                {kForm.delivery_mode === "interactive" && (
+                  <span className="text-[11px] text-slate-500">
+                    Interactive courses need one placeholder slide for progress; add it in Content &amp; Quiz builder.
+                  </span>
+                )}
+              </label>
+              {kForm.delivery_mode === "interactive" && (
+                <label className="grid gap-1">
+                  <span className="text-xs text-slate-500">Interactive entry path/URL</span>
+                  <input
+                    value={kForm.interactive_path ?? ""}
+                    onChange={(e) => setKForm((f) => ({ ...f, interactive_path: (e.target as HTMLInputElement).value }))}
+                    placeholder="/interactive/ghie-business-ethics/story_html5.html"
+                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+                  />
+                </label>
+              )}
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="grid gap-1">
                   <span className="text-xs text-slate-500">Price (GH₵)</span>
@@ -1320,6 +1356,8 @@ export default function AdminPage() {
                       img: "",
                       accredited: [],
                       published: true,
+                      delivery_mode: "slides",
+                      interactive_path: "",
                     })
                   }
                   className="rounded-lg px-4 py-2 ring-1 ring-slate-200"
@@ -1347,7 +1385,8 @@ export default function AdminPage() {
                   <div className="text-sm">
                     <div className="font-semibold">{k.title}</div>
                     <div className="text-slate-500 text-xs">
-                      /{k.slug} · {k.level ?? "—"} · GH₵{k.price ?? 0} · {k.published ? "Published" : "Draft"}
+                      /{k.slug} · {k.level ?? "—"} · GH₵{k.price ?? 0} · {k.published ? "Published" : "Draft"} ·{" "}
+                      {k.delivery_mode === "interactive" ? "Interactive" : "Standard"}
                     </div>
                   </div>
                   <div className="flex gap-2">

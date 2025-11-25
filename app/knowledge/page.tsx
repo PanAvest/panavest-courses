@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export default async function KnowledgeIndex() {
   const { data: items } = await supabase
     .from("courses")
-    .select("id,slug,title,description,img,price,cpd_points,published")
+    .select("id,slug,title,description,img,price,cpd_points,published,delivery_mode,interactive_path")
     .eq("published", true)
     .order("title", { ascending: true });
 

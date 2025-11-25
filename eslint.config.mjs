@@ -18,6 +18,11 @@ const eslintConfig = [
       "out/**",
       "build/**",
       "next-env.d.ts",
+      "public/interactive/**",
+      "public/vendor/**",
+      "backups/**",
+      "backups-*/**",
+      "Interactive Courses/**",
     ],
   },
 ];

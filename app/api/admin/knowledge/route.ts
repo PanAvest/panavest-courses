@@ -18,7 +18,7 @@ function isUniqueViolation(err: PostgrestError | null | undefined): boolean {
 }
 
 const LIST_FIELDS =
-  "id,slug,title,description,level,price,cpd_points,img,accredited,published,created_at";
+  "id,slug,title,description,level,price,cpd_points,img,accredited,published,delivery_mode,interactive_path,created_at";
 
 export async function GET() {
   const admin = getSupabaseAdmin();
@@ -44,6 +44,8 @@ export async function POST(req: Request) {
       img?: string | null;
       accredited?: unknown;
       published?: boolean;
+      delivery_mode?: string | null;
+      interactive_path?: string | null;
     };
 
     const payload = {
@@ -69,10 +71,15 @@ export async function POST(req: Request) {
         ? (body.accredited as unknown[]).map(String)
         : null,
       published: typeof body?.published === "boolean" ? body.published : true,
+      delivery_mode: body?.delivery_mode === "interactive" ? "interactive" : "slides",
+      interactive_path: (body?.interactive_path ?? null) as string | null,
     };
 
     if (!payload.slug || !payload.title) {
       return NextResponse.json({ error: "slug and title are required" }, { status: 400 });
+    }
+    if (payload.delivery_mode === "interactive" && !payload.interactive_path) {
+      return NextResponse.json({ error: "interactive_path is required for interactive courses" }, { status: 400 });
     }
 
     const admin = getSupabaseAdmin();
@@ -91,6 +98,8 @@ export async function POST(req: Request) {
           img: payload.img,
           accredited: payload.accredited,
           published: payload.published,
+          delivery_mode: payload.delivery_mode,
+          interactive_path: payload.interactive_path,
         })
         .eq("id", payload.id)
         .select(LIST_FIELDS)
@@ -115,15 +124,17 @@ export async function POST(req: Request) {
             title: payload.title,
             description: payload.description,
             level: payload.level,
-            price: payload.price,
-            cpd_points: payload.cpd_points,
-            img: payload.img,
-            accredited: payload.accredited,
-            published: payload.published,
-          },
-        ],
-        { onConflict: "slug" }
-      )
+          price: payload.price,
+          cpd_points: payload.cpd_points,
+          img: payload.img,
+          accredited: payload.accredited,
+          published: payload.published,
+          delivery_mode: payload.delivery_mode,
+          interactive_path: payload.interactive_path,
+        },
+      ],
+      { onConflict: "slug" }
+    )
       .select(LIST_FIELDS)
       .single();
 

@@ -10,7 +10,7 @@ import { issueCertificateForCourse, IssueCertificateError } from "@/lib/client/i
 import ProgressBar from "@/components/ProgressBar";
 
 /** Types */
-type Course = { id: string; slug: string; title: string; img: string | null };
+type Course = { id: string; slug: string; title: string; img: string | null; delivery_mode?: string | null; interactive_path?: string | null };
 type Chapter = { id: string; title: string; order_index: number; intro_video_url: string | null };
 
 type Slide = {
@@ -252,6 +252,7 @@ export default function CourseDashboard() {
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const blockHandlersBound = useRef<boolean>(false);
   const initializedRef = useRef(false);
+  const isInteractive = course?.delivery_mode === "interactive";
 
   /** Auth */
   useEffect(() => {
@@ -273,7 +274,7 @@ export default function CourseDashboard() {
       // course
       const { data: c } = await supabase
         .from("courses")
-        .select("id,slug,title,img")
+        .select("id,slug,title,img,delivery_mode,interactive_path")
         .eq("slug", String(slug))
         .maybeSingle();
       if (!c) { router.push("/knowledge"); return; }
@@ -290,6 +291,19 @@ export default function CourseDashboard() {
       if (enrErr || !enr || enr.paid !== true) {
         router.replace(`/knowledge/${c.slug}/enroll`);
         return; // stop here; don't load content
+      }
+
+      // Ensure interactive placeholder chapter/slide exists (idempotent)
+      if (c.delivery_mode === "interactive") {
+        try {
+          await fetch("/api/interactive/ensure", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ course_id: c.id }),
+          });
+        } catch {
+          // non-blocking
+        }
       }
 
       // chapters (ordered)
@@ -516,8 +530,9 @@ export default function CourseDashboard() {
   }, [orderedIds, maxAccessibleIndex]);
 
   const totalSlides = orderedSlides.length;
+  const totalSlidesSafe = totalSlides || (isInteractive ? 1 : 0);
   const done = completed.length;
-  const pct = totalSlides === 0 ? 0 : Math.round((done / totalSlides) * 100);
+  const pct = totalSlidesSafe === 0 ? 0 : Math.round((done / totalSlidesSafe) * 100);
 
   /** Mark slide as done — UPSERT + local mirror */
   async function markDone(slide: Slide | null) {
@@ -1075,7 +1090,13 @@ export default function CourseDashboard() {
         >
           <div className="text-sm">Progress</div>
           <div className="mt-1"><ProgressBar value={pct} /></div>
-          <div className="mt-1 text-xs text-muted">{done} / {totalSlides} slides completed</div>
+          <div className="mt-1 text-xs text-muted">{done} / {totalSlidesSafe} slides completed</div>
+
+          {isInteractive && (
+            <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50 p-2 text-[11px] text-blue-800">
+              Interactive Storyline course. Launch it in the main area, then mark it as completed to unlock the exam.
+            </div>
+          )}
 
           <div className="mt-4">
             {chapters.map((ch) => (
@@ -1115,13 +1136,68 @@ export default function CourseDashboard() {
                 </ul>
               </div>
             ))}
-            {chapters.length === 0 && <div className="text-sm text-muted">No content yet.</div>}
+            {chapters.length === 0 && (
+              <div className="text-sm text-muted">
+                No content yet. {isInteractive ? "Interactive courses need one placeholder slide." : ""}
+              </div>
+            )}
           </div>
         </aside>
 
         {/* Main */}
         <main className="rounded-2xl bg-white border border-light p-4 pb-24 md:pb-4">
-          {activeSlide ? (
+          {isInteractive ? (
+            <div className="grid gap-4">
+              <div className="text-base md:text-lg font-semibold">{course?.title}</div>
+              {course?.interactive_path ? (
+                <>
+                  <div className="relative w-full overflow-hidden rounded-lg border border-light bg-black aspect-[16/9]">
+                    <iframe
+                      src={course.interactive_path}
+                      title="Interactive course player"
+                      allow="autoplay; fullscreen"
+                      className="absolute inset-0 h-full w-full"
+                    />
+                  </div>
+                  <div className="text-xs text-muted">
+                    If it does not load,{" "}
+                    <a className="underline" href={course.interactive_path} target="_blank" rel="noreferrer">
+                      open in a new tab
+                    </a>.
+                  </div>
+                </>
+              ) : (
+                <div className="text-sm text-red-700">Interactive entry path is not configured for this course.</div>
+              )}
+
+              <div className="mt-2 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => markDone(activeSlide)}
+                  disabled={!activeSlide || completed.includes(activeSlide.id)}
+                  className="rounded-xl bg-[color:#0a1156] text-white px-5 py-2.5 font-semibold hover:opacity-90 disabled:opacity-60"
+                >
+                  {activeSlide && completed.includes(activeSlide.id) ? "Module marked completed" : "Mark module as completed"}
+                </button>
+                {course?.interactive_path && (
+                  <a
+                    href={course.interactive_path}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-xl px-5 py-2.5 ring-1 ring-[var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                  >
+                    Open in new tab
+                  </a>
+                )}
+              </div>
+
+              {!!notice && (
+                <div role="status" aria-live="polite" className="mt-3 text-xs md:text-sm text-[#0a1156]">
+                  {notice}
+                </div>
+              )}
+            </div>
+          ) : activeSlide ? (
             <>
               <div className="flex items-start justify-between gap-3">
                 <div className="text-base md:text-lg font-semibold">{activeSlide.title}</div>
@@ -1202,7 +1278,7 @@ export default function CourseDashboard() {
       </div>
 
       {/* Sticky mobile action bar */}
-      {activeSlide && (
+      {activeSlide && !isInteractive && (
         <div className="sm:hidden fixed inset-x-0 bottom-0 z-40 bg-white/95 backdrop-blur border-t border-light">
           <div className="mx-auto max-w-screen-2xl px-4 py-2 grid grid-cols-3 gap-2">
             <button

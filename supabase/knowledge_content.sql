@@ -1,5 +1,7 @@
 alter table public.courses add column if not exists cpd_points int;
 alter table public.courses add column if not exists img text;
+alter table public.courses add column if not exists delivery_mode text default 'slides' check (delivery_mode in ('slides','interactive'));
+alter table public.courses add column if not exists interactive_path text;
 
 alter table public.enrollments add column if not exists paid boolean default false;
 alter table public.enrollments add column if not exists progress_pct numeric default 0;

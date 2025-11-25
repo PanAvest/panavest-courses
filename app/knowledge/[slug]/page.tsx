@@ -17,6 +17,8 @@ type Course = {
   currency: string | null;
   cpd_points: number | null;
   published: boolean | null;
+  delivery_mode?: string | null;
+  interactive_path?: string | null;
 };
 
 export default function CoursePreview() {
@@ -38,7 +40,7 @@ export default function CoursePreview() {
       if (!slug) return;
       const { data: c } = await supabase
         .from("courses")
-        .select("id,slug,title,description,img,price,currency,cpd_points,published")
+        .select("id,slug,title,description,img,price,currency,cpd_points,published,delivery_mode,interactive_path")
         .eq("slug", slug)
         .eq("published", true)
         .maybeSingle();
