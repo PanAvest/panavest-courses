@@ -491,7 +491,7 @@ export default function DashboardPage() {
             (img) =>
               new Promise<void>((resolve) => {
                 if (img.complete && img.naturalWidth > 0) return resolve();
-                const timer = setTimeout(resolve, 5000);
+                const timer = setTimeout(resolve, 8000);
                 const done = () => {
                   clearTimeout(timer);
                   resolve();
@@ -513,13 +513,14 @@ export default function DashboardPage() {
 
       const canvas = await withTimeout(
         html2canvas(node, {
-          scale: 1.8,
+          scale: 1.6,
           useCORS: true,
           backgroundColor: "#ffffff",
           logging: false,
-          imageTimeout: 12000,
+          imageTimeout: 15000,
+          removeContainer: true,
         }),
-        20000,
+        25000,
       );
       const dataUrl = canvas.toDataURL("image/png");
       const link = document.createElement("a");
