@@ -482,7 +482,23 @@ export default function DashboardPage() {
       const node = certPreviewById.current[certId];
       if (!node) throw new Error("Certificate preview not ready");
       const { default: html2canvas } = await import("html2canvas");
-      const canvas = await html2canvas(node, { scale: 2, useCORS: true, backgroundColor: "#ffffff", logging: false });
+
+      const withTimeout = <T,>(p: Promise<T>, ms: number) =>
+        Promise.race<T>([
+          p,
+          new Promise<T>((_, reject) => setTimeout(() => reject(new Error("timed out")), ms)),
+        ]);
+
+      const canvas = await withTimeout(
+        html2canvas(node, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: "#ffffff",
+          logging: false,
+          imageTimeout: 8000,
+        }),
+        12000,
+      );
       const dataUrl = canvas.toDataURL("image/png");
       const link = document.createElement("a");
       link.href = dataUrl;
