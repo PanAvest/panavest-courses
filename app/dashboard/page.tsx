@@ -767,7 +767,7 @@ export default function DashboardPage() {
                   const bg = c.courses?.img ?? "/project-management.png";
                   const cpd = (c.courses?.cpd_points ?? null) as number | null;
                   const kdsCertId = makeKdsCertId(userId, c.course_id);
-                  const verifyUrl = `${origin}/api/secure-pdf?cert_id=${encodeURIComponent(c.id)}`;
+                  const verifyUrl = `${origin}/verify?cert_id=${encodeURIComponent(c.id)}`;
 
                   return (
                     <div key={c.id} className="rounded-xl border border-light bg-white overflow-hidden">
@@ -800,10 +800,7 @@ export default function DashboardPage() {
                               course={courseTitle}
                               date={c.issued_at}
                               certId={kdsCertId}
-                              qrProvider="none"
-                              panavestLogo="/logo.png"
-                              kdsLogo="/logo.png"
-                              signature=""
+                              qrValue={verifyUrl}
                               showPrint={false}
                               accent="#0a1156"
                             />
