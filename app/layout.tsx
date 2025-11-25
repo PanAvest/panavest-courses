@@ -7,8 +7,8 @@ export const metadata: Metadata = {
   title: "PanAvest Knowledge",
   description: "Learn. Assess. Excel.",
   icons: {
-    icon: "/logo.png",
-    apple: "/logo.png",
+    icon: "/vercel.png",
+    apple: "/vercel.png",
   },
 };
 
