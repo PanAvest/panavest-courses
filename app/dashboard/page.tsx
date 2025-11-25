@@ -593,9 +593,9 @@ export default function DashboardPage() {
       doc.text(`Issued: ${new Date(issuedAt).toLocaleDateString()}`, centerX, cursorY, { align: "center" });
 
       // Footer: signature left, QR right
-      const footerY = pageHeight - margin - 28;
+      const footerY = pageHeight - margin - 32;
       const leftX = margin + 16;
-      const rightX = pageWidth - margin - 16;
+      const rightX = pageWidth - margin - 22;
 
       if (sigData) {
         doc.addImage(sigData, "PNG", leftX, footerY - 16, 60, 18, undefined, "FAST");
@@ -609,15 +609,17 @@ export default function DashboardPage() {
       doc.text("Authorized Signatory", leftX + 35, footerY + 12, { align: "center" });
 
       if (qrData) {
+        const qrSize = 38;
+        const qrTop = pageHeight - margin - qrSize - 10;
         doc.setFont("helvetica", "normal");
         doc.setFontSize(10);
         doc.setTextColor(55, 65, 81);
-        doc.text("Scan to verify", rightX, footerY - 6, { align: "center" });
-        doc.addImage(qrData, "PNG", rightX - 22, footerY - 4, 44, 44, undefined, "FAST");
+        doc.text("Scan to verify", rightX, qrTop - 6, { align: "center" });
+        doc.addImage(qrData, "PNG", rightX - qrSize / 2, qrTop, qrSize, qrSize, undefined, "FAST");
         doc.setFont("helvetica", "bold");
         doc.setFontSize(10);
         doc.setTextColor(10, 17, 86);
-        doc.text(certNumber, rightX, footerY + 44 + 8, { align: "center" });
+        doc.text(certNumber, rightX, qrTop + qrSize + 8, { align: "center" });
       }
 
       const filename = certNumber ? `PanAvest-Certificate-${certNumber}.pdf` : "PanAvest-Certificate.pdf";
