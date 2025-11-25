@@ -1,6 +1,6 @@
-import React, { forwardRef, useMemo, useRef, useState } from "react";
-import html2canvas from "html2canvas";
-import { jsPDF } from "jspdf";
+"use client";
+
+import React, { forwardRef, useId, useMemo, useRef, useState } from "react";
 
 /**
  * SimpleCertificate (A4 preview + print-only)
@@ -64,6 +64,7 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
   ) => {
     const certRef = useRef<HTMLDivElement | null>(null);
     const captureRef = useRef<HTMLDivElement | null>(null);
+    const captureId = useId();
     const resolvedId = useMemo(() => certId || genId(), [certId]);
     const value = qrValue || resolvedId;
     const qrUrl = useMemo(() => {
@@ -88,14 +89,18 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
         if (downloading) return;
         setDownloading(true);
         if (typeof window === "undefined") return;
-        const node = captureRef.current || document.getElementById("certificate-capture");
-        if (!node) {
-          console.error("Certificate capture element missing");
-          return;
-        }
+        const node = captureRef.current || document.getElementById(captureId);
+        if (!node) throw new Error("Certificate capture element missing");
+
+        const bounds = node.getBoundingClientRect();
+        if (!bounds.width || !bounds.height) throw new Error("Certificate preview is not visible");
+
+        const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import("html2canvas"), import("jspdf")]);
+
         const canvas = await html2canvas(node as HTMLElement, {
           scale: 2,
           useCORS: true,
+          backgroundColor: "#ffffff",
           ignoreElements: (el: Element) => {
             const tag = el.tagName?.toLowerCase?.() ?? "";
             return tag === "svg" || tag === "path";
@@ -125,7 +130,7 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
       } catch (err) {
         console.error("Certificate PDF generation failed", err);
         if (typeof window !== "undefined") {
-          window.alert("We could not generate the certificate PDF. Please try again.");
+          window.alert("We could not generate the certificate PDF. Please keep the preview open and try again.");
         }
       } finally {
         setDownloading(false);
@@ -153,7 +158,7 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
             boxSizing: "border-box",
         }}
       >
-        <div ref={captureRef} id="certificate-capture" className="h-full flex flex-col">
+        <div ref={captureRef} id={captureId} className="h-full flex flex-col">
           {/* Banner */}
           <div
               style={{
