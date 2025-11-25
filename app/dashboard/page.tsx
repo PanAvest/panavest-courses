@@ -66,7 +66,8 @@ export default function DashboardPage() {
     { course_id: string; course_title: string; course_slug: string; img: string | null; cpd_points: number | null; score_pct: number; passed_at: string }[]
   >([]);
   const [courseMetaMap, setCourseMetaMap] = useState<Record<string, CourseMeta>>({});
-  const certPreviewContainerRef = useRef<HTMLDivElement | null>(null);
+  const certPreviewById = useRef<Record<string, HTMLDivElement | null>>({});
+  const [downloadingCertId, setDownloadingCertId] = useState<string | null>(null);
 
   /* ── Stable auth gate ── */
   useEffect(() => {
@@ -457,11 +458,6 @@ export default function DashboardPage() {
     setIsEditingName(false);
   }
 
-  // Refresh ID temporarily disabled (legacy endpoint noisy)
-  async function refreshCertificate() {
-    console.warn("Refresh ID is temporarily disabled.");
-  }
-
   // Group quiz results by course
   const quizByCourse = useMemo(() => {
     const grouped: Record<string, { attempt: QuizAttempt; chapter: ChapterInfo }[]> = {};
@@ -478,6 +474,31 @@ export default function DashboardPage() {
 
   const makeKdsCertId = (u: string, courseId?: string) => `KDS-${u.slice(0, 8).toUpperCase()}${courseId ? "-" + courseId.slice(0, 6).toUpperCase() : ""}`;
   const origin = typeof window !== "undefined" && window.location ? window.location.origin : "https://kdslearning.com";
+
+  const downloadCertImage = async (certId: string, filename: string) => {
+    try {
+      if (downloadingCertId) return;
+      setDownloadingCertId(certId);
+      const node = certPreviewById.current[certId];
+      if (!node) throw new Error("Certificate preview not ready");
+      const { default: html2canvas } = await import("html2canvas");
+      const canvas = await html2canvas(node, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+      const dataUrl = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.href = dataUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.error("Certificate image download failed", err);
+      if (typeof window !== "undefined") {
+        window.alert("We could not download the certificate image. Please try again.");
+      }
+    } finally {
+      setDownloadingCertId(null);
+    }
+  };
 
   if (!sessionReady) {
     return (
@@ -639,14 +660,19 @@ export default function DashboardPage() {
                         {/* Inline preview */}
                         <details className="mt-3 rounded-lg border border-dashed p-3 open:shadow-sm">
                           <summary className="cursor-pointer text-sm font-medium">Preview certificate</summary>
-                          <div ref={certPreviewContainerRef} className="mt-4">
+                          <div
+                            ref={(el) => {
+                              certPreviewById.current[c.id] = el;
+                            }}
+                            className="mt-4"
+                          >
                             <SimpleCertificate
                               recipient={fullName || "Your Name"}
                               course={courseTitle}
                               date={c.issued_at}
                               certId={kdsCertId}
                               qrValue={verifyUrl}
-                              showPrint
+                              showPrint={false}
                               accent="#0a1156"
                             />
                           </div>
@@ -655,20 +681,11 @@ export default function DashboardPage() {
                         <div className="mt-3 flex flex-wrap items-center gap-2">
                           <button
                             type="button"
-                            disabled
-                            className="rounded-lg bg-[color:#0a1156] text-white px-3 py-1.5 text-sm opacity-60 cursor-not-allowed"
-                            title="Full view disabled"
+                            onClick={() => downloadCertImage(c.id, `PanAvest-Certificate-${kdsCertId}.png`)}
+                            disabled={downloadingCertId === c.id}
+                            className="rounded-lg bg-[color:#0a1156] text-white px-3 py-1.5 text-sm disabled:opacity-60"
                           >
-                            View full certificate
-                          </button>
-                          <button
-                            type="button"
-                            onClick={refreshCertificate}
-                            disabled
-                            title="Refresh ID (coming soon)"
-                            className="rounded-lg border px-3 py-1.5 text-sm disabled:opacity-50"
-                          >
-                            Refresh ID (coming soon)
+                            {downloadingCertId === c.id ? "Preparing…" : "Download certificate"}
                           </button>
                           <div className="text-xs text-muted">Final score: {c.score_pct != null ? `${c.score_pct}%` : "—"}</div>
                         </div>
