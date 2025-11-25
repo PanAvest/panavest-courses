@@ -8,6 +8,7 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { issueCertificateForCourse, IssueCertificateError } from "@/lib/client/issueCertificate";
 import ProgressBar from "@/components/ProgressBar";
+import InteractivePlayer from "@/components/InteractivePlayer";
 
 /** Types */
 type Course = { id: string; slug: string; title: string; img: string | null; delivery_mode?: string | null; interactive_path?: string | null };
@@ -80,6 +81,8 @@ type CertificateNotice = {
   type: "success" | "error" | "info";
   message: string;
 };
+
+type InteractiveState = "not_started" | "in_progress" | "completed";
 
 declare global {
   interface Window {
@@ -214,6 +217,8 @@ export default function CourseDashboard() {
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<string>("");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [interactiveStatus, setInteractiveStatus] = useState<InteractiveState>("not_started");
+  const [interactiveLastSeen, setInteractiveLastSeen] = useState<string | null>(null);
 
   // quizzes
   const [quizByChapter, setQuizByChapter] = useState<Record<string, QuizQuestion[]>>({});
@@ -301,6 +306,30 @@ export default function CourseDashboard() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ course_id: c.id }),
           });
+          const nowIso = new Date().toISOString();
+          const { data: istate } = await supabase
+            .from("user_interactive_state")
+            .select("status,last_seen_at")
+            .eq("user_id", userId)
+            .eq("course_id", c.id)
+            .maybeSingle();
+          const nextStatus = istate?.status === "completed" ? "completed" : "in_progress";
+          const { data: upData } = await supabase
+            .from("user_interactive_state")
+            .upsert(
+              {
+                user_id: userId,
+                course_id: c.id,
+                status: nextStatus,
+                last_seen_at: nowIso,
+              },
+              { onConflict: "user_id,course_id" }
+            )
+            .select("status,last_seen_at")
+            .maybeSingle();
+          const resolvedState = (upData?.status ?? nextStatus) as InteractiveState;
+          setInteractiveStatus(resolvedState);
+          setInteractiveLastSeen(upData?.last_seen_at ?? istate?.last_seen_at ?? nowIso);
         } catch {
           // non-blocking
         }
@@ -588,6 +617,31 @@ export default function CourseDashboard() {
     }
   }
 
+  async function completeInteractiveModule() {
+    if (!activeSlide) return;
+    await markDone(activeSlide);
+    if (course && userId) {
+      const nowIso = new Date().toISOString();
+      try {
+        await supabase
+          .from("user_interactive_state")
+          .upsert(
+            {
+              user_id: userId,
+              course_id: course.id,
+              status: "completed",
+              last_seen_at: nowIso,
+            },
+            { onConflict: "user_id,course_id" }
+          );
+        setInteractiveStatus("completed");
+        setInteractiveLastSeen(nowIso);
+      } catch {
+        /* non-blocking */
+      }
+    }
+  }
+
   /** Chapter quiz */
   function beginQuiz(chId: string) {
     const pool = quizByChapter[chId] ?? [];
@@ -643,9 +697,9 @@ export default function CourseDashboard() {
       correct: q.correct_index,
     }));
 
-    const total = quizItems.length;
-    const correctCount = answered.reduce((acc, a) => acc + (a.chosen === a.correct ? 1 : 0), 0);
-    const scorePct = Math.round((correctCount / Math.max(1, total)) * 100);
+      const total = quizItems.length;
+      const correctCount = answered.reduce((acc, a) => acc + (a.chosen === a.correct ? 1 : 0), 0);
+      const scorePct = Math.round((correctCount / Math.max(1, total)) * 100);
 
     try {
       await supabase.from("user_chapter_quiz").insert({
@@ -1149,16 +1203,13 @@ export default function CourseDashboard() {
           {isInteractive ? (
             <div className="grid gap-4">
               <div className="text-base md:text-lg font-semibold">{course?.title}</div>
+              <div className="text-xs text-muted">
+                Status: {interactiveStatus === "completed" ? "Completed" : interactiveStatus === "in_progress" ? "In progress" : "Not started"}
+                {interactiveLastSeen ? ` · Last seen ${new Date(interactiveLastSeen).toLocaleString()}` : ""}
+              </div>
               {course?.interactive_path ? (
                 <>
-                  <div className="relative w-full overflow-hidden rounded-lg border border-light bg-black aspect-[16/9]">
-                    <iframe
-                      src={course.interactive_path}
-                      title="Interactive course player"
-                      allow="autoplay; fullscreen"
-                      className="absolute inset-0 h-full w-full"
-                    />
-                  </div>
+                  <InteractivePlayer src={course.interactive_path} title="Interactive course player" />
                   <div className="text-xs text-muted">
                     If it does not load,{" "}
                     <a className="underline" href={course.interactive_path} target="_blank" rel="noreferrer">
@@ -1173,11 +1224,11 @@ export default function CourseDashboard() {
               <div className="mt-2 flex flex-wrap gap-3">
                 <button
                   type="button"
-                  onClick={() => markDone(activeSlide)}
+                  onClick={() => completeInteractiveModule()}
                   disabled={!activeSlide || completed.includes(activeSlide.id)}
                   className="rounded-xl bg-[color:#0a1156] text-white px-5 py-2.5 font-semibold hover:opacity-90 disabled:opacity-60"
                 >
-                  {activeSlide && completed.includes(activeSlide.id) ? "Module marked completed" : "Mark module as completed"}
+                  {activeSlide && completed.includes(activeSlide.id) ? "Module marked completed" : "Mark interactive course as completed"}
                 </button>
                 {course?.interactive_path && (
                   <a

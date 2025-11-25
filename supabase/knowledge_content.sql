@@ -3,6 +3,15 @@ alter table public.courses add column if not exists img text;
 alter table public.courses add column if not exists delivery_mode text default 'slides' check (delivery_mode in ('slides','interactive'));
 alter table public.courses add column if not exists interactive_path text;
 
+create table if not exists public.user_interactive_state (
+  user_id uuid references auth.users(id) on delete cascade,
+  course_id uuid references public.courses(id) on delete cascade,
+  status text not null default 'not_started' check (status in ('not_started','in_progress','completed')),
+  last_seen_at timestamptz default now(),
+  primary key (user_id, course_id)
+);
+create index if not exists idx_user_interactive_state_course on public.user_interactive_state(course_id);
+
 alter table public.enrollments add column if not exists paid boolean default false;
 alter table public.enrollments add column if not exists progress_pct numeric default 0;
 
