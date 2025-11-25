@@ -9,11 +9,11 @@ type CertRow = {
 };
 
 type VerifyPageProps = {
-  searchParams?: Promise<{ cert_id?: string | string[] }>;
+  searchParams: Promise<{ cert_id?: string | string[] }>;
 };
 
 export default async function VerifyPage({ searchParams }: VerifyPageProps) {
-  const params = searchParams ? await searchParams : {};
+  const params = await searchParams;
   const raw = params.cert_id;
   const certId = Array.isArray(raw) ? raw[0] : raw;
   let error: string | null = null;
