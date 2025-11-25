@@ -30,7 +30,17 @@ export default async function VerifyPage({ searchParams }: VerifyPageProps) {
         .eq("id", certId)
         .maybeSingle();
       if (err) throw err;
-      cert = (data as CertRow) || null;
+      if (data) {
+        cert = {
+          id: data.id,
+          certificate_no: data.certificate_no ?? null,
+          issued_at: data.issued_at ?? null,
+          profiles: data.profiles ? { full_name: data.profiles.full_name ?? null } : null,
+          courses: data.courses ? { title: data.courses.title ?? null } : null,
+        };
+      } else {
+        cert = null;
+      }
       if (!cert) error = "Certificate not found.";
     } catch (e) {
       console.error("verify error", e);
