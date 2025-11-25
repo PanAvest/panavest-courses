@@ -8,6 +8,17 @@ type CertRow = {
   courses: { title: string | null } | null;
 };
 
+type ProfileRelation = { full_name: string | null } | { full_name: string | null }[] | null | undefined;
+type CourseRelation = { title: string | null } | { title: string | null }[] | null | undefined;
+
+type FetchedCert = {
+  id: string;
+  certificate_no: string | null;
+  issued_at: string | null;
+  profiles?: ProfileRelation;
+  courses?: CourseRelation;
+};
+
 type VerifyPageProps = {
   searchParams: Promise<{ cert_id?: string | string[] }>;
 };
@@ -31,16 +42,14 @@ export default async function VerifyPage({ searchParams }: VerifyPageProps) {
         .maybeSingle();
       if (err) throw err;
       if (data) {
-        const prof = Array.isArray((data as any).profiles)
-          ? (data as any).profiles[0]
-          : (data as any).profiles;
-        const course = Array.isArray((data as any).courses)
-          ? (data as any).courses[0]
-          : (data as any).courses;
+        const row = data as FetchedCert;
+        const first = <T,>(val: T | T[] | null | undefined): T | null => (Array.isArray(val) ? val[0] ?? null : val ?? null);
+        const prof = first(row.profiles);
+        const course = first(row.courses);
         cert = {
-          id: data.id,
-          certificate_no: data.certificate_no ?? null,
-          issued_at: data.issued_at ?? null,
+          id: row.id,
+          certificate_no: row.certificate_no ?? null,
+          issued_at: row.issued_at ?? null,
           profiles: prof ? { full_name: prof.full_name ?? null } : null,
           courses: course ? { title: course.title ?? null } : null,
         };
