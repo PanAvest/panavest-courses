@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -66,7 +66,6 @@ export default function DashboardPage() {
     { course_id: string; course_title: string; course_slug: string; img: string | null; cpd_points: number | null; score_pct: number; passed_at: string }[]
   >([]);
   const [courseMetaMap, setCourseMetaMap] = useState<Record<string, CourseMeta>>({});
-  const certPreviewById = useRef<Record<string, HTMLDivElement | null>>({});
   const [downloadingCertId, setDownloadingCertId] = useState<string | null>(null);
 
   /* ── Stable auth gate ── */
@@ -475,64 +474,93 @@ export default function DashboardPage() {
   const makeKdsCertId = (u: string, courseId?: string) => `KDS-${u.slice(0, 8).toUpperCase()}${courseId ? "-" + courseId.slice(0, 6).toUpperCase() : ""}`;
   const origin = typeof window !== "undefined" && window.location ? window.location.origin : "https://kdslearning.com";
 
-  const downloadCertImage = async (certId: string, filename: string) => {
+  const downloadCertPdf = async (
+    certId: string,
+    {
+      recipient,
+      course,
+      issuedAt,
+      certNumber,
+    }: { recipient: string; course: string; issuedAt: string | Date; certNumber: string },
+  ) => {
     try {
       if (downloadingCertId) return;
       setDownloadingCertId(certId);
-      const node = certPreviewById.current[certId];
-      if (!node) throw new Error("Certificate preview not ready");
-      const { default: html2canvas } = await import("html2canvas");
+      const { jsPDF } = await import("jspdf");
 
-      // Wait for images in the hidden preview to finish (or give up after 5s each) before capture.
-      const waitForImages = async () => {
-        const imgs = Array.from(node.querySelectorAll("img"));
-        await Promise.all(
-          imgs.map(
-            (img) =>
-              new Promise<void>((resolve) => {
-                if (img.complete && img.naturalWidth > 0) return resolve();
-                const timer = setTimeout(resolve, 8000);
-                const done = () => {
-                  clearTimeout(timer);
-                  resolve();
-                };
-                img.addEventListener("load", done, { once: true });
-                img.addEventListener("error", done, { once: true });
-              }),
-          ),
-        );
-      };
+      const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 16;
 
-      const withTimeout = <T,>(p: Promise<T>, ms: number) =>
-        Promise.race<T>([
-          p,
-          new Promise<T>((_, reject) => setTimeout(() => reject(new Error("timed out")), ms)),
-        ]);
+      // Background
+      doc.setFillColor(255, 255, 255);
+      doc.rect(0, 0, pageWidth, pageHeight, "F");
 
-      await waitForImages();
+      // Border
+      doc.setDrawColor(10, 17, 86);
+      doc.setLineWidth(3);
+      doc.rect(margin, margin, pageWidth - margin * 2, pageHeight - margin * 2);
 
-      const canvas = await withTimeout(
-        html2canvas(node, {
-          scale: 1.6,
-          useCORS: true,
-          backgroundColor: "#ffffff",
-          logging: false,
-          imageTimeout: 15000,
-          removeContainer: true,
-        }),
-        25000,
-      );
-      const dataUrl = canvas.toDataURL("image/png");
-      const link = document.createElement("a");
-      link.href = dataUrl;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      // Header band
+      doc.setFillColor(10, 17, 86);
+      doc.rect(margin + 4, margin + 4, pageWidth - (margin + 4) * 2, 18, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text("CERTIFICATE OF COMPLETION", pageWidth / 2, margin + 17, { align: "center" });
+
+      // Body
+      doc.setTextColor(10, 17, 86);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text("Awarded to", pageWidth / 2, margin + 40, { align: "center" });
+
+      doc.setFontSize(30);
+      doc.setFont("helvetica", "bold");
+      doc.text(recipient || "Your Name", pageWidth / 2, margin + 58, { align: "center" });
+
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(55, 65, 81);
+      doc.text("for successfully completing", pageWidth / 2, margin + 72, { align: "center" });
+
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(18);
+      doc.setTextColor(31, 41, 55);
+      doc.text(course, pageWidth / 2, margin + 86, { align: "center" });
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(11);
+      doc.setTextColor(55, 65, 81);
+      doc.text(`Certificate No: ${certNumber}`, pageWidth / 2, margin + 102, { align: "center" });
+      doc.text(`Issued: ${new Date(issuedAt).toLocaleDateString()}`, pageWidth / 2, margin + 114, { align: "center" });
+
+      // Signature line and logo placeholder
+      const leftX = margin + 20;
+      const rightX = pageWidth - margin - 20;
+      const baseY = pageHeight - margin - 24;
+      doc.setDrawColor(156, 163, 175);
+      doc.setLineWidth(0.5);
+      doc.line(leftX, baseY, leftX + 60, baseY);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(10, 17, 86);
+      doc.text("Authorized Signatory", leftX + 30, baseY + 8, { align: "center" });
+
+      doc.setFillColor(10, 17, 86);
+      doc.roundedRect(rightX - 40, baseY - 12, 80, 24, 2, 2, "S");
+      doc.setTextColor(10, 17, 86);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text("PanAvest", rightX, baseY + 6, { align: "center" });
+
+      const filename = certNumber ? `PanAvest-Certificate-${certNumber}.pdf` : "PanAvest-Certificate.pdf";
+      doc.save(filename);
     } catch (err) {
-      console.error("Certificate image download failed", err);
+      console.error("Certificate PDF generation failed", err);
       if (typeof window !== "undefined") {
-        window.alert("We could not download the certificate image. Please try again.");
+        window.alert("We could not download the certificate. Please try again.");
       }
     } finally {
       setDownloadingCertId(null);
@@ -676,72 +704,6 @@ export default function DashboardPage() {
 
                   return (
                     <div key={c.id} className="rounded-xl border border-light bg-white overflow-hidden">
-                      {/* Hidden plain template for capture (no Tailwind/oklch colors) */}
-                      <div
-                        aria-hidden
-                        ref={(el) => {
-                          certPreviewById.current[c.id] = el;
-                        }}
-                        style={{
-                          position: "fixed",
-                          top: 0,
-                          left: 0,
-                          width: "820px",
-                          padding: "24px",
-                          background: "#ffffff",
-                          color: "#0a1156",
-                          fontFamily: "Helvetica, Arial, sans-serif",
-                          pointerEvents: "none",
-                          opacity: 0,
-                          zIndex: -1,
-                          boxSizing: "border-box",
-                        }}
-                      >
-                        <div
-                          style={{
-                            border: "6px solid #0a1156",
-                            borderRadius: "12px",
-                            background: "#ffffff",
-                            overflow: "hidden",
-                            boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
-                          }}
-                        >
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "space-between",
-                              padding: "18px 26px",
-                              background: "linear-gradient(135deg, #0a1156 0%, #0a1156 65%, #d2a756 65%, #f1d48f 100%)",
-                              color: "#ffffff",
-                            }}
-                          >
-                            <div style={{ fontSize: "11px", letterSpacing: "0.24em", textTransform: "uppercase", lineHeight: 1.4 }}>
-                              <div>Certificate</div>
-                              <div style={{ letterSpacing: "0.16em" }}>of Completion</div>
-                            </div>
-                            <img src="/logo.png" alt="Logo" style={{ height: "50px", width: "auto" }} />
-                          </div>
-
-                          <div style={{ padding: "30px 36px 38px", textAlign: "center" }}>
-                            <div style={{ fontSize: "12px", letterSpacing: "0.18em", textTransform: "uppercase", color: "#4b5563" }}>Awarded To</div>
-                            <div style={{ marginTop: "12px", fontSize: "38px", fontWeight: 700, color: "#0a1156" }}>{fullName || "Your Name"}</div>
-                            <div style={{ marginTop: "10px", fontSize: "14px", color: "#374151" }}>for successfully completing</div>
-                            <div style={{ marginTop: "8px", fontSize: "22px", fontStyle: "italic", color: "#1f2937" }}>{courseTitle}</div>
-                            <div style={{ marginTop: "10px", fontSize: "12px", color: "#4b5563" }}>Certificate No: {kdsCertId}</div>
-                            <div style={{ fontSize: "12px", color: "#4b5563" }}>Issued: {new Date(c.issued_at).toLocaleDateString()}</div>
-
-                            <div style={{ marginTop: "26px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                              <div style={{ textAlign: "left" }}>
-                                <div style={{ height: "1px", background: "#9ca3af", width: "200px", marginBottom: "8px" }} />
-                                <div style={{ fontSize: "13px", fontWeight: 600, color: "#0a1156" }}>Authorized Signatory</div>
-                              </div>
-                              <img src="/logo.png" alt="PanAvest" style={{ height: "48px", width: "auto" }} />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
                       <div className="relative w-full h-36">
                         <Image src={bg} alt={courseTitle} fill className="object-cover" sizes="(max-width:768px) 100vw, 50vw" />
                       </div>
@@ -784,7 +746,14 @@ export default function DashboardPage() {
                         <div className="mt-3 flex flex-wrap items-center gap-2">
                           <button
                             type="button"
-                            onClick={() => downloadCertImage(c.id, `PanAvest-Certificate-${kdsCertId}.png`)}
+                            onClick={() =>
+                              downloadCertPdf(c.id, {
+                                recipient: fullName || "Your Name",
+                                course: courseTitle,
+                                issuedAt: c.issued_at,
+                                certNumber: kdsCertId,
+                              })
+                            }
                             disabled={downloadingCertId === c.id}
                             className="rounded-lg bg-[color:#0a1156] text-white px-3 py-1.5 text-sm disabled:opacity-60"
                           >
