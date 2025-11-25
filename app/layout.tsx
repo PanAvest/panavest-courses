@@ -6,6 +6,10 @@ import Footer from "@/components/Footer";
 export const metadata: Metadata = {
   title: "PanAvest Knowledge",
   description: "Learn. Assess. Excel.",
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
