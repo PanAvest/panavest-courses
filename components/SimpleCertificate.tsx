@@ -181,19 +181,16 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
           <div
             style={{
               background: "linear-gradient(135deg, #0a1156 0%, #0a1156 60%, #d2a756 60%, #f1d48f 100%)",
-              padding: "20px 28px",
+              padding: "18px 28px",
               color: "white",
             }}
-            className="rounded-t-xl flex items-center justify-between gap-6"
+            className="rounded-t-xl flex items-center justify-between gap-4"
           >
             <div className="text-left leading-tight">
-              <p className="text-[12px] tracking-[0.22em] uppercase">Certificate</p>
-              <p className="text-[12px] tracking-[0.14em] uppercase">of Appreciation</p>
+              <p className="text-[11px] tracking-[0.28em] uppercase">Certificate</p>
+              <p className="text-[11px] tracking-[0.16em] uppercase">of Appreciation</p>
             </div>
-            <div className="flex items-center gap-3">
-              <img src={kdsLogo} alt="KDS" className="h-16 w-auto" crossOrigin="anonymous" />
-              <img src={panavestLogo} alt="PanAvest" className="h-12 w-auto" crossOrigin="anonymous" />
-            </div>
+            <img src={kdsLogo} alt="KDS" className="h-14 w-auto" crossOrigin="anonymous" />
           </div>
 
             {/* Body */}
@@ -233,9 +230,9 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
                 </div>
 
                 {qrProvider !== "none" && qrUrl && (
-                  <div className="flex flex-col items-center sm:items-end text-right">
-                    <p className="text-[10px] text-gray-500 mb-1">Scan to verify</p>
-                    <img src={qrUrl} alt="Certificate QR" width={qrSize} height={qrSize} className="inline-block" crossOrigin="anonymous" />
+                <div className="flex flex-col items-center sm:items-end text-right">
+                  <p className="text-[10px] text-gray-500 mb-1">Scan to verify</p>
+                  <img src={qrUrl} alt="Certificate QR" width={qrSize} height={qrSize} className="inline-block" crossOrigin="anonymous" />
                     <p className="text-[11px] text-gray-700 font-medium mt-2">{resolvedId}</p>
                   </div>
                 )}

@@ -542,25 +542,25 @@ export default function DashboardPage() {
       doc.rect(margin, margin, pageWidth - margin * 2, pageHeight - margin * 2);
 
       // Header band
-      const headerHeight = 22;
+      const headerHeight = 28;
       if (headerGradient) {
-        doc.addImage(headerGradient, "PNG", margin + 3, margin + 3, pageWidth - (margin + 3) * 2, headerHeight, undefined, "FAST");
+        doc.addImage(headerGradient, "PNG", margin + 4, margin + 4, pageWidth - (margin + 4) * 2, headerHeight, undefined, "FAST");
       } else {
         doc.setFillColor(10, 17, 86);
-        doc.rect(margin + 3, margin + 3, pageWidth - (margin + 3) * 2, headerHeight, "F");
+        doc.rect(margin + 4, margin + 4, pageWidth - (margin + 4) * 2, headerHeight, "F");
       }
       doc.setTextColor(255, 255, 255);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
-      doc.text("CERTIFICATE", margin + 8, margin + 12, { align: "left" });
-      doc.text("of Appreciation", margin + 8, margin + 20, { align: "left" });
+      doc.text("CERTIFICATE", margin + 10, margin + 16, { align: "left" });
+      doc.text("of Appreciation", margin + 10, margin + 24, { align: "left" });
       if (logoData) {
-        doc.addImage(logoData, "PNG", pageWidth - margin - 24, margin + 5, 22, 12, undefined, "FAST");
+        doc.addImage(logoData, "PNG", pageWidth - margin - 26, margin + 8, 22, 12, undefined, "FAST");
       }
 
       // Body
       const centerX = pageWidth / 2;
-      let cursorY = margin + headerHeight + 22;
+      let cursorY = margin + headerHeight + 26;
 
       doc.setTextColor(10, 17, 86);
       doc.setFontSize(10);
@@ -568,7 +568,7 @@ export default function DashboardPage() {
       doc.text("Proudly Presented To", centerX, cursorY, { align: "center" });
       cursorY += 16;
 
-      doc.setFontSize(32);
+      doc.setFontSize(34);
       doc.setFont("helvetica", "bold");
       doc.text(recipient || "Your Name", centerX, cursorY, { align: "center" });
       cursorY += 16;
@@ -580,7 +580,7 @@ export default function DashboardPage() {
       cursorY += 14;
 
       doc.setFont("helvetica", "italic");
-      doc.setFontSize(18);
+      doc.setFontSize(19);
       doc.setTextColor(31, 41, 55);
       doc.text(course, centerX, cursorY, { align: "center" });
       cursorY += 20;
