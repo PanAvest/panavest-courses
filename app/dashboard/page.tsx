@@ -482,7 +482,7 @@ export default function DashboardPage() {
       const node = certPreviewById.current[certId];
       if (!node) throw new Error("Certificate preview not ready");
       const { default: html2canvas } = await import("html2canvas");
-      const canvas = await html2canvas(node, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+      const canvas = await html2canvas(node, { scale: 2, useCORS: true, backgroundColor: "#ffffff", logging: false });
       const dataUrl = canvas.toDataURL("image/png");
       const link = document.createElement("a");
       link.href = dataUrl;
@@ -637,6 +637,34 @@ export default function DashboardPage() {
 
                   return (
                     <div key={c.id} className="rounded-xl border border-light bg-white overflow-hidden">
+                      {/* Hidden but rendered cert for capture (keeps size > 0) */}
+                      <div
+                        aria-hidden
+                        ref={(el) => {
+                          certPreviewById.current[c.id] = el;
+                        }}
+                        style={{
+                          position: "fixed",
+                          top: "-10000px",
+                          left: "-10000px",
+                          width: "720px",
+                          padding: "12px",
+                          pointerEvents: "none",
+                          opacity: 0,
+                          zIndex: -1,
+                        }}
+                      >
+                        <SimpleCertificate
+                          recipient={fullName || "Your Name"}
+                          course={courseTitle}
+                          date={c.issued_at}
+                          certId={kdsCertId}
+                          qrValue={verifyUrl}
+                          showPrint={false}
+                          accent="#0a1156"
+                        />
+                      </div>
+
                       <div className="relative w-full h-36">
                         <Image src={bg} alt={courseTitle} fill className="object-cover" sizes="(max-width:768px) 100vw, 50vw" />
                       </div>
@@ -660,12 +688,7 @@ export default function DashboardPage() {
                         {/* Inline preview */}
                         <details className="mt-3 rounded-lg border border-dashed p-3 open:shadow-sm">
                           <summary className="cursor-pointer text-sm font-medium">Preview certificate</summary>
-                          <div
-                            ref={(el) => {
-                              certPreviewById.current[c.id] = el;
-                            }}
-                            className="mt-4"
-                          >
+                          <div className="mt-4">
                             <SimpleCertificate
                               recipient={fullName || "Your Name"}
                               course={courseTitle}
