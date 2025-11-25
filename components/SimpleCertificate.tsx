@@ -1,6 +1,6 @@
-import React, { forwardRef, useMemo, useRef } from "react";
+import React, { forwardRef, useMemo, useRef, useState } from "react";
 import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
+import { jsPDF } from "jspdf";
 
 /**
  * SimpleCertificate (A4 preview + print-only)
@@ -81,43 +81,55 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
       [signature],
     );
 
+    const [downloading, setDownloading] = useState(false);
+
     const handleDownloadPdf = async () => {
-      if (typeof window === "undefined") return;
-      const node = captureRef.current || document.getElementById("certificate-capture");
-      if (!node) {
-        console.error("Certificate capture element missing");
-        return;
+      try {
+        if (downloading) return;
+        setDownloading(true);
+        if (typeof window === "undefined") return;
+        const node = captureRef.current || document.getElementById("certificate-capture");
+        if (!node) {
+          console.error("Certificate capture element missing");
+          return;
+        }
+        const canvas = await html2canvas(node as HTMLElement, {
+          scale: 2,
+          useCORS: true,
+          ignoreElements: (el: Element) => {
+            const tag = el.tagName?.toLowerCase?.() ?? "";
+            return tag === "svg" || tag === "path";
+          },
+        });
+        const imgData = canvas.toDataURL("image/png");
+        const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+        const pageWidth = 210;
+        const pageHeight = 297;
+        const imgProps = { width: canvas.width, height: canvas.height };
+        const imgRatio = imgProps.height / imgProps.width;
+        const targetWidth = pageWidth;
+        const targetHeight = targetWidth * imgRatio;
+        let drawWidth = targetWidth;
+        let drawHeight = targetHeight;
+        let marginTop = 0;
+        if (drawHeight > pageHeight) {
+          drawHeight = pageHeight;
+          drawWidth = drawHeight / imgRatio;
+        } else {
+          marginTop = (pageHeight - drawHeight) / 2;
+        }
+        const marginLeft = (pageWidth - drawWidth) / 2;
+        pdf.addImage(imgData, "PNG", marginLeft, marginTop, drawWidth, drawHeight, undefined, "FAST");
+        const filename = resolvedId ? `PanAvest-Certificate-${resolvedId}.pdf` : "PanAvest-Certificate.pdf";
+        pdf.save(filename);
+      } catch (err) {
+        console.error("Certificate PDF generation failed", err);
+        if (typeof window !== "undefined") {
+          window.alert("We could not generate the certificate PDF. Please try again.");
+        }
+      } finally {
+        setDownloading(false);
       }
-      console.log("Generating certificate PDF…");
-      const canvas = await html2canvas(node, {
-        scale: 2,
-        useCORS: true,
-        ignoreElements: (el: Element) => {
-          const tag = el.tagName?.toLowerCase?.() ?? "";
-          return tag === "svg" || tag === "path";
-        },
-      });
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const pageWidth = 210;
-      const pageHeight = 297;
-      const imgProps = { width: canvas.width, height: canvas.height };
-      const imgRatio = imgProps.height / imgProps.width;
-      const targetWidth = pageWidth;
-      const targetHeight = targetWidth * imgRatio;
-      let drawWidth = targetWidth;
-      let drawHeight = targetHeight;
-      let marginTop = 0;
-      if (drawHeight > pageHeight) {
-        drawHeight = pageHeight;
-        drawWidth = drawHeight / imgRatio;
-      } else {
-        marginTop = (pageHeight - drawHeight) / 2;
-      }
-      const marginLeft = (pageWidth - drawWidth) / 2;
-      pdf.addImage(imgData, "PNG", marginLeft, marginTop, drawWidth, drawHeight, undefined, "FAST");
-      const filename = resolvedId ? `PanAvest-Certificate-${resolvedId}.pdf` : "PanAvest-Certificate.pdf";
-      pdf.save(filename);
     };
 
   return (
@@ -214,9 +226,10 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
           <button
             type="button"
             onClick={handleDownloadPdf}
-            className="rounded px-3 py-1 text-xs border hover:bg-gray-50"
+            disabled={downloading}
+            className="rounded px-3 py-1 text-xs border hover:bg-gray-50 disabled:opacity-60"
           >
-            Download certificate (PDF)
+            {downloading ? "Preparing PDF…" : "Download certificate (PDF)"}
           </button>
         </div>
       )}
