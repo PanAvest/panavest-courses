@@ -10,6 +10,17 @@ export const metadata: Metadata = {
     icon: "/vercel.png",
     apple: "/vercel.png",
   },
+  openGraph: {
+    title: "PanAvest Knowledge",
+    description: "Learn. Assess. Excel.",
+    images: [{ url: "/vercel.png" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "PanAvest Knowledge",
+    description: "Learn. Assess. Excel.",
+    images: ["/vercel.png"],
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
