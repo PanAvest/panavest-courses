@@ -676,6 +676,72 @@ export default function DashboardPage() {
 
                   return (
                     <div key={c.id} className="rounded-xl border border-light bg-white overflow-hidden">
+                      {/* Hidden plain template for capture (no Tailwind/oklch colors) */}
+                      <div
+                        aria-hidden
+                        ref={(el) => {
+                          certPreviewById.current[c.id] = el;
+                        }}
+                        style={{
+                          position: "fixed",
+                          top: 0,
+                          left: 0,
+                          width: "820px",
+                          padding: "24px",
+                          background: "#ffffff",
+                          color: "#0a1156",
+                          fontFamily: "Helvetica, Arial, sans-serif",
+                          pointerEvents: "none",
+                          opacity: 0,
+                          zIndex: -1,
+                          boxSizing: "border-box",
+                        }}
+                      >
+                        <div
+                          style={{
+                            border: "6px solid #0a1156",
+                            borderRadius: "12px",
+                            background: "#ffffff",
+                            overflow: "hidden",
+                            boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              padding: "18px 26px",
+                              background: "linear-gradient(135deg, #0a1156 0%, #0a1156 65%, #d2a756 65%, #f1d48f 100%)",
+                              color: "#ffffff",
+                            }}
+                          >
+                            <div style={{ fontSize: "11px", letterSpacing: "0.24em", textTransform: "uppercase", lineHeight: 1.4 }}>
+                              <div>Certificate</div>
+                              <div style={{ letterSpacing: "0.16em" }}>of Completion</div>
+                            </div>
+                            <img src="/logo.png" alt="Logo" style={{ height: "50px", width: "auto" }} />
+                          </div>
+
+                          <div style={{ padding: "30px 36px 38px", textAlign: "center" }}>
+                            <div style={{ fontSize: "12px", letterSpacing: "0.18em", textTransform: "uppercase", color: "#4b5563" }}>Awarded To</div>
+                            <div style={{ marginTop: "12px", fontSize: "38px", fontWeight: 700, color: "#0a1156" }}>{fullName || "Your Name"}</div>
+                            <div style={{ marginTop: "10px", fontSize: "14px", color: "#374151" }}>for successfully completing</div>
+                            <div style={{ marginTop: "8px", fontSize: "22px", fontStyle: "italic", color: "#1f2937" }}>{courseTitle}</div>
+                            <div style={{ marginTop: "10px", fontSize: "12px", color: "#4b5563" }}>Certificate No: {kdsCertId}</div>
+                            <div style={{ fontSize: "12px", color: "#4b5563" }}>Issued: {new Date(c.issued_at).toLocaleDateString()}</div>
+
+                            <div style={{ marginTop: "26px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                              <div style={{ textAlign: "left" }}>
+                                <div style={{ height: "1px", background: "#9ca3af", width: "200px", marginBottom: "8px" }} />
+                                <div style={{ fontSize: "13px", fontWeight: 600, color: "#0a1156" }}>Authorized Signatory</div>
+                              </div>
+                              <img src="/logo.png" alt="PanAvest" style={{ height: "48px", width: "auto" }} />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
                       <div className="relative w-full h-36">
                         <Image src={bg} alt={courseTitle} fill className="object-cover" sizes="(max-width:768px) 100vw, 50vw" />
                       </div>
@@ -699,12 +765,7 @@ export default function DashboardPage() {
                         {/* Inline preview */}
                         <details className="mt-3 rounded-lg border border-dashed p-3 open:shadow-sm">
                           <summary className="cursor-pointer text-sm font-medium">Preview certificate</summary>
-                          <div
-                            className="mt-4"
-                            ref={(el) => {
-                              certPreviewById.current[c.id] = el;
-                            }}
-                          >
+                          <div className="mt-4">
                             <SimpleCertificate
                               recipient={fullName || "Your Name"}
                               course={courseTitle}
