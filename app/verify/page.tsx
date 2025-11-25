@@ -8,8 +8,10 @@ type CertRow = {
   courses: { title: string | null } | null;
 };
 
-export default async function VerifyPage({ searchParams }: { searchParams: { cert_id?: string } }) {
-  const certId = searchParams.cert_id;
+type VerifySearchParams = { cert_id?: string };
+
+export default async function VerifyPage({ searchParams }: { searchParams?: VerifySearchParams }) {
+  const certId = searchParams?.cert_id;
   let error: string | null = null;
   let cert: CertRow | null = null;
 
