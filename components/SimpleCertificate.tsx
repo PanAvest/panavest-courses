@@ -179,19 +179,22 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
         <div ref={captureRef} id={captureId} className="h-full flex flex-col">
           {/* Banner */}
           <div
-              style={{
-                background: "linear-gradient(135deg, #0a1156 0%, #0a1156 60%, #d2a756 60%, #f1d48f 100%)",
-                padding: "18px 28px",
-                color: "white",
-              }}
-              className="rounded-t-xl flex items-center justify-between gap-4"
-            >
-              <div className="text-left">
-                <p className="text-[11px] tracking-[0.28em] uppercase">Certificate</p>
-                <p className="text-[11px] tracking-[0.16em] uppercase">of Appreciation</p>
-              </div>
-              <img src={kdsLogo} alt="KDS" className="h-14 w-auto" crossOrigin="anonymous" />
+            style={{
+              background: "linear-gradient(135deg, #0a1156 0%, #0a1156 60%, #d2a756 60%, #f1d48f 100%)",
+              padding: "20px 28px",
+              color: "white",
+            }}
+            className="rounded-t-xl flex items-center justify-between gap-6"
+          >
+            <div className="text-left leading-tight">
+              <p className="text-[12px] tracking-[0.22em] uppercase">Certificate</p>
+              <p className="text-[12px] tracking-[0.14em] uppercase">of Appreciation</p>
             </div>
+            <div className="flex items-center gap-3">
+              <img src={kdsLogo} alt="KDS" className="h-16 w-auto" crossOrigin="anonymous" />
+              <img src={panavestLogo} alt="PanAvest" className="h-12 w-auto" crossOrigin="anonymous" />
+            </div>
+          </div>
 
             {/* Body */}
             <div className="flex-1 bg-white px-10 py-8 flex flex-col justify-between">
