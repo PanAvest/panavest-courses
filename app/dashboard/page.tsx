@@ -683,14 +683,15 @@ export default function DashboardPage() {
                           certPreviewById.current[c.id] = el;
                         }}
                         style={{
-                          position: "fixed",
-                          top: "-10000px",
-                          left: "-10000px",
+                          position: "absolute",
+                          top: 0,
+                          left: 0,
                           width: "720px",
                           padding: "12px",
                           pointerEvents: "none",
                           opacity: 0,
                           zIndex: -1,
+                          background: "#ffffff",
                         }}
                       >
                         <div
