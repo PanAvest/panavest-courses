@@ -8,8 +8,8 @@ export const metadata: Metadata = {
   title: "PanAvest Knowledge | Certificate Verification & CPD Programs",
   description: "Verify PanAvest certificates, explore CPD/CPPD programs, and access hands-on assessments across leadership, analytics, and supply chain.",
   icons: {
-    icon: "/vercel.png",
-    apple: "/vercel.png",
+    icon: "/favicon.ico",
+    apple: "/favicon.ico",
   },
   openGraph: {
     title: "PanAvest Knowledge | Certificate Verification & CPD Programs",
@@ -17,14 +17,14 @@ export const metadata: Metadata = {
       "Verify PanAvest-issued certificates and discover practical, industry-ready learning paths across leadership, analytics, project management, and supply chain.",
     url: "https://panavestkds.com",
     siteName: "PanAvest Knowledge",
-    images: [{ url: "/vercel.png", width: 1200, height: 630 }],
+    images: [{ url: "/favicon.ico" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "PanAvest Knowledge | Certificate Verification & CPD Programs",
     description:
       "Verify certificates and explore PanAvest’s CPD/CPPD pathways with hands-on assessments and industry projects.",
-    images: ["/vercel.png"],
+    images: ["/favicon.ico"],
   },
 };
 
