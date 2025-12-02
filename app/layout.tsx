@@ -4,6 +4,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://panavestkds.com"),
   title: "PanAvest Knowledge | Certificate Verification & CPD Programs",
   description: "Verify PanAvest certificates, explore CPD/CPPD programs, and access hands-on assessments across leadership, analytics, and supply chain.",
   icons: {
