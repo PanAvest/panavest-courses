@@ -754,7 +754,7 @@ export default function DashboardPage() {
 
           {/* Course Certificates (real + provisional) */}
           <section className="mt-10">
-            <h2 className="text-xl font-semibold">Course Certificates</h2>
+            <h2 className="text-xl font-semibold">Certificates</h2>
 
             {(certs?.length ?? 0) + (provisionalCerts?.length ?? 0) === 0 ? (
               <p className="mt-3 text-muted">No certificates yet. Complete a course and pass the final exam to earn one.</p>
