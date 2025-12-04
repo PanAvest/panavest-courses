@@ -49,7 +49,7 @@ async function ProgramsList() {
     <ul className="mt-3 space-y-2 text-sm text-muted">
       {items.map((c) => (
         <li key={c.id}>
-          <Link href={`/courses/${c.slug}`} className="hover:text-ink">
+          <Link href={`/knowledge/${c.slug}`} className="hover:text-ink">
             {c.title}
           </Link>
         </li>

@@ -92,9 +92,9 @@ export default function Header() {
 
         {/* Desktop nav */}
         <nav className="hidden sm:flex items-center gap-6">
-          <Link href="/courses" className="text-sm text-muted hover:text-ink">Knowledge</Link>
+          <Link href="/knowledge" className="text-sm text-muted hover:text-ink">Knowledge</Link>
           <Link href="/about" className="text-sm text-muted hover:text-ink">About</Link>
-          <Link href="/leaderboard" className="text-sm text-muted hover:text-ink">E-Books</Link>
+          <Link href="/ebooks" className="text-sm text-muted hover:text-ink">E-Books</Link>
 
           {/* Divider */}
           <span className="h-6 w-px bg-[color:var(--color-light)]/80" aria-hidden />
@@ -169,9 +169,9 @@ export default function Header() {
       {open && (
         <div className="sm:hidden border-t border-light bg-[color:var(--color-bg)]">
           <div className="px-4 py-3 flex flex-col gap-3">
-            <Link href="/courses" onClick={() => setOpen(false)} className="text-ink">Knowledge</Link>
+            <Link href="/knowledge" onClick={() => setOpen(false)} className="text-ink">Knowledge</Link>
             <Link href="/about" onClick={() => setOpen(false)} className="text-ink">About</Link>
-            <Link href="/leaderboard" onClick={() => setOpen(false)} className="text-ink">E-Books</Link>
+            <Link href="/ebooks" onClick={() => setOpen(false)} className="text-ink">E-Books</Link>
 
             {/* Social: mobile */}
             <div className="pt-2">

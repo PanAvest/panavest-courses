@@ -1,0 +1,47 @@
+{
+  "success": true,
+  "branch": "feature/seo-kds-202512041247",
+  "routesUpdated": [
+    {
+      "path": "/knowledge",
+      "metadataAdded": true,
+      "canonicalAdded": true,
+      "ogTwitterAdded": true
+    },
+    {
+      "path": "/knowledge/[slug]",
+      "metadataAdded": true,
+      "canonicalAdded": true,
+      "ogTwitterAdded": true
+    }
+  ],
+  "navigationFixes": [
+    {
+      "label": "Knowledge",
+      "from": "/courses",
+      "to": "/knowledge"
+    },
+    {
+      "label": "E-Books",
+      "from": "/leaderboard",
+      "to": "/ebooks"
+    },
+    {
+      "section": "footer programs",
+      "patternFrom": "/courses/<slug>",
+      "patternTo": "/knowledge/<slug>"
+    }
+  ],
+  "newFiles": [
+    "app/seo-config.ts",
+    "app/sitemap.ts",
+    "public/robots.txt"
+  ],
+  "headingAdjustments": [],
+  "imageAltUpdates": [],
+  "manualTODOs": [
+    "Replace /images/og-default.png with a real branded OG image in public/.",
+    "Extend sitemap to include dynamic /knowledge/[slug] URLs when a server-safe listing is available (e.g., Supabase server query)."
+  ],
+  "errors": []
+}
