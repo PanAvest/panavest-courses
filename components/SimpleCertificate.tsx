@@ -187,6 +187,7 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
               <p className="text-[11px] tracking-[0.28em] uppercase">Certificate</p>
               <p className="text-[11px] tracking-[0.16em] uppercase">of Appreciation</p>
             </div>
+            {/* eslint-disable-next-line @next/next/no-img-element -- using img intentionally for certificate layout; consider migrating to next/image later */}
             <img src={kdsLogo} alt="KDS" className="h-14 w-auto" crossOrigin="anonymous" />
           </div>
 
@@ -212,6 +213,7 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
 
                 <div className="mt-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-10">
                 <div className="flex flex-col items-start">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- using img intentionally for certificate layout; consider migrating to next/image later */}
                   <img
                     src={resolvedSignature}
                     alt="Prof. Douglas Boateng signature"
@@ -229,6 +231,7 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
                 {qrProvider !== "none" && qrUrl && (
                 <div className="flex flex-col items-center sm:items-end text-right">
                   <p className="text-[10px] text-gray-500 mb-1">Scan to verify</p>
+                  {/* eslint-disable-next-line @next/next/no-img-element -- using img intentionally for certificate layout; consider migrating to next/image later */}
                   <img src={qrUrl} alt="Certificate QR" width={qrSize} height={qrSize} className="inline-block" crossOrigin="anonymous" />
                     <p className="text-[11px] text-gray-700 font-medium mt-2">{resolvedId}</p>
                   </div>
@@ -236,6 +239,7 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
               </div>
 
               <div className="mt-6 flex items-center justify-start">
+                {/* eslint-disable-next-line @next/next/no-img-element -- using img intentionally for certificate layout; consider migrating to next/image later */}
                 <img src={panavestLogo} alt="PanAvest" className="h-12 w-auto" crossOrigin="anonymous" />
               </div>
             </div>
