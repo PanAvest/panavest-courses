@@ -126,7 +126,7 @@ export default function EnrollPage() {
           onClick={payNow}
           className="mt-4 rounded-lg bg-[#0a1156] text-white px-5 py-2 font-semibold hover:opacity-90"
         >
-          Pay with Paystack
+          Enroll (Mobile Money/Card)
         </button>
 
         {!!notice && <div className="mt-3 text-sm">{notice}</div>}
