@@ -12,6 +12,27 @@
     html, body { height: 100%; padding: 0; margin: 0 }
     #app { height: 100%; width: 100%; }
   </style>
+  <!-- iOS-only fix: prevent zoom on Storyline text-entry fields -->
+  <style id="ios-nozoom-fix">
+    /* Detect iOS Safari / WKWebView */
+    @supports (-webkit-touch-callout: none) {
+      @media (max-width: 1024px) {
+        /* Storyline input widgets */
+        input,
+        textarea,
+        select,
+        .cs-textarea,
+        .cs-input,
+        .cs-HTML input,
+        .cs-HTML textarea,
+        .cs-HTML select {
+          font-size: 16px !important;
+          line-height: 1.4 !important;
+          -webkit-text-size-adjust: 100% !important;
+        }
+      }
+    }
+  </style>
   
   <script>window.THREE = { };</script>
 </head>
