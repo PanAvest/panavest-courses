@@ -1,0 +1,276 @@
+{
+  "framework": {
+    "nextVersion": "15.5.7",
+    "routerType": "app",
+    "appDir": true,
+    "pagesDir": false
+  },
+  "routes": [
+    {
+      "path": "/",
+      "file": "app/page.tsx",
+      "type": "landing",
+      "seo": {
+        "hasTitle": true,
+        "titleSource": "layout metadata (global title)",
+        "hasMetaDescription": true,
+        "hasCanonical": false,
+        "hasOpenGraph": true,
+        "hasTwitter": true,
+        "hasStructuredData": false,
+        "h1Count": 1,
+        "headingsSummary": [
+          "H1: Learn. Assess. Excel.",
+          "H2: What we do",
+          "H2: (additional sections: programs, reviewers, etc.)"
+        ],
+        "hasHeroAltText": true,
+        "thinContent": false,
+        "keywordHints": [
+          "Certified CPD (CPPD)",
+          "PanAvest",
+          "interactive assessments",
+          "verifiable certificates",
+          "leadership",
+          "analytics",
+          "project management",
+          "supply chain"
+        ]
+      }
+    },
+    {
+      "path": "/about",
+      "file": "app/about/page.tsx",
+      "type": "about",
+      "seo": {
+        "hasTitle": true,
+        "titleSource": "layout metadata (no page-specific metadata)",
+        "hasMetaDescription": true,
+        "hasCanonical": false,
+        "hasOpenGraph": true,
+        "hasTwitter": true,
+        "hasStructuredData": false,
+        "h1Count": 1,
+        "headingsSummary": [
+          "H1: About KDS Learning",
+          "H2: Vision",
+          "H2: Our Mission",
+          "H2: Why KDS Learning Matters",
+          "H2: Guiding Principles",
+          "H2: What We Offer",
+          "H2: Ground-Breaking Features",
+          "H2: Certification & Verification",
+          "H2: Who This Is For",
+          "H2: 10 Reasons to Enrol"
+        ],
+        "hasHeroAltText": false,
+        "thinContent": false,
+        "keywordHints": [
+          "Knowledge Development Series",
+          "Professor Douglas Boateng",
+          "governance",
+          "UN SDGs",
+          "strategic sourcing",
+          "Africa",
+          "PanAvest",
+          "CPPD"
+        ]
+      }
+    },
+    {
+      "path": "/knowledge",
+      "file": "app/knowledge/page.tsx",
+      "type": "program",
+      "seo": {
+        "hasTitle": true,
+        "titleSource": "layout metadata (global only)",
+        "hasMetaDescription": true,
+        "hasCanonical": false,
+        "hasOpenGraph": true,
+        "hasTwitter": true,
+        "hasStructuredData": false,
+        "h1Count": 1,
+        "headingsSummary": [
+          "H1: Knowledge",
+          "H2: (course cards)"
+        ],
+        "hasHeroAltText": true,
+        "thinContent": false,
+        "keywordHints": [
+          "knowledge programs",
+          "CPD",
+          "CPPD",
+          "PanAvest courses",
+          "pricing",
+          "assessments"
+        ]
+      }
+    },
+    {
+      "path": "/knowledge/[slug]",
+      "file": "app/knowledge/[slug]/page.tsx",
+      "type": "program",
+      "seo": {
+        "hasTitle": false,
+        "titleSource": "none (no metadata/generateMetadata)",
+        "hasMetaDescription": false,
+        "hasCanonical": false,
+        "hasOpenGraph": false,
+        "hasTwitter": false,
+        "hasStructuredData": false,
+        "h1Count": 1,
+        "headingsSummary": [
+          "H1: <course title from Supabase>",
+          "(no additional headings)"
+        ],
+        "hasHeroAltText": true,
+        "thinContent": true,
+        "keywordHints": [
+          "course title",
+          "CPPD points",
+          "price",
+          "enroll",
+          "dashboard"
+        ]
+      }
+    },
+    {
+      "path": "/courses",
+      "file": "app/courses/page.tsx",
+      "type": "other",
+      "seo": {
+        "hasTitle": false,
+        "titleSource": "redirect to /knowledge",
+        "hasMetaDescription": false,
+        "hasCanonical": false,
+        "hasOpenGraph": false,
+        "hasTwitter": false,
+        "hasStructuredData": false,
+        "h1Count": 0,
+        "headingsSummary": [],
+        "hasHeroAltText": false,
+        "thinContent": true,
+        "keywordHints": []
+      }
+    },
+    {
+      "path": "/ebooks",
+      "file": "app/ebooks/page.tsx",
+      "type": "other",
+      "seo": {
+        "hasTitle": true,
+        "titleSource": "layout metadata (global only)",
+        "hasMetaDescription": true,
+        "hasCanonical": false,
+        "hasOpenGraph": true,
+        "hasTwitter": true,
+        "hasStructuredData": false,
+        "h1Count": 1,
+        "headingsSummary": [
+          "H1: E-Books"
+        ],
+        "hasHeroAltText": true,
+        "thinContent": false,
+        "keywordHints": [
+          "ebooks",
+          "library",
+          "preview PDFs",
+          "PanAvest"
+        ]
+      }
+    },
+    {
+      "path": "/leaderboard",
+      "file": "app/leaderboard/page.tsx",
+      "type": "other",
+      "seo": {
+        "hasTitle": false,
+        "titleSource": "redirect to /ebooks",
+        "hasMetaDescription": false,
+        "hasCanonical": false,
+        "hasOpenGraph": false,
+        "hasTwitter": false,
+        "hasStructuredData": false,
+        "h1Count": 0,
+        "headingsSummary": [],
+        "hasHeroAltText": false,
+        "thinContent": true,
+        "keywordHints": []
+      }
+    }
+  ],
+  "global": {
+    "robotsTxt": {
+      "exists": false,
+      "path": null,
+      "summary": "No robots.txt found in public/ or routes"
+    },
+    "sitemap": {
+      "exists": false,
+      "path": null,
+      "summary": "No sitemap file or route detected"
+    },
+    "favicon": {
+      "exists": true
+    },
+    "manifest": {
+      "exists": false,
+      "path": null
+    },
+    "nextConfig": {
+      "seoRelevantSettingsSummary": "metadataBase set in app/layout.tsx to https://panavestkds.com; next.config.ts only defines Supabase image remotePatterns; no i18n/trailingSlash/basePath"
+    }
+  },
+  "navigation": {
+    "headerLinks": [
+      {
+        "label": "Knowledge",
+        "href": "/courses"
+      },
+      {
+        "label": "About",
+        "href": "/about"
+      },
+      {
+        "label": "E-Books",
+        "href": "/leaderboard"
+      },
+      {
+        "label": "Dashboard",
+        "href": "/dashboard"
+      },
+      {
+        "label": "Join Now",
+        "href": "/auth/sign-in"
+      }
+    ],
+    "footerLinks": [
+      {
+        "label": "Programs (dynamic top CPPD)",
+        "href": "/courses/<slug>"
+      },
+      {
+        "label": "Connect: X",
+        "href": "https://x.com/PanAvest_Int"
+      },
+      {
+        "label": "Connect: Instagram",
+        "href": "https://www.instagram.com/panavest.inter.partners/?hl=en"
+      },
+      {
+        "label": "Connect: LinkedIn",
+        "href": "https://www.linkedin.com/company/panavest-international-and-partners"
+      },
+      {
+        "label": "Connect: Facebook",
+        "href": "https://www.facebook.com/profile.php?id=61581240303633"
+      }
+    ]
+  },
+  "performanceNotes": [
+    "Home and course pages load data client-side from Supabase, delaying meaningful content for SEO and risking empty states for crawlers without JS/auth.",
+    "Course detail page lacks metadata and depends on runtime Supabase fetch; may render thin content to bots.",
+    "Header logo uses unoptimized Image (unoptimized flag) and multiple social SVGs; minor LCP impact.",
+    "Hero and listing images generally use next/image with alt text; some pages rely on user-provided images that may lack optimization."
+  ]
+}

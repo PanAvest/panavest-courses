@@ -1,0 +1,44 @@
+{
+  "success": false,
+  "branch": "fix/cve-2025-followup-202512041201",
+  "actionsTaken": [
+    "Validated kds_fix_report.json and npm/package-lock presence",
+    "Created branch fix/cve-2025-followup-202512041201",
+    "Backed up package.json and package-lock.json",
+    "Added .env.local.sample and placeholder .env.local",
+    "Installed jspdf@3.0.4 and dompurify@latest (non-breaking)",
+    "Ran npm ci and npm dedupe",
+    "Ran npm audit and npm audit fix (no vulnerabilities remaining)",
+    "Added eslint suppressions for next/no-img-element in components/SimpleCertificate.tsx",
+    "Attempted npm run build (failed: invalid supabase URL placeholder)",
+    "Collected npm ls for react/react-dom/next and react-server-dom"
+  ],
+  "createdFiles": [
+    ".env.local.sample",
+    ".env.local",
+    "package.json.bak",
+    "package-lock.json.bak"
+  ],
+  "packageChanges": {
+    "changed": true,
+    "diff": "\ndiff --git a/package.json b/package.json\nindex dbeb39be..fd3b5342 100644\n--- a/package.json\n+++ b/package.json\n@@ -14,8 +14,9 @@\n     \"@supabase/supabase-js\": \"^2.76.1\",\n     \"@vercel/analytics\": \"^1.5.0\",\n     \"@vercel/speed-insights\": \"^1.2.0\",\n+    \"dompurify\": \"^3.3.0\",\n     \"html2canvas\": \"^1.4.1\",\n-    \"jspdf\": \"^2.5.1\",\n+    \"jspdf\": \"^3.0.4\",\n     \"next\": \"15.5.7\",\n     \"pdfjs-dist\": \"^4.4.168\",\n     \"react\": \"19.2.1\",\n"
+  },
+  "installLogs": "1) npm install jspdf@3.0.4 dompurify@latest --no-audit\nnpm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.\nnpm warn deprecated npmlog@5.0.1: This package is no longer supported.\nnpm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported\nnpm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported\nnpm warn deprecated are-we-there-yet@2.0.0: This package is no longer supported.\nnpm warn deprecated gauge@3.0.2: This package is no longer supported.\n\nadded 5 packages, removed 2 packages, and changed 2 packages in 6s\n\n2) npm ci\nnpm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.\nnpm warn deprecated npmlog@5.0.1: This package is no longer supported.\nnpm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported\nnpm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported\nnpm warn deprecated are-we-there-yet@2.0.0: This package is no longer supported.\nnpm warn deprecated gauge@3.0.2: This package is no longer supported.\nnpm warn deprecated @supabase/auth-helpers-shared@0.7.0: This package is now deprecated - please use the @supabase/ssr package instead.\nnpm warn deprecated @supabase/auth-helpers-nextjs@0.10.0: This package is now deprecated - please use the @supabase/ssr package instead.\n\nadded 379 packages, and audited 380 packages in 6s\n\n3) npm dedupe\nnpm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.\nnpm warn deprecated npmlog@5.0.1: This package is no longer supported.\nnpm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported\nnpm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported\nnpm warn deprecated are-we-there-yet@2.0.0: This package is no longer supported.\nnpm warn deprecated gauge@3.0.2: This package is no longer supported.\n\nup to date, audited 380 packages in 6s\n\n4) npm ci (pre-build)\nnpm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.\nnpm warn deprecated npmlog@5.0.1: This package is no longer supported.\nnpm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported\nnpm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported\nnpm warn deprecated are-we-there-yet@2.0.0: This package is no longer supported.\nnpm warn deprecated gauge@3.0.2: This package is no longer supported.\nnpm warn deprecated @supabase/auth-helpers-shared@0.7.0: This package is now deprecated - please use the @supabase/ssr package instead.\nnpm warn deprecated @supabase/auth-helpers-nextjs@0.10.0: This package is now deprecated - please use the @supabase/ssr package instead.\n\nadded 379 packages, and audited 380 packages in 7s",
+  "auditBefore": "{\n  \"auditReportVersion\": 2,\n  \"vulnerabilities\": {},\n  \"metadata\": {\n    \"vulnerabilities\": {\n      \"info\": 0,\n      \"low\": 0,\n      \"moderate\": 0,\n      \"high\": 0,\n      \"critical\": 0,\n      \"total\": 0\n    },\n    \"dependencies\": {\n      \"prod\": 56,\n      \"dev\": 341,\n      \"optional\": 141,\n      \"peer\": 11,\n      \"peerOptional\": 0,\n      \"total\": 496\n    }\n  }\n}",
+  "auditAfter": "{\n  \"add\": [],\n  \"added\": 0,\n  \"audited\": 380,\n  \"change\": [],\n  \"changed\": 0,\n  \"funding\": 140,\n  \"remove\": [],\n  \"removed\": 0,\n  \"audit\": {\n    \"auditReportVersion\": 2,\n    \"vulnerabilities\": {},\n    \"metadata\": {\n      \"vulnerabilities\": {\n        \"info\": 0,\n        \"low\": 0,\n        \"moderate\": 0,\n        \"high\": 0,\n        \"critical\": 0,\n        \"total\": 0\n      },\n      \"dependencies\": {\n        \"prod\": 56,\n        \"dev\": 303,\n        \"optional\": 24,\n        \"peer\": 11,\n        \"peerOptional\": 0,\n        \"total\": 379\n      }\n    }\n  }\n}",
+  "buildLog": "> panavest-courses@0.1.0 build\n> next build\n\n   \u25b2 Next.js 15.5.7\n   - Environments: .env.local\n\n   Creating an optimized production build ...\n \u2713 Compiled successfully in 4.0s\n   Linting and checking validity of types ...\n   Collecting page data ...\n[Error: Failed to collect configuration for /_not-found] {\n  [cause]: Error: Invalid supabaseUrl: Must be a valid HTTP or HTTPS URL.\n      at <unknown> (.next/server/chunks/6464.js:34:39500)\n      at new b3 (.next/server/chunks/6464.js:34:39682)\n      at b4 (.next/server/chunks/6464.js:34:43671)\n      at <unknown> (.next/server/chunks/4848.js:1:1658)\n      at 16472 (.next/server/chunks/4848.js:1:1785)\n      at c (.next/server/webpack-runtime.js:1:128)\n      at 84104 (.next/server/chunks/4848.js:1:10716)\n      at c (.next/server/webpack-runtime.js:1:128)\n}\n[Error: Failed to collect configuration for /courses/[slug]] {\n  [cause]: Error: Invalid supabaseUrl: Must be a valid HTTP or HTTPS URL.\n      at <unknown> (.next/server/chunks/6464.js:34:39500)\n      at new b3 (.next/server/chunks/6464.js:34:39682)\n      at b4 (.next/server/chunks/6464.js:34:43671)\n      at <unknown> (.next/server/chunks/4848.js:1:1658)\n      at 16472 (.next/server/chunks/4848.js:1:1785)\n      at c (.next/server/webpack-runtime.js:1:128)\n      at 84104 (.next/server/chunks/4848.js:1:10716)\n      at c (.next/server/webpack-runtime.js:1:128)\n}\n\n> Build error occurred\n[Error: Failed to collect page data for /_not-found] { type: 'Error' }",
+  "lintLog": "Skipped: build failed due to invalid placeholder supabase URL.",
+  "testLog": "Not run: no test script defined in package.json.",
+  "remainingAdvisories": [],
+  "reactServerDomFindings": [
+    "npm ls \"react-server-dom*\": none installed",
+    "npm ls react/react-dom/next: 19.2.1 / 19.2.1 / 15.5.7"
+  ],
+  "pushStatus": {
+    "success": true,
+    "details": "git push -u origin fix/cve-2025-followup-202512041201"
+  },
+  "errors": [
+    "Build failed: Invalid supabaseUrl due to placeholder NEXT_PUBLIC_SUPABASE_URL; provide real HTTPS Supabase URL/key and rerun build."
+  ]
+}

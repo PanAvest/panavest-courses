@@ -1,0 +1,86 @@
+{
+  "packageManager": "npm (detected via package-lock.json)",
+  "packageJson": {
+    "name": "panavest-courses",
+    "version": "0.1.0",
+    "dependencies": {
+      "@supabase/auth-helpers-nextjs": "^0.10.0",
+      "@supabase/supabase-js": "^2.76.1",
+      "@vercel/analytics": "^1.5.0",
+      "@vercel/speed-insights": "^1.2.0",
+      "html2canvas": "^1.4.1",
+      "jspdf": "^2.5.1",
+      "next": "15.5.7",
+      "pdfjs-dist": "^4.4.168",
+      "react": "19.2.1",
+      "react-dom": "19.2.1",
+      "zod": "^4.1.11"
+    },
+    "devDependencies": {
+      "@eslint/eslintrc": "^3",
+      "@tailwindcss/postcss": "^4",
+      "@types/node": "^20",
+      "@types/react": "^19",
+      "@types/react-dom": "^19",
+      "@typescript-eslint/eslint-plugin": "^8.46.2",
+      "@typescript-eslint/parser": "^8.46.2",
+      "eslint": "^9.38.0",
+      "eslint-config-next": "^15.5.4",
+      "prettier": "^3.6.2",
+      "tailwindcss": "^4",
+      "typescript": "^5"
+    }
+  },
+  "nodeVersion": "v25.1.0",
+  "toolVersions": {
+    "npm": "11.6.2",
+    "yarn": { "error": "command not found" },
+    "pnpm": { "error": "command not found" }
+  },
+  "nextVersion": {
+    "version": "15.5.7",
+    "isCanary": false
+  },
+  "reactVersion": {
+    "react": "19.2.1",
+    "reactDom": "19.2.1"
+  },
+  "reactServerDomPackages": [],
+  "transitiveDeps": {
+    "packages": [],
+    "notes": ["npm ls react-server-dom-webpack react-server-dom-esm react-server-dom --json exited 1 (packages not installed)"]
+  },
+  "lockfile": {
+    "packageLock": true,
+    "yarnLock": false,
+    "pnpmLock": false
+  },
+  "scripts": {
+    "build": "next build",
+    "start": "next start",
+    "dev": "next dev",
+    "test": null,
+    "lint": "eslint"
+  },
+  "rscIndicators": {
+    "appDirExists": true,
+    "searches": {
+      "useServer": [],
+      "reactServer": []
+    },
+    "notes": [
+      "Next.js app directory present (RSC defaults)",
+      "rg 'use server' in app returned no matches",
+      "rg 'react-server' in app returned no matches"
+    ]
+  },
+  "gitStatus": {
+    "branch": "main...origin/main",
+    "clean": true,
+    "porcelain": "## main...origin/main"
+  },
+  "vercelConfig": {
+    "vercelJson": false,
+    "vercelDir": false
+  }
+}
