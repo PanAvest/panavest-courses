@@ -6,11 +6,19 @@
   <!-- version: 3.17.27621.0 -->
   <title>GhIE Business Ethics Scorm</title>
   <meta http-equiv="x-ua-compatible" content="IE=edge"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,shrink-to-fit=no,minimal-ui"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <style>
     html, body { height: 100%; padding: 0; margin: 0 }
     #app { height: 100%; width: 100%; }
+    /* Prevent iOS zoom on form controls inside the iframe */
+    input, textarea, select {
+      font-size: 16px !important;
+      -webkit-text-size-adjust: 100% !important;
+    }
+    body {
+      -webkit-text-size-adjust: 100% !important;
+    }
   </style>
   
   <script>window.THREE = { };</script>
