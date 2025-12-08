@@ -1,0 +1,29 @@
+@supports (-webkit-touch-callout: none) {
+@media (max-width: 820px) {
+html, body {
+-webkit-text-size-adjust: 100%;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="number"],
+input[type="tel"],
+input[type="password"],
+textarea,
+select {
+  font-size: 16px !important;
+  line-height: 1.4;
+}
+
+.textentry,
+.text-entry,
+.story_text_entry,
+.story-input,
+.text-entry-text {
+  font-size: 16px !important;
+  line-height: 1.4;
+}
+
+
+}
+}
