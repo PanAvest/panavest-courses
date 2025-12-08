@@ -1269,7 +1269,7 @@ export default function AdminPage() {
                   <input
                     value={kForm.interactive_path ?? ""}
                     onChange={(e) => setKForm((f) => ({ ...f, interactive_path: (e.target as HTMLInputElement).value }))}
-                    placeholder="/interactive/ghie-business-ethics/story_html5.html"
+                    placeholder="/interactive/ghie-business-ethics/story_html5.html?v=ios-safe-3"
                     className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
                   />
                 </label>
