@@ -245,41 +245,73 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="mt-24 rounded-3xl bg-white border shadow-sm p-10 md:p-14 flex flex-col md:flex-row items-center gap-12">
-        <div className="flex-1 text-center md:text-left">
-          <div
-            className="inline-block px-4 py-1 rounded-full text-sm font-medium"
-            style={{ backgroundColor: '#f9d6c4', color: '#b65437' }}
-          >
-            KDS Mobile
+      {/* ===== KDS MOBILE (matches platform theme) ===== */}
+      <section className="py-10 sm:py-14">
+        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
+          <div className="rounded-3xl bg-white border border-[color:var(--color-light)] shadow-sm px-6 py-10 sm:px-10 sm:py-12 lg:px-14 lg:py-14 grid gap-10 md:grid-cols-[1.05fr_.95fr] items-center">
+            {/* Left copy */}
+            <div className="flex flex-col gap-4 text-center md:text-left">
+              <div
+                className="inline-flex items-center justify-center md:justify-start px-4 py-1 rounded-full text-xs sm:text-sm font-medium"
+                style={{ backgroundColor: "#f9d6c4", color: "#b65437" }}
+              >
+                KDS Mobile
+              </div>
+
+              <h2 className="font-extrabold text-[28px] sm:text-[34px] lg:text-[40px] leading-tight text-[color:var(--color-ink)]">
+                Learn anywhere with the KDS mobile app.
+              </h2>
+
+              <p className="text-sm sm:text-base text-[color:var(--color-ink)]/75 max-w-xl mx-auto md:mx-0">
+                Access your Knowledge Programs, assessments, and certificates securely from your phone — the same PanAvest KDS experience, optimized for mobile.
+              </p>
+
+              <ul className="mt-2 space-y-2 text-sm sm:text-base text-[color:var(--color-ink)] max-w-xl mx-auto md:mx-0">
+                <li className="flex items-start gap-2 md:items-center">
+                  <span className="mt-1 md:mt-0 text-green-600"><IconCheck /></span>
+                  <span>Track your progress in real time</span>
+                </li>
+                <li className="flex items-start gap-2 md:items-center">
+                  <span className="mt-1 md:mt-0 text-green-600"><IconCheck /></span>
+                  <span>Take assessments from secure mobile browser</span>
+                </li>
+                <li className="flex items-start gap-2 md:items-center">
+                  <span className="mt-1 md:mt-0 text-green-600"><IconCheck /></span>
+                  <span>View earned CPD/CPPD certificates on the go</span>
+                </li>
+              </ul>
+
+              <div className="mt-6 flex flex-wrap items-center justify-center md:justify-start gap-4">
+                <Image
+                  src="/app-store.svg"
+                  alt="Download on the App Store"
+                  width={170}
+                  height={52}
+                  className="h-11 w-auto"
+                />
+                <Image
+                  src="/play-store-coming-soon.svg"
+                  alt="Play Store — coming soon"
+                  width={190}
+                  height={52}
+                  className="h-11 w-auto"
+                />
+              </div>
+            </div>
+
+            {/* Right visual */}
+            <div className="flex justify-center">
+              <div className="w-full max-w-[420px] md:max-w-[460px] lg:max-w-[520px]">
+                <Image
+                  src="/mobile.png"
+                  alt="KDS Mobile preview"
+                  width={1040}
+                  height={1040}
+                  className="w-full h-auto object-contain drop-shadow-xl"
+                />
+              </div>
+            </div>
           </div>
-
-          <h2 className="mt-6 font-extrabold text-4xl md:text-5xl text-[#2c2522]">
-            Learn anywhere with the KDS mobile app.
-          </h2>
-
-          <p className="mt-4 max-w-lg text-[#2c2522]/70 mx-auto md:mx-0">
-            Access your Knowledge Programs, assessments, and certificates securely from your phone — the same PanAvest KDS experience, optimized for mobile.
-          </p>
-
-          <ul className="mt-6 space-y-2 text-[#2c2522] mx-auto md:mx-0 w-fit md:w-auto">
-            <li className="flex gap-2"><span className="text-green-600">✔</span> Track your progress in real time</li>
-            <li className="flex gap-2"><span className="text-green-600">✔</span> Take assessments from secure mobile browser</li>
-            <li className="flex gap-2"><span className="text-green-600">✔</span> View earned CPD/CPPD certificates on the go</li>
-          </ul>
-
-          <div className="mt-8 flex items-center justify-center md:justify-start gap-4">
-            <img src="/app-store-badge.png" alt="App Store" className="h-12" />
-            <div className="px-4 py-3 rounded-xl border text-sm text-[#2c2522]/70">Play Store — coming soon</div>
-          </div>
-        </div>
-
-        <div className="w-full md:w-auto flex justify-center">
-          <img
-            src="/mobile.png"
-            alt="KDS Mobile Preview"
-            className="max-h-[620px] object-contain drop-shadow-xl"
-          />
         </div>
       </section>
 
