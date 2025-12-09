@@ -245,18 +245,22 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ===== KDS MOBILE (matches platform theme) ===== */}
+      {/* ===== KDS MOBILE (matches hero + theme) ===== */}
       <section className="py-10 sm:py-14">
         <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
           <div className="rounded-3xl bg-white border border-[color:var(--color-light)] shadow-sm px-6 py-10 sm:px-10 sm:py-12 lg:px-14 lg:py-14 grid gap-10 md:grid-cols-[1.05fr_.95fr] items-center">
             {/* Left copy */}
             <div className="flex flex-col gap-4 text-center md:text-left">
-              <div
-                className="inline-flex items-center justify-center md:justify-start px-4 py-1 rounded-full text-xs sm:text-sm font-medium"
-                style={{ backgroundColor: "#f9d6c4", color: "#b65437" }}
-              >
-                KDS Mobile
-              </div>
+              {/* pill matches hero style */}
+              <span className="inline-flex items-center gap-2 rounded-full border border-[color:var(--color-light)] bg-white/70 px-3 py-1 text-xs sm:text-xs">
+                <span
+                  className="h-2 w-2 rounded-full"
+                  style={{ background: BRAND.primary }}
+                />
+                <span className="font-medium">
+                  KDS mobile app · Learn anywhere
+                </span>
+              </span>
 
               <h2 className="font-extrabold text-[28px] sm:text-[34px] lg:text-[40px] leading-tight text-[color:var(--color-ink)]">
                 Learn anywhere with the KDS mobile app.
@@ -267,35 +271,55 @@ export default function HomePage() {
               </p>
 
               <ul className="mt-2 space-y-2 text-sm sm:text-base text-[color:var(--color-ink)] max-w-xl mx-auto md:mx-0">
-                <li className="flex items-start gap-2 md:items-center">
-                  <span className="mt-1 md:mt-0 text-green-600"><IconCheck /></span>
+                <li className="flex items-start gap-3">
+                  <span className="mt-1 text-green-600">
+                    <IconCheck />
+                  </span>
                   <span>Track your progress in real time</span>
                 </li>
-                <li className="flex items-start gap-2 md:items-center">
-                  <span className="mt-1 md:mt-0 text-green-600"><IconCheck /></span>
+                <li className="flex items-start gap-3">
+                  <span className="mt-1 text-green-600">
+                    <IconCheck />
+                  </span>
                   <span>Take assessments from secure mobile browser</span>
                 </li>
-                <li className="flex items-start gap-2 md:items-center">
-                  <span className="mt-1 md:mt-0 text-green-600"><IconCheck /></span>
+                <li className="flex items-start gap-3">
+                  <span className="mt-1 text-green-600">
+                    <IconCheck />
+                  </span>
                   <span>View earned CPD/CPPD certificates on the go</span>
                 </li>
               </ul>
 
               <div className="mt-6 flex flex-wrap items-center justify-center md:justify-start gap-4">
-                <Image
-                  src="/app-store.svg"
-                  alt="Download on the App Store"
-                  width={170}
-                  height={52}
-                  className="h-11 w-auto"
-                />
-                <Image
-                  src="/play-store-coming-soon.svg"
-                  alt="Play Store — coming soon"
-                  width={190}
-                  height={52}
-                  className="h-11 w-auto"
-                />
+                {/* App Store button – real link, hover animation */}
+                <a
+                  href="https://apps.apple.com/in/app/panavest-kds/id6755534884"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-3 rounded-2xl bg-black px-5 py-3 text-sm font-semibold text-white shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-transform transition-shadow duration-200"
+                >
+                  <Image
+                    src="/appstore-svgrepo-com.svg"
+                    alt="Download on the App Store"
+                    width={24}
+                    height={24}
+                    className="h-5 w-auto"
+                  />
+                  <span>Download on the App Store</span>
+                </a>
+
+                {/* Play Store badge – coming soon */}
+                <div className="inline-flex items-center gap-3 rounded-2xl border border-[color:var(--color-light)] bg-white px-5 py-3 text-sm font-medium text-[color:var(--color-ink)]/80 opacity-75 cursor-default">
+                  <Image
+                    src="/playstore-svgrepo-com.svg"
+                    alt="Play Store"
+                    width={24}
+                    height={24}
+                    className="h-5 w-auto"
+                  />
+                  <span>Play Store · coming soon</span>
+                </div>
               </div>
             </div>
 
