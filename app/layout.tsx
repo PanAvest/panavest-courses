@@ -10,7 +10,14 @@ export const metadata: Metadata = {
   description: "Verify PanAvest certificates, explore CPD/CPPD programs, and access hands-on assessments across leadership, analytics, and supply chain.",
   icons: {
     icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
     apple: "/favicon.ico",
+    other: [
+      {
+        rel: "apple-touch-icon",
+        url: "/favicon.ico",
+      },
+    ],
   },
   openGraph: {
     title: "PanAvest Knowledge | Certificate Verification & CPD Programs",
