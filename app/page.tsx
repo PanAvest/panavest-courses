@@ -245,6 +245,44 @@ export default function HomePage() {
         </div>
       </section>
 
+      <section className="mt-24 rounded-3xl bg-white border shadow-sm p-10 md:p-14 flex flex-col md:flex-row items-center gap-12">
+        <div className="flex-1 text-center md:text-left">
+          <div
+            className="inline-block px-4 py-1 rounded-full text-sm font-medium"
+            style={{ backgroundColor: '#f9d6c4', color: '#b65437' }}
+          >
+            KDS Mobile
+          </div>
+
+          <h2 className="mt-6 font-extrabold text-4xl md:text-5xl text-[#2c2522]">
+            Learn anywhere with the KDS mobile app.
+          </h2>
+
+          <p className="mt-4 max-w-lg text-[#2c2522]/70 mx-auto md:mx-0">
+            Access your Knowledge Programs, assessments, and certificates securely from your phone — the same PanAvest KDS experience, optimized for mobile.
+          </p>
+
+          <ul className="mt-6 space-y-2 text-[#2c2522] mx-auto md:mx-0 w-fit md:w-auto">
+            <li className="flex gap-2"><span className="text-green-600">✔</span> Track your progress in real time</li>
+            <li className="flex gap-2"><span className="text-green-600">✔</span> Take assessments from secure mobile browser</li>
+            <li className="flex gap-2"><span className="text-green-600">✔</span> View earned CPD/CPPD certificates on the go</li>
+          </ul>
+
+          <div className="mt-8 flex items-center justify-center md:justify-start gap-4">
+            <img src="/app-store-badge.png" alt="App Store" className="h-12" />
+            <div className="px-4 py-3 rounded-xl border text-sm text-[#2c2522]/70">Play Store — coming soon</div>
+          </div>
+        </div>
+
+        <div className="w-full md:w-auto flex justify-center">
+          <img
+            src="/mobile.png"
+            alt="KDS Mobile Preview"
+            className="max-h-[620px] object-contain drop-shadow-xl"
+          />
+        </div>
+      </section>
+
       {/* ===== FEATURED KNOWLEDGE (3 in a row, 16:9) ===== */}
       <section className="py-10 sm:py-14">
         <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
