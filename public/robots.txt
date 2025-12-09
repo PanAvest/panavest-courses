@@ -1,7 +1,4 @@
 User-agent: *
 Allow: /
 
-# Optional: keep auth and dashboard out of the index
-Disallow: /auth/
-Disallow: /dashboard/
-Disallow: /api/
+Sitemap: https://panavestkds.com/sitemap.xml
