@@ -88,6 +88,11 @@ export default function AuthForm({ mode }: { mode: Mode }) {
             onChange={(ev) => setPassword(ev.target.value)}
             placeholder="••••••••"
           />
+          {mode === "sign-in" && (
+            <div className="mt-2 text-right text-xs text-[color:var(--color-text-muted)]">
+              <a href="/auth/reset" className="underline hover:text-[color:var(--color-brand)]">Forgot password?</a>
+            </div>
+          )}
         </label>
 
         {err && <div className="rounded-lg bg-red-600/10 px-3 py-2 text-sm text-red-700">{err}</div>}
