@@ -106,7 +106,7 @@ export default function CoursePreview() {
 
   // Button logic
   const showEnroll = Boolean(userId) && !paid;                // hide if paid
-  const primaryPaidText = started ? "Continue Course" : "Start Course";
+  const primaryPaidText = started ? "Continue Learning" : "Start Course";
   const dashboardHref = `/knowledge/${course.slug}/dashboard`;
   const enrollHref = `/knowledge/${course.slug}/enroll`;
 
