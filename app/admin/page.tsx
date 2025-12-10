@@ -17,6 +17,7 @@ type Knowledge = {
   img?: string | null;
   accredited?: string[] | null;
   published?: boolean | null;
+  coming_soon?: boolean | null;
   delivery_mode?: "slides" | "interactive";
   interactive_path?: string | null;
 };
@@ -131,6 +132,7 @@ function asKnowledgeArray(x: unknown): Knowledge[] {
         ? (r["accredited"] as string[])
         : null,
       published: typeof r["published"] === "boolean" ? r["published"] : null,
+      coming_soon: typeof r["coming_soon"] === "boolean" ? r["coming_soon"] : null,
       delivery_mode: r["delivery_mode"] === "interactive" ? "interactive" : "slides",
       interactive_path: isStr(r["interactive_path"]) ? r["interactive_path"] : null,
     };
@@ -290,6 +292,7 @@ export default function AdminPage() {
     img: "",
     accredited: [],
     published: true,
+    coming_soon: false,
     delivery_mode: "slides",
     interactive_path: "",
   });
@@ -336,6 +339,7 @@ export default function AdminPage() {
       img: "",
       accredited: [],
       published: true,
+      coming_soon: false,
       delivery_mode: "slides",
       interactive_path: "",
     });
@@ -1328,14 +1332,24 @@ export default function AdminPage() {
                   className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
                 />
               </label>
-              <label className="inline-flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={kForm.published ?? true}
-                  onChange={(e) => setKForm((f) => ({ ...f, published: (e.target as HTMLInputElement).checked }))}
-                />
-                <span className="text-sm">Published</span>
-              </label>
+              <div className="flex flex-wrap gap-4">
+                <label className="inline-flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={kForm.published ?? true}
+                    onChange={(e) => setKForm((f) => ({ ...f, published: (e.target as HTMLInputElement).checked }))}
+                  />
+                  <span className="text-sm">Published</span>
+                </label>
+                <label className="inline-flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={kForm.coming_soon ?? false}
+                    onChange={(e) => setKForm((f) => ({ ...f, coming_soon: (e.target as HTMLInputElement).checked }))}
+                  />
+                  <span className="text-sm">Coming soon (preview only)</span>
+                </label>
+              </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={saveKnowledge}
@@ -1356,6 +1370,7 @@ export default function AdminPage() {
                       img: "",
                       accredited: [],
                       published: true,
+                      coming_soon: false,
                       delivery_mode: "slides",
                       interactive_path: "",
                     })

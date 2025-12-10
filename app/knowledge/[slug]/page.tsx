@@ -17,6 +17,7 @@ type Course = {
   currency: string | null;
   cpd_points: number | null;
   published: boolean | null;
+  coming_soon?: boolean | null;
   delivery_mode?: string | null;
   interactive_path?: string | null;
 };
@@ -40,7 +41,7 @@ export default function CoursePreview() {
       if (!slug) return;
       const { data: c } = await supabase
         .from("courses")
-        .select("id,slug,title,description,img,price,currency,cpd_points,published,delivery_mode,interactive_path")
+        .select("id,slug,title,description,img,price,currency,cpd_points,published,coming_soon,delivery_mode,interactive_path")
         .eq("slug", slug)
         .eq("published", true)
         .maybeSingle();
@@ -124,7 +125,14 @@ export default function CoursePreview() {
             priority
           />
           <div className="p-5">
-            <h1 className="text-2xl font-bold">{course.title}</h1>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-2xl font-bold">{course.title}</h1>
+              {course.coming_soon ? (
+                <span className="inline-flex items-center rounded-full bg-orange-100 text-orange-700 px-3 py-1 text-xs font-semibold">
+                  Coming soon
+                </span>
+              ) : null}
+            </div>
             {course.description && (
               <p className="mt-2 text-muted whitespace-pre-wrap">{course.description}</p>
             )}
@@ -141,50 +149,59 @@ export default function CoursePreview() {
           </div>
 
           <div className="mt-4 grid gap-2">
-            {/* Not logged in => ask to sign in to enroll */}
-            {!userId && (
+            {/* Coming soon => disable enrollment/continuation */}
+            {course.coming_soon ? (
+              <div className="inline-flex items-center justify-center rounded-lg bg-slate-100 text-slate-600 px-4 py-2 font-semibold">
+                Coming soon – enrollment not yet open
+              </div>
+            ) : (
               <>
-                <Link
-                  href="/auth/sign-in"
-                  className="inline-flex items-center justify-center rounded-lg bg-[#0a1156] text-white px-4 py-2 font-semibold hover:opacity-90"
-                >
-                  Sign in to enroll
-                </Link>
-                <Link
-                  href={dashboardHref}
-                  className="inline-flex items-center justify-center rounded-lg px-4 py-2 ring-1 ring-[var(--color-light)] hover:bg-[color:var(--color-light)]/50"
-                >
-                  Go to Dashboard
-                </Link>
-              </>
-            )}
+                {/* Not logged in => ask to sign in to enroll */}
+                {!userId && (
+                  <>
+                    <Link
+                      href="/auth/sign-in"
+                      className="inline-flex items-center justify-center rounded-lg bg-[#0a1156] text-white px-4 py-2 font-semibold hover:opacity-90"
+                    >
+                      Sign in to enroll
+                    </Link>
+                    <Link
+                      href={dashboardHref}
+                      className="inline-flex items-center justify-center rounded-lg px-4 py-2 ring-1 ring-[var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                    >
+                      Go to Dashboard
+                    </Link>
+                  </>
+                )}
 
-            {/* Logged in + NOT paid => show both Enroll and Dashboard */}
-            {userId && showEnroll && (
-              <>
-                <Link
-                  href={enrollHref}
-                  className="inline-flex items-center justify-center rounded-lg bg-[#0a1156] text-white px-4 py-2 font-semibold hover:opacity-90"
-                >
-                  Enroll (Mobile Money/Card)
-                </Link>
-                <Link
-                  href={dashboardHref}
-                  className="inline-flex items-center justify-center rounded-lg px-4 py-2 ring-1 ring-[var(--color-light)] hover:bg-[color:var(--color-light)]/50"
-                >
-                  Go to Dashboard
-                </Link>
-              </>
-            )}
+                {/* Logged in + NOT paid => show both Enroll and Dashboard */}
+                {userId && showEnroll && (
+                  <>
+                    <Link
+                      href={enrollHref}
+                      className="inline-flex items-center justify-center rounded-lg bg-[#0a1156] text-white px-4 py-2 font-semibold hover:opacity-90"
+                    >
+                      Enroll (Mobile Money/Card)
+                    </Link>
+                    <Link
+                      href={dashboardHref}
+                      className="inline-flex items-center justify-center rounded-lg px-4 py-2 ring-1 ring-[var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                    >
+                      Go to Dashboard
+                    </Link>
+                  </>
+                )}
 
-            {/* Logged in + PAID => only show Start/Continue */}
-            {userId && !showEnroll && (
-              <Link
-                href={dashboardHref}
-                className="inline-flex items-center justify-center rounded-lg bg-[#0a1156] text-white px-4 py-2 font-semibold hover:opacity-90"
-              >
-                {primaryPaidText}
-              </Link>
+                {/* Logged in + PAID => only show Start/Continue */}
+                {userId && !showEnroll && (
+                  <Link
+                    href={dashboardHref}
+                    className="inline-flex items-center justify-center rounded-lg bg-[#0a1156] text-white px-4 py-2 font-semibold hover:opacity-90"
+                  >
+                    {primaryPaidText}
+                  </Link>
+                )}
+              </>
             )}
 
             <Link

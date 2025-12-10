@@ -2,6 +2,7 @@ alter table public.courses add column if not exists cpd_points int;
 alter table public.courses add column if not exists img text;
 alter table public.courses add column if not exists delivery_mode text default 'slides' check (delivery_mode in ('slides','interactive'));
 alter table public.courses add column if not exists interactive_path text;
+alter table public.courses add column if not exists coming_soon boolean not null default false;
 
 create table if not exists public.user_interactive_state (
   user_id uuid references auth.users(id) on delete cascade,

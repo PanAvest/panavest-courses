@@ -18,7 +18,7 @@ function isUniqueViolation(err: PostgrestError | null | undefined): boolean {
 }
 
 const LIST_FIELDS =
-  "id,slug,title,description,level,price,cpd_points,img,accredited,published,delivery_mode,interactive_path,created_at";
+  "id,slug,title,description,level,price,cpd_points,img,accredited,published,coming_soon,delivery_mode,interactive_path,created_at";
 
 export async function GET() {
   const admin = getSupabaseAdmin();
@@ -44,6 +44,7 @@ export async function POST(req: Request) {
       img?: string | null;
       accredited?: unknown;
       published?: boolean;
+      coming_soon?: boolean;
       delivery_mode?: string | null;
       interactive_path?: string | null;
     };
@@ -71,6 +72,7 @@ export async function POST(req: Request) {
         ? (body.accredited as unknown[]).map(String)
         : null,
       published: typeof body?.published === "boolean" ? body.published : true,
+      coming_soon: typeof body?.coming_soon === "boolean" ? body.coming_soon : false,
       delivery_mode: body?.delivery_mode === "interactive" ? "interactive" : "slides",
       interactive_path: (body?.interactive_path ?? null) as string | null,
     };
@@ -98,6 +100,7 @@ export async function POST(req: Request) {
           img: payload.img,
           accredited: payload.accredited,
           published: payload.published,
+          coming_soon: payload.coming_soon,
           delivery_mode: payload.delivery_mode,
           interactive_path: payload.interactive_path,
         })
@@ -129,6 +132,7 @@ export async function POST(req: Request) {
           img: payload.img,
           accredited: payload.accredited,
           published: payload.published,
+          coming_soon: payload.coming_soon,
           delivery_mode: payload.delivery_mode,
           interactive_path: payload.interactive_path,
         },
