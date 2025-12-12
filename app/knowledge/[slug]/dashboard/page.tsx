@@ -1010,21 +1010,28 @@ export default function CourseDashboard() {
   function renderMedia(s: Slide) {
     const video = s.video_url ?? s.intro_video_url ?? null;
     const nodes: ReactNode[] = [];
+    const assetUrl = s.asset_url || "";
+    const isPdf = isPdfAsset(assetUrl);
+    const isImg =
+      !!assetUrl &&
+      !isPdf &&
+      [".jpg", ".jpeg", ".png", ".gif", ".webp"].some((ext) =>
+        assetUrl.toLowerCase().endsWith(ext)
+      );
+    const posterUrl = isImg ? assetUrl : undefined;
 
-    if (s.asset_url && isPdfAsset(s.asset_url)) {
+    if (assetUrl && isPdf) {
       nodes.push(
         <div key="pdf" className="mt-3 w-full overflow-hidden">
-          <PdfPageViewer url={s.asset_url} />
+          <PdfPageViewer url={assetUrl} />
         </div>
       );
-    } else if (s.asset_url) {
-      const lower = s.asset_url.toLowerCase();
-      const isImg = [".jpg", ".jpeg", ".png", ".gif", ".webp"].some((ext) => lower.endsWith(ext));
+    } else if (assetUrl) {
       if (isImg) {
         nodes.push(
           <div key="img" className="mt-3">
             <Image
-              src={s.asset_url}
+              src={assetUrl}
               alt="Slide asset"
               width={1600}
               height={900}
@@ -1036,7 +1043,7 @@ export default function CourseDashboard() {
       } else {
         nodes.push(
           <div key="link" className="mt-3 text-sm">
-            <a className="underline break-all" href={s.asset_url} target="_blank" rel="noreferrer">
+            <a className="underline break-all" href={assetUrl} target="_blank" rel="noreferrer">
               Open slide asset
             </a>
           </div>
@@ -1047,7 +1054,7 @@ export default function CourseDashboard() {
     if (video) {
       nodes.push(
         <div key="video" className="mt-3 w-full">
-          <VideoPlayer src={video} poster={null} />
+          <VideoPlayer src={video} poster={posterUrl} />
         </div>
       );
     }
