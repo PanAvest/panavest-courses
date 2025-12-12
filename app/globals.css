@@ -52,6 +52,7 @@ body {
   overflow: hidden;
   white-space: nowrap;
   padding: 32px 0;
+  line-height: 0;
 }
 .partners-logos::before,
 .partners-logos::after {
@@ -72,7 +73,8 @@ body {
   background: linear-gradient(to left, var(--color-bg, #fff), transparent);
 }
 .partners-logos-slide {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
   animation: partners-slide 55s linear infinite;
   will-change: transform;
 }
@@ -85,6 +87,7 @@ body {
   align-items: center;
   justify-content: center;
   vertical-align: middle;
+  line-height: 0;
 }
 .partners-logo-img {
   filter: grayscale(100%);
