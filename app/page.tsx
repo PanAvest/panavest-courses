@@ -198,7 +198,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <PartnersMarquee partners={partners} animate={false} />
+      <PartnersMarquee partners={partners} animate />
 
       {/* ===== WHAT WE DO ===== */}
       <section className="bg-white py-10 sm:py-14">
