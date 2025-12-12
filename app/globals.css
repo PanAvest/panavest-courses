@@ -51,7 +51,7 @@ body {
   position: relative;
   overflow: hidden;
   white-space: nowrap;
-  padding: 24px 0;
+  padding: 32px 0;
 }
 .partners-logos::before,
 .partners-logos::after {
@@ -98,7 +98,7 @@ body {
 
 @media (max-width: 640px) {
   .partners-logos {
-    padding: 16px 0;
+    padding: 20px 0;
   }
   .partners-logos::before,
   .partners-logos::after {
