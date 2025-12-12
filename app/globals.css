@@ -47,8 +47,8 @@ body {
   from { transform: translateX(-50%); }
   to { transform: translateX(0); }
 }
-.partners-marquee-track {
-  animation: partners-marquee-left-to-right 55s linear infinite;
+.partners-marquee-track-animate {
+  animation: partners-marquee-left-to-right 80s linear infinite;
   will-change: transform;
   transform: translateX(-50%);
 }
@@ -57,12 +57,13 @@ body {
   animation-play-state: paused;
 }
 @media (max-width: 768px) {
-  .partners-marquee-track {
-    animation-duration: 40s;
+  .partners-marquee-track-animate {
+    animation-duration: 65s;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .partners-marquee-track {
+  .partners-marquee-track,
+  .partners-marquee-track-animate {
     animation: none;
     transform: translateX(0);
     flex-wrap: wrap;
@@ -71,6 +72,10 @@ body {
   .partners-marquee-duplicate {
     display: none;
   }
+}
+.partners-marquee-mask {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
 }
 
 /* ─────────── Certificate print isolation ─────────── */

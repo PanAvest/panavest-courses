@@ -4,39 +4,38 @@ import type { PartnerLogo } from "@/lib/getPartners";
 
 type Props = {
   partners: PartnerLogo[];
+  animate?: boolean;
 };
 
-export function PartnersMarquee({ partners }: Props) {
+export function PartnersMarquee({ partners, animate = false }: Props) {
   if (!partners.length) return null;
 
-  const doubled = [...partners, ...partners];
+  const shouldAnimate = animate && partners.length > 1;
+  const trackLogos = shouldAnimate ? [...partners, ...partners] : partners;
 
   return (
-    <section className="py-10 sm:py-14">
+    <section className="py-8 sm:py-10">
       <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
-        <div className="rounded-3xl bg-white border border-[color:var(--color-light)] shadow-sm px-6 py-8 sm:px-8 lg:px-10">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg sm:text-xl font-bold text-ink">Partners</h2>
-            <span className="text-xs sm:text-sm text-ink/60">Trusted organisations</span>
-          </div>
+        <div className="text-center text-[11px] tracking-[0.25em] text-ink/50">PARTNERS</div>
 
-          <div className="mt-6 overflow-hidden partners-marquee">
-            <div className="partners-marquee-track w-max flex items-center gap-16 md:gap-20 lg:gap-24">
-              {doubled.map((partner, idx) => (
-                <div
-                  key={`${partner.src}-${idx}`}
-                  className={`partners-marquee-item ${idx >= partners.length ? "partners-marquee-duplicate" : ""} flex-shrink-0`}
-                >
-                  <Image
-                    src={partner.src}
-                    alt={partner.alt}
-                    width={340}
-                    height={180}
-                    className="h-40 md:h-44 lg:h-48 w-auto object-contain"
-                  />
-                </div>
-              ))}
-            </div>
+        <div className="mt-6 overflow-hidden partners-marquee partners-marquee-mask">
+          <div
+            className={`partners-marquee-track ${shouldAnimate ? "partners-marquee-track-animate w-max" : "w-full justify-center"} flex items-center gap-10 sm:gap-12 md:gap-14`}
+          >
+            {trackLogos.map((partner, idx) => (
+              <div
+                key={`${partner.src}-${idx}`}
+                className={`partners-marquee-item ${shouldAnimate && idx >= partners.length ? "partners-marquee-duplicate" : ""} flex-shrink-0`}
+              >
+                <Image
+                  src={partner.src}
+                  alt={partner.alt}
+                  width={220}
+                  height={80}
+                  className="h-8 sm:h-9 md:h-10 w-auto object-contain grayscale opacity-60 transition hover:opacity-100 hover:grayscale-0 focus:opacity-100 focus:grayscale-0"
+                />
+              </div>
+            ))}
           </div>
         </div>
       </div>
