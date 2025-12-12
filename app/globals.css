@@ -44,33 +44,25 @@ body {
 
 /* ─────────── Partners marquee ─────────── */
 @keyframes partners-marquee-left-to-right {
-  from { transform: translateX(-50%); }
-  to { transform: translateX(0); }
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
 }
-.partners-marquee-track-animate {
+.partners-marquee-track {
   animation: partners-marquee-left-to-right 80s linear infinite;
+  animation-play-state: paused;
   will-change: transform;
-  transform: translateX(-50%);
+}
+.partners-marquee.is-running .partners-marquee-track {
+  animation-play-state: running;
 }
 .partners-marquee:hover .partners-marquee-track,
 .partners-marquee:focus-within .partners-marquee-track {
   animation-play-state: paused;
 }
-@media (max-width: 768px) {
-  .partners-marquee-track-animate {
-    animation-duration: 65s;
-  }
-}
+
 @media (prefers-reduced-motion: reduce) {
-  .partners-marquee-track,
-  .partners-marquee-track-animate {
-    animation: none;
-    transform: translateX(0);
-    flex-wrap: wrap;
-    width: 100%;
-  }
-  .partners-marquee-duplicate {
-    display: none;
+  .partners-marquee-track {
+    animation: none !important;
   }
 }
 .partners-marquee-mask {
