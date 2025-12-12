@@ -3,6 +3,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import type { ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
@@ -1007,66 +1008,53 @@ export default function CourseDashboard() {
 
   /** UI helpers */
   function renderMedia(s: Slide) {
-  const video = s.video_url ?? s.intro_video_url ?? null;
+    const video = s.video_url ?? s.intro_video_url ?? null;
+    const nodes: ReactNode[] = [];
 
-  if (s.asset_url && isPdfAsset(s.asset_url)) {
-    return (
-      <div className="mt-3">
-        <PdfPageViewer url={s.asset_url} />
-      </div>
-    );
-  }
-
-  if (video) {
-    return (
-      <div className="mt-3 w-full">
-        <VideoPlayer src={video} poster={null} />
-      </div>
-    );
-  }
-
-  if (s.asset_url) {
-    if (isPdfAsset(s.asset_url)) {
-      return (
-        <div className="mt-3">
+    if (s.asset_url && isPdfAsset(s.asset_url)) {
+      nodes.push(
+        <div key="pdf" className="mt-3 w-full overflow-hidden">
           <PdfPageViewer url={s.asset_url} />
         </div>
       );
+    } else if (s.asset_url) {
+      const lower = s.asset_url.toLowerCase();
+      const isImg = [".jpg", ".jpeg", ".png", ".gif", ".webp"].some((ext) => lower.endsWith(ext));
+      if (isImg) {
+        nodes.push(
+          <div key="img" className="mt-3">
+            <Image
+              src={s.asset_url}
+              alt="Slide asset"
+              width={1600}
+              height={900}
+              className="rounded-lg ring-1 ring-[var(--color-light)] w-full h-auto object-contain"
+              priority={false}
+            />
+          </div>
+        );
+      } else {
+        nodes.push(
+          <div key="link" className="mt-3 text-sm">
+            <a className="underline break-all" href={s.asset_url} target="_blank" rel="noreferrer">
+              Open slide asset
+            </a>
+          </div>
+        );
+      }
     }
 
-    const lower = s.asset_url.toLowerCase();
-    const isImg = [".jpg", ".jpeg", ".png", ".gif", ".webp"].some((ext) =>
-      lower.endsWith(ext)
-    );
-    if (isImg) {
-      return (
-        <div className="mt-3">
-          <Image
-            src={s.asset_url}
-            alt="Slide asset"
-            width={1600}
-            height={900}
-            className="rounded-lg ring-1 ring-[var(--color-light)] w-full h-auto object-contain"
-            priority={false}
-          />
+    if (video) {
+      nodes.push(
+        <div key="video" className="mt-3 w-full">
+          <VideoPlayer src={video} poster={null} />
         </div>
       );
     }
-    return (
-      <div className="mt-3 text-sm">
-        <a
-          className="underline break-all"
-          href={s.asset_url}
-          target="_blank"
-          rel="noreferrer"
-        >
-          Open slide asset
-        </a>
-      </div>
-    );
+
+    if (nodes.length === 0) return null;
+    return <>{nodes}</>;
   }
-  return null;
-}
 
 
   const trySelectSlide = (s: Slide) => {
