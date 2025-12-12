@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 
 import Image from "next/image";
@@ -12,8 +11,6 @@ type Props = {
 };
 
 export function PartnersMarquee({ partners, animate = false }: Props) {
-  if (!partners.length) return null;
-
   const [prefersReduced, setPrefersReduced] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
 
@@ -40,6 +37,8 @@ export function PartnersMarquee({ partners, animate = false }: Props) {
     () => (shouldAnimate ? [...partners, ...partners] : partners),
     [shouldAnimate, partners]
   );
+
+  if (!partners.length) return null;
 
   return (
     <section className="py-8 sm:py-10">
