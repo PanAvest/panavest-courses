@@ -51,6 +51,38 @@ export interface Database {
           created_at: string | null;
         }>;
       };
+      ebooks: {
+        Row: {
+          id: string;
+          slug: string | null;
+          title: string | null;
+          description: string | null;
+          cover_url: string | null;
+          price_cents: number | null;
+          published: boolean | null;
+          created_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          slug?: string | null;
+          title?: string | null;
+          description?: string | null;
+          cover_url?: string | null;
+          price_cents?: number | null;
+          published?: boolean | null;
+          created_at?: string | null;
+        };
+        Update: Partial<{
+          id: string;
+          slug: string | null;
+          title: string | null;
+          description: string | null;
+          cover_url: string | null;
+          price_cents: number | null;
+          published: boolean | null;
+          created_at: string | null;
+        }>;
+      };
     };
     Views: {};
     Functions: {};

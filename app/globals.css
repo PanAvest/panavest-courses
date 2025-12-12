@@ -42,6 +42,37 @@ body {
 }
 .animate-float { animation: float 3s ease-in-out infinite; }
 
+/* ─────────── Partners marquee ─────────── */
+@keyframes partners-marquee-left-to-right {
+  from { transform: translateX(-50%); }
+  to { transform: translateX(0); }
+}
+.partners-marquee-track {
+  animation: partners-marquee-left-to-right 55s linear infinite;
+  will-change: transform;
+  transform: translateX(-50%);
+}
+.partners-marquee:hover .partners-marquee-track,
+.partners-marquee:focus-within .partners-marquee-track {
+  animation-play-state: paused;
+}
+@media (max-width: 768px) {
+  .partners-marquee-track {
+    animation-duration: 40s;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .partners-marquee-track {
+    animation: none;
+    transform: translateX(0);
+    flex-wrap: wrap;
+    width: 100%;
+  }
+  .partners-marquee-duplicate {
+    display: none;
+  }
+}
+
 /* ─────────── Certificate print isolation ─────────── */
 @page {
   size: A4 landscape;

@@ -1,10 +1,10 @@
 // app/page.tsx
-"use client";
-
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+
+import PartnersMarquee from "@/components/home/PartnersMarquee";
+import { getPartners } from "@/lib/getPartners";
+import getSupabaseServerComponentClient from "@/lib/supabaseServer";
 
 /** ===== Brand ===== */
 const BRAND = {
@@ -20,6 +20,7 @@ type Course = {
   img: string | null;
   cpd_points: number | null;
   published: boolean | null;
+  created_at?: string | null;
 };
 
 type Ebook = {
@@ -30,53 +31,33 @@ type Ebook = {
   cover_url: string | null;
   price_cents: number | null;
   published: boolean | null;
+  created_at?: string | null;
 };
 
-export default function HomePage() {
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [ebooks, setEbooks] = useState<Ebook[]>([]);
-  const [loading, setLoading] = useState(true);
+export default async function HomePage() {
+  const supabase = getSupabaseServerComponentClient();
 
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        const { data: cData } = await supabase
-          .from("courses")
-          .select("id, slug, title, description, img, cpd_points, published, created_at")
-          .eq("published", true)
-          .order("created_at", { ascending: false })
-          .limit(6);
+  const [{ data: cData }, { data: eData }, partners] = await Promise.all([
+    supabase
+      .from("courses")
+      .select("id, slug, title, description, img, cpd_points, published, created_at")
+      .eq("published", true)
+      .order("created_at", { ascending: false })
+      .limit(6),
+    supabase
+      .from("ebooks")
+      .select("id, slug, title, description, cover_url, price_cents, published, created_at")
+      .eq("published", true)
+      .order("created_at", { ascending: false })
+      .limit(8),
+    getPartners(),
+  ]);
 
-        const { data: eData } = await supabase
-          .from("ebooks")
-          .select("id, slug, title, description, cover_url, price_cents, published, created_at")
-          .eq("published", true)
-          .order("created_at", { ascending: false })
-          .limit(8);
+  const courses = (cData ?? []) as Course[];
+  const ebooks = (eData ?? []) as Ebook[];
 
-        if (!alive) return;
-        setCourses((cData ?? []) as Course[]);
-        setEbooks((eData ?? []) as Ebook[]);
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  const featured = useMemo(() => courses.slice(0, 6), [courses]);
-
-  // typed placeholders
-  const featuredList: (Course | null)[] = loading
-    ? Array.from({ length: 3 }, () => null)
-    : featured;
-
-  const ebooksList: (Ebook | null)[] = loading
-    ? Array.from({ length: 4 }, () => null)
-    : ebooks;
+  const featuredList = courses.slice(0, 6);
+  const ebooksList = ebooks;
 
   /** ===== Inline SVGs (no emojis) ===== */
   const IconCheck = () => (
@@ -216,6 +197,8 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      <PartnersMarquee partners={partners} />
 
       {/* ===== WHAT WE DO ===== */}
       <section className="bg-white py-10 sm:py-14">
