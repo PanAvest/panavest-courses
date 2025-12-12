@@ -24,6 +24,7 @@ type Props = {
 };
 
 const workerSrc = "/vendor/pdf.worker.min.mjs";
+let workerSet = false;
 
 export default function PdfPageViewer({ url, className = "", startPage = 1 }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -39,8 +40,10 @@ export default function PdfPageViewer({ url, className = "", startPage = 1 }: Pr
 
   // Configure worker once
   useEffect(() => {
+    if (workerSet) return;
     try {
       (pdfjs as unknown as PdfJsAPI<PdfDoc>).GlobalWorkerOptions.workerSrc = workerSrc;
+      workerSet = true;
     } catch {
       /* ignore */
     }

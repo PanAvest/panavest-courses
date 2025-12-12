@@ -103,8 +103,15 @@ function shuffle<T>(arr: T[]) {
 
 function isPdfAsset(url?: string | null) {
   if (!url) return false;
-  const lower = url.toLowerCase();
-  return lower.endsWith(".pdf") || lower.includes("application/pdf");
+  try {
+    const u = new URL(url);
+    const path = u.pathname.toLowerCase();
+    if (path.endsWith(".pdf")) return true;
+    return u.href.toLowerCase().includes(".pdf");
+  } catch {
+    const lower = url.toLowerCase();
+    return lower.endsWith(".pdf") || lower.includes(".pdf");
+  }
 }
 
 function shuffleOptionsWithAnswer(options: string[], correctIndex: number) {
@@ -1001,6 +1008,14 @@ export default function CourseDashboard() {
   /** UI helpers */
   function renderMedia(s: Slide) {
   const video = s.video_url ?? s.intro_video_url ?? null;
+
+  if (s.asset_url && isPdfAsset(s.asset_url)) {
+    return (
+      <div className="mt-3">
+        <PdfPageViewer url={s.asset_url} />
+      </div>
+    );
+  }
 
   if (video) {
     return (
