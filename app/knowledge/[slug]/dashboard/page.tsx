@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { issueCertificateForCourse, IssueCertificateError } from "@/lib/client/issueCertificate";
 import ProgressBar from "@/components/ProgressBar";
 import InteractivePlayer from "@/components/InteractivePlayer";
+import PdfPageViewer from "@/components/pdf/PdfPageViewer";
 
 /** Types */
 type Course = { id: string; slug: string; title: string; img: string | null; delivery_mode?: string | null; interactive_path?: string | null };
@@ -98,6 +99,12 @@ function shuffle<T>(arr: T[]) {
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
+}
+
+function isPdfAsset(url?: string | null) {
+  if (!url) return false;
+  const lower = url.toLowerCase();
+  return lower.endsWith(".pdf") || lower.includes("application/pdf");
 }
 
 function shuffleOptionsWithAnswer(options: string[], correctIndex: number) {
@@ -1004,6 +1011,14 @@ export default function CourseDashboard() {
   }
 
   if (s.asset_url) {
+    if (isPdfAsset(s.asset_url)) {
+      return (
+        <div className="mt-3">
+          <PdfPageViewer url={s.asset_url} />
+        </div>
+      );
+    }
+
     const lower = s.asset_url.toLowerCase();
     const isImg = [".jpg", ".jpeg", ".png", ".gif", ".webp"].some((ext) =>
       lower.endsWith(ext)
