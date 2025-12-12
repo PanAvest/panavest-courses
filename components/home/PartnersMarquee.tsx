@@ -30,9 +30,10 @@ export function PartnersMarquee({ partners, animate = false }: Props) {
                 <Image
                   src={partner.src}
                   alt={partner.alt}
-                  width={220}
-                  height={80}
-                  className="h-8 sm:h-9 md:h-10 w-auto object-contain grayscale opacity-60 transition hover:opacity-100 hover:grayscale-0 focus:opacity-100 focus:grayscale-0"
+                  width={480}
+                  height={240}
+                  priority={idx < partners.length}
+                  className="h-32 sm:h-36 md:h-40 w-auto object-contain grayscale opacity-60 transition hover:opacity-100 hover:grayscale-0 focus:opacity-100 focus:grayscale-0"
                 />
               </div>
             ))}
