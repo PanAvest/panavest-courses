@@ -43,15 +43,31 @@ body {
 .animate-float { animation: float 3s ease-in-out infinite; }
 
 /* ─────────── Partners marquee ─────────── */
+.partners-marquee {
+  --partners-slot-count: 2;
+  --partners-offset: calc(-50% + (50% / var(--partners-slot-count)));
+}
+@media (min-width: 640px) {
+  .partners-marquee {
+    --partners-slot-count: 3;
+    --partners-offset: calc(-50% + (50% / var(--partners-slot-count)));
+  }
+}
+@media (min-width: 1024px) {
+  .partners-marquee {
+    --partners-slot-count: 5;
+    --partners-offset: calc(-50% + (50% / var(--partners-slot-count)));
+  }
+}
 @keyframes partners-marquee-left-to-right {
-  from { transform: translateX(-50%); }
-  to { transform: translateX(0); }
+  from { transform: var(--partners-offset); }
+  to { transform: calc(var(--partners-offset) + 50%); }
 }
 .partners-marquee-track {
-  animation: partners-marquee-left-to-right 80s linear infinite;
+  animation: partners-marquee-left-to-right 85s linear infinite;
   animation-play-state: paused;
   will-change: transform;
-  transform: translateX(-50%);
+  transform: var(--partners-offset);
 }
 .partners-marquee.is-running .partners-marquee-track {
   animation-play-state: running;
