@@ -42,71 +42,74 @@ body {
 }
 .animate-float { animation: float 3s ease-in-out infinite; }
 
-/* ─────────── Partners marquee ─────────── */
-.partners-marquee {
-  --partners-slot-count: 2;
-  --partners-offset: calc(-50% + (50% / var(--partners-slot-count)));
+/* ─────────── Partners marquee (reference-style) ─────────── */
+@keyframes partners-slide {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
 }
-@media (min-width: 640px) {
-  .partners-marquee {
-    --partners-slot-count: 3;
-    --partners-offset: calc(-50% + (50% / var(--partners-slot-count)));
-  }
+.partners-logos {
+  position: relative;
+  overflow: hidden;
+  white-space: nowrap;
+  padding: 24px 0;
 }
-@media (min-width: 1024px) {
-  .partners-marquee {
-    --partners-slot-count: 5;
-    --partners-offset: calc(-50% + (50% / var(--partners-slot-count)));
-  }
+.partners-logos::before,
+.partners-logos::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 120px;
+  height: 100%;
+  z-index: 2;
+  pointer-events: none;
 }
-@keyframes partners-marquee-left-to-right {
-  from { transform: var(--partners-offset); }
-  to { transform: calc(var(--partners-offset) + 50%); }
+.partners-logos::before {
+  left: 0;
+  background: linear-gradient(to right, var(--color-bg, #fff), transparent);
 }
-.partners-marquee-track {
-  animation: partners-marquee-left-to-right 85s linear infinite;
-  animation-play-state: paused;
+.partners-logos::after {
+  right: 0;
+  background: linear-gradient(to left, var(--color-bg, #fff), transparent);
+}
+.partners-logos-slide {
+  display: inline-block;
+  animation: partners-slide 55s linear infinite;
   will-change: transform;
-  transform: var(--partners-offset);
 }
-.partners-marquee.is-running .partners-marquee-track {
-  animation-play-state: running;
-}
-.partners-marquee.is-user-paused .partners-marquee-track {
+.partners-logos:hover .partners-logos-slide,
+.partners-logos:focus-within .partners-logos-slide {
   animation-play-state: paused;
 }
-.partners-marquee:hover .partners-marquee-track,
-.partners-marquee:focus-within .partners-marquee-track {
-  animation-play-state: paused;
+.partners-logo-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+}
+.partners-logo-img {
+  filter: grayscale(100%);
+  opacity: 0.6;
+}
+.partners-logo-img:hover,
+.partners-logo-img:focus {
+  filter: grayscale(0%);
+  opacity: 1;
+}
+
+@media (max-width: 640px) {
+  .partners-logos {
+    padding: 16px 0;
+  }
+  .partners-logos::before,
+  .partners-logos::after {
+    width: 64px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .partners-marquee-track {
+  .partners-logos-slide {
     animation: none !important;
   }
-}
-.partners-marquee-mask {
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
-  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
-}
-
-.partners-rail {
-  overflow-x: auto;
-  overflow-y: visible;
-  scroll-snap-type: x mandatory;
-  scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch;
-  touch-action: pan-x;
-  cursor: grab;
-}
-.partners-rail:active {
-  cursor: grabbing;
-}
-.partners-rail::-webkit-scrollbar {
-  display: none;
-}
-.partners-rail {
-  scrollbar-width: none;
 }
 
 /* ─────────── Certificate print isolation ─────────── */
