@@ -30,7 +30,7 @@ export function PartnersMarquee({ partners }: Props) {
                     loading="lazy"
                     decoding="async"
                     sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
-                    className="partners-logo-img h-20 sm:h-24 md:h-28 w-auto object-contain grayscale opacity-60 transition hover:opacity-100 hover:grayscale-0 focus:opacity-100 focus:grayscale-0"
+                    className="partners-logo-img h-24 sm:h-26 md:h-30 w-auto object-contain grayscale opacity-60 transition hover:opacity-100 hover:grayscale-0 focus:opacity-100 focus:grayscale-0"
                   />
                 </div>
               ))}
