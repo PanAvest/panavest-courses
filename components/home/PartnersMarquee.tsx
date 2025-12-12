@@ -61,10 +61,11 @@ export function PartnersMarquee({ partners, animate = false }: Props) {
                 <Image
                   src={partner.src}
                   alt={partner.alt}
-                  width={480}
-                  height={240}
-                  priority={idx < 5}
-                  sizes="(min-width:1024px) 20vw, (min-width:640px) 33vw, 50vw"
+                  width={320}
+                  height={160}
+                  loading={idx < 2 ? "eager" : "lazy"}
+                  decoding="async"
+                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
                   className="h-32 sm:h-36 md:h-40 w-auto object-contain grayscale opacity-60 transition hover:opacity-100 hover:grayscale-0 focus:opacity-100 focus:grayscale-0"
                 />
               </div>

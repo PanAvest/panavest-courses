@@ -1,4 +1,6 @@
 // app/page.tsx
+export const revalidate = 60;
+
 import Image from "next/image";
 import Link from "next/link";
 
@@ -37,6 +39,7 @@ type Ebook = {
 export default async function HomePage() {
   const supabase = getSupabaseServerComponentClient();
 
+  // Note: Compress /public/Partners assets (webp/avif) to keep rail lightweight.
   const [{ data: cData }, { data: eData }, partners] = await Promise.all([
     supabase
       .from("courses")
