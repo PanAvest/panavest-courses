@@ -547,8 +547,7 @@ export default function AdminPage() {
   async function saveSlide() {
     if (!slForm.chapter_id || !slForm.title.trim()) return alert("Chapter & Title required");
     setSavingSlide(true);
-    const payload = {
-      id: slForm.id || undefined,
+    const payload: Record<string, unknown> = {
       chapter_id: slForm.chapter_id,
       title: slForm.title.trim(),
       order_index: Number.isFinite(slForm.order_index) ? Number(slForm.order_index) : 0,
@@ -556,6 +555,9 @@ export default function AdminPage() {
       asset_url: slForm.asset_url?.trim() || null,
       body: slForm.body ?? null, // preserve formatting/spacing
     };
+    if (typeof slForm.id === "string" && slForm.id.trim().length > 0) {
+      payload.id = slForm.id.trim();
+    }
     const r = await fetch("/api/admin/slides", {
       method: "POST",
       headers: { "content-type": "application/json" },

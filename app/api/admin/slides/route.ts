@@ -66,8 +66,7 @@ export async function POST(req: Request) {
     if (!Number.isFinite(order_index)) return badRequest("order_index must be a number");
   }
 
-  const row = {
-    id: payload.id || undefined,
+  const row: Record<string, unknown> = {
     chapter_id: payload.chapter_id,
     title: payload.title,
     order_index,
@@ -75,6 +74,9 @@ export async function POST(req: Request) {
     asset_url: payload.asset_url ?? null,
     body: payload.body ?? payload.content ?? null,
   };
+  if (typeof payload.id === "string" && payload.id.trim().length > 0) {
+    row.id = payload.id.trim();
+  }
 
   const { data, error } = await db
     .from("course_slides")
