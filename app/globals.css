@@ -44,18 +44,19 @@ body {
 
 /* ─────────── Partners marquee ─────────── */
 @keyframes partners-marquee-left-to-right {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
+  from { transform: translateX(-50%); }
+  to { transform: translateX(0); }
 }
 .partners-marquee-track {
   animation: partners-marquee-left-to-right 80s linear infinite;
   animation-play-state: paused;
   will-change: transform;
+  transform: translateX(-50%);
 }
 .partners-marquee.is-running .partners-marquee-track {
   animation-play-state: running;
 }
-.partners-marquee.is-paused .partners-marquee-track {
+.partners-marquee.is-user-paused .partners-marquee-track {
   animation-play-state: paused;
 }
 .partners-marquee:hover .partners-marquee-track,

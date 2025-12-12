@@ -13,7 +13,7 @@ type Props = {
 export function PartnersMarquee({ partners, animate = false }: Props) {
   const [prefersReduced, setPrefersReduced] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
-  const [userInteracting, setUserInteracting] = useState(false);
+  const [userPaused, setUserPaused] = useState(false);
   const interactionTimer = useRef<number | null>(null);
   const railRef = useRef<HTMLDivElement | null>(null);
   const dragging = useRef(false);
@@ -36,12 +36,12 @@ export function PartnersMarquee({ partners, animate = false }: Props) {
 
   const trackLogos = useMemo(() => [...partners], [partners]);
 
-  const runAnimation = animate && !prefersReduced && isRunning && partners.length > 1 && !userInteracting;
+  const runAnimation = animate && !prefersReduced && isRunning && partners.length > 1 && !userPaused;
 
   const kickPause = () => {
-    setUserInteracting(true);
+    setUserPaused(true);
     if (interactionTimer.current) window.clearTimeout(interactionTimer.current);
-    interactionTimer.current = window.setTimeout(() => setUserInteracting(false), 5000);
+    interactionTimer.current = window.setTimeout(() => setUserPaused(false), 5000);
   };
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -78,22 +78,22 @@ export function PartnersMarquee({ partners, animate = false }: Props) {
 
         <div
           ref={railRef}
-          className={`mt-6 partners-rail partners-marquee partners-marquee-mask ${runAnimation ? "is-running" : ""} ${userInteracting ? "is-paused" : ""}`}
+          className={`mt-6 partners-rail partners-marquee partners-marquee-mask ${runAnimation ? "is-running" : ""} ${userPaused ? "is-user-paused" : ""}`}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={stopDrag}
           onPointerLeave={stopDrag}
           onScroll={onScroll}
         >
-          <div className="partners-marquee-track flex flex-nowrap whitespace-nowrap items-center gap-10 sm:gap-12 md:gap-14 min-w-full py-6 min-h-[96px]">
+          <div className="partners-marquee-track flex flex-nowrap whitespace-nowrap items-center min-w-full py-6 min-h-[120px]">
             {[0, 1].map((dup) => (
-              <div key={`track-${dup}`} className="flex flex-nowrap whitespace-nowrap items-center gap-10 sm:gap-12 md:gap-14">
+              <div key={`track-${dup}`} className="flex flex-nowrap whitespace-nowrap items-center">
                 {trackLogos.map((partner, idx) => (
                   <div
                     key={`${partner.src}-${dup}-${idx}`}
-                    className="partners-marquee-item flex-shrink-0 basis-1/2 sm:basis-1/3 lg:basis-1/5 snap-start flex items-center justify-center"
+                    className="partners-marquee-item flex-shrink-0 w-1/2 sm:w-1/3 lg:w-1/5 snap-start flex items-center justify-center px-6 sm:px-7 lg:px-8"
                   >
-                    <div className="w-full max-w-[220px] sm:max-w-[200px] md:max-w-[220px] flex items-center justify-center">
+                    <div className="w-full max-w-[240px] sm:max-w-[220px] md:max-w-[240px] flex items-center justify-center">
                       <Image
                         src={partner.src}
                         alt={partner.alt}
