@@ -157,10 +157,10 @@ export default async function HomePage() {
               KDS is powered by <b>PanAvest International &amp; Partners</b>
             </span>
 
-            <h1 className="mt-4 font-extrabold leading-[1.02] text-[44px] sm:text-[64px]">
+            <h1 className="mt-4 font-extrabold leading-[1.02] text-[44px] sm:text-[64px] text-black">
               Learn. <span style={{ color: BRAND.primary }}>Assess.</span> Excel.
             </h1>
-            <p className="mt-4 text-[16px] sm:text-[18px] text-ink/80 max-w-2xl">
+            <p className="mt-4 text-[16px] sm:text-[18px] text-black max-w-2xl">
               Certified CPD (CPPD) pathways for modern professionals — industry-aligned modules,
               interactive assessments, and verifiable certificates.
             </p>
@@ -176,7 +176,7 @@ export default async function HomePage() {
             </div>
 
             {/* trust pills (SVGs, no emojis) */}
-            <div className="mt-8 flex flex-wrap items-center gap-3 text-xs text-ink/70">
+            <div className="mt-8 flex flex-wrap items-center gap-3 text-xs text-black/70">
               <span className="inline-flex items-center gap-2 rounded-lg bg-white/70 ring-1 ring-[color:var(--color-light)] px-3 py-1">
                 <IconCheck /> Certified CPD (CPPD)
               </span>
@@ -190,7 +190,7 @@ export default async function HomePage() {
 
             {/* Nyansakasa quote */}
             <figure className="mt-8">
-              <blockquote className="text-[15px] sm:text-[17px] leading-relaxed text-ink/80">
+              <blockquote className="text-[15px] sm:text-[17px] leading-relaxed text-black">
                 <span className="mt-1 block italic">
                   “What you plant in your mind grows in your life.”
                 </span>
