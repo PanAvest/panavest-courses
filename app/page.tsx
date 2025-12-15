@@ -142,7 +142,8 @@ export default async function HomePage() {
             fill
             priority
             sizes="100vw"
-            className="object-cover object-center scale-[1.03] blur-[1px]"
+            quality={95}
+            className="object-cover object-center"
           />
           <div className="pointer-events-none absolute left-0 right-0 top-0 h-40 bg-gradient-to-b from-white/90 via-white/40 to-transparent" />
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/90 via-white/35 to-transparent" />
