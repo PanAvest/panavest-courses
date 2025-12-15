@@ -135,18 +135,17 @@ export default async function HomePage() {
     <>
       {/* ===== HERO (no bg, no card, no shadow) ===== */}
       <section className="relative isolate overflow-hidden bg-white">
-        <div className="absolute inset-0 -z-10 hidden md:block">
+        <div aria-hidden="true" className="absolute inset-0 -z-10 hidden md:block">
           <Image
             src="/Boardroom.jpg"
             alt=""
             fill
             priority
             sizes="100vw"
-            className="object-cover object-center"
+            className="object-cover object-center scale-[1.03] blur-[1px]"
           />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/90 via-white/40 to-white/0" />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/95 via-white/70 to-white/10" />
-          <div className="pointer-events-none absolute inset-0 bg-white/10" />
+          <div className="pointer-events-none absolute left-0 right-0 top-0 h-40 bg-gradient-to-b from-white/90 via-white/40 to-transparent" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/90 via-white/35 to-transparent" />
         </div>
 
         <div className="relative z-10 mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-20 grid gap-10 lg:grid-cols-[1.08fr_.92fr] items-center">
