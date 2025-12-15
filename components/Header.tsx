@@ -75,7 +75,7 @@ export default function Header() {
   }, [signingOut]);
 
   return (
-    <header className="w-full bg-[color:var(--color-bg)]">
+    <header className="w-full bg-[color:var(--color-bg)] md:bg-transparent">
       {/* Top bar */}
       <div className="w-full px-3 sm:px-4 md:px-6 h-16 md:h-20 flex items-center justify-between">
         <Link href="/" className="flex items-center" aria-label="Panavest home">

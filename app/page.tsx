@@ -134,8 +134,22 @@ export default async function HomePage() {
   return (
     <>
       {/* ===== HERO (no bg, no card, no shadow) ===== */}
-      <section>
-        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-20 grid gap-10 lg:grid-cols-[1.08fr_.92fr] items-center">
+      <section className="relative isolate overflow-hidden bg-white">
+        <div className="absolute inset-0 -z-10 hidden md:block">
+          <Image
+            src="/Boardroom.jpg"
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover object-center"
+          />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/90 via-white/40 to-white/0" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/95 via-white/70 to-white/10" />
+          <div className="pointer-events-none absolute inset-0 bg-white/10" />
+        </div>
+
+        <div className="relative z-10 mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-20 grid gap-10 lg:grid-cols-[1.08fr_.92fr] items-center">
           {/* Left copy */}
           <div>
             <span className="inline-flex items-center gap-2 rounded-full border border-[color:var(--color-light)] bg-white/70 px-3 py-1 text-xs">
