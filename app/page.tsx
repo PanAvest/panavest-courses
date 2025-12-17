@@ -7,6 +7,7 @@ import Link from "next/link";
 
 import PartnersMarquee from "@/components/home/PartnersMarquee";
 import { getPartnersCached, getPublicCoursesHome, getPublicEbooksHome } from "@/app/lib/public-data";
+import { BOARDROOM_BLUR } from "@/app/lib/blur";
 
 /** ===== Brand ===== */
 const BRAND = {
@@ -102,8 +103,9 @@ export default async function HomePage() {
             src="/Boardroom.webp"
             alt=""
             fill
-            priority
             sizes="100vw"
+            placeholder="blur"
+            blurDataURL={BOARDROOM_BLUR}
             className="object-cover object-center"
           />
           <div className="pointer-events-none absolute left-0 right-0 top-0 h-40 bg-gradient-to-b from-white/90 via-white/40 to-transparent" />
