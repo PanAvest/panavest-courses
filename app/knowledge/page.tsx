@@ -50,8 +50,13 @@ export default async function KnowledgeIndex() {
       <p className="text-muted mt-1">Browse PanAvest knowledge programs.</p>
 
       <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {(items ?? []).map((c) => (
-          <Link key={c.id} href={`/knowledge/${c.slug}`} className="group rounded-2xl bg-white border border-light overflow-hidden hover:shadow-sm">
+        {(items ?? []).map((c, idx) => (
+          <Link
+            key={c.id}
+            href={`/knowledge/${c.slug}`}
+            className="group rounded-2xl bg-white border border-light overflow-hidden hover:shadow-sm animate-fade-up"
+            style={{ animationDelay: `${idx * 60}ms` }}
+          >
             <div className="border-b border-light bg-white">
               <Image
                 src={c.img || "/project-management.png"}
