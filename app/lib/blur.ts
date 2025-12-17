@@ -1,3 +1,4 @@
 // Tiny blur placeholders for hero assets to prevent blank paint while decoding.
+// BOARDROOM_BLUR: 1x1 white pixel to match the hero background for seamless blending.
 export const BOARDROOM_BLUR =
-  "data:image/webp;base64,UklGRiQAAABXRUJQVlA4ICAAAAAwAQCdASoUABcAPpFIo0eoJaAD9BMaAADwAP74ALABAA0JaFNQ3nFJEOYAA/v//";
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg==";
