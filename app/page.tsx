@@ -98,7 +98,7 @@ export default async function HomePage() {
     <>
       {/* ===== HERO (no bg, no card, no shadow) ===== */}
       <section className="relative isolate overflow-hidden bg-white">
-        <div aria-hidden="true" className="absolute inset-0 -z-10 hidden md:block">
+        <div aria-hidden="true" className="absolute inset-0 -z-10 hidden md:block animate-fade-up">
           <Image
             src="/Boardroom.webp"
             alt=""
