@@ -34,7 +34,7 @@ export default function EbooksPage() {
   }, []);
 
   return (
-    <main className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 py-10">
+    <main className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 py-10 animate-fade-up">
       <h1 className="text-3xl font-bold">E-Books</h1>
       <p className="mt-2 text-muted max-w-2xl">
         Browse our growing library. Preview PDFs are available; purchases add the title to your dashboard.
@@ -55,11 +55,12 @@ export default function EbooksPage() {
 
       {items && (
         <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((b) => (
+          {items.map((b, idx) => (
             <Link
               key={b.id}
               href={`/ebooks/${encodeURIComponent(b.slug)}`}
-              className="group rounded-2xl bg-white border border-light hover:shadow-sm transition overflow-hidden flex flex-col"
+              className="group rounded-2xl bg-white border border-light hover:shadow-sm transition overflow-hidden flex flex-col animate-fade-up"
+              style={{ animationDelay: `${idx * 60}ms` }}
             >
               <div className="bg-white border-b border-light">
                 {b.cover_url ? (

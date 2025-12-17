@@ -1,9 +1,9 @@
 // app/about/page.tsx (AboutPage)
 export default function AboutPage() {
   return (
-    <main className="w-full max-w-7xl mx-auto px-4 md:px-6 py-12">
+    <main className="w-full max-w-7xl mx-auto px-4 md:px-6 py-12 animate-fade-up">
       {/* Header */}
-      <section className="w-full">
+      <section className="w-full animate-fade-up">
         <span className="inline-flex items-center gap-2 rounded-full bg-[#b6543715] px-3 py-1 text-xs font-semibold tracking-wide text-[#b65437] ring-1 ring-[#b6543726]">
           <svg aria-hidden="true" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 2l3 7 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z"/>
@@ -38,7 +38,7 @@ export default function AboutPage() {
       </section>
 
       {/* Vision */}
-      <section className="mt-10 w-full">
+      <section className="mt-10 w-full animate-fade-up">
         <div className="flex items-start gap-3">
           <span className="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#b6543715] text-[#b65437] ring-1 ring-[#b6543726]">
             <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
@@ -57,7 +57,7 @@ export default function AboutPage() {
 
       {/* Mission & Why It Matters */}
       <section className="mt-10 w-full grid gap-8 lg:grid-cols-2">
-        <div>
+        <div className="animate-fade-up" style={{ animationDelay: "40ms" }}>
           <div className="flex items-start gap-3">
             <span className="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#b6543715] text-[#b65437] ring-1 ring-[#b6543726]">
               <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
@@ -74,7 +74,7 @@ export default function AboutPage() {
           </div>
         </div>
 
-        <div>
+        <div className="animate-fade-up" style={{ animationDelay: "80ms" }}>
           <div className="flex items-start gap-3">
             <span className="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#b6543715] text-[#b65437] ring-1 ring-[#b6543726]">
               <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
@@ -93,7 +93,7 @@ export default function AboutPage() {
       </section>
 
       {/* Guiding Principles */}
-      <section className="mt-12 w-full">
+      <section className="mt-12 w-full animate-fade-up">
         <div className="flex items-center gap-2">
           <svg aria-hidden="true" className="h-5 w-5 text-[#b65437]" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 2a7 7 0 017 7c0 5-7 13-7 13S5 14 5 9a7 7 0 017-7zm0 9a2 2 0 100-4 2 2 0 000 4z"/>
@@ -101,26 +101,26 @@ export default function AboutPage() {
           <h2 className="text-xl md:text-2xl font-bold text-[#b65437]">Guiding Principles</h2>
         </div>
         <ul className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm text-muted-foreground/90">
-          <li className="rounded-xl p-4 ring-1 ring-[#b6543726] bg-white">
+          <li className="rounded-xl p-4 ring-1 ring-[#b6543726] bg-white animate-fade-up" style={{ animationDelay: "0ms" }}>
             <strong className="text-[#b65437]">Africa-first relevance:</strong> solutions must reflect African realities.
           </li>
-          <li className="rounded-xl p-4 ring-1 ring-[#b6543726] bg-white">
+          <li className="rounded-xl p-4 ring-1 ring-[#b6543726] bg-white animate-fade-up" style={{ animationDelay: "60ms" }}>
             <strong className="text-[#b65437]">Global standards, locally applied:</strong> benchmark internationally, execute contextually.
           </li>
-          <li className="rounded-xl p-4 ring-1 ring-[#b6543726] bg-white">
+          <li className="rounded-xl p-4 ring-1 ring-[#b6543726] bg-white animate-fade-up" style={{ animationDelay: "120ms" }}>
             <strong className="text-[#b65437]">Impact over information:</strong> knowledge is validated only when it drives measurable results.
           </li>
-          <li className="rounded-xl p-4 ring-1 ring-[#b6543726] bg-white">
+          <li className="rounded-xl p-4 ring-1 ring-[#b6543726] bg-white animate-fade-up" style={{ animationDelay: "180ms" }}>
             <strong className="text-[#b65437]">Ethical stewardship:</strong> integrity is non-negotiable.
           </li>
-          <li className="rounded-xl p-4 ring-1 ring-[#b6543726] bg-white">
+          <li className="rounded-xl p-4 ring-1 ring-[#b6543726] bg-white animate-fade-up" style={{ animationDelay: "240ms" }}>
             <strong className="text-[#b65437]">Evidence before rhetoric:</strong> decisions must be grounded in truth.
           </li>
         </ul>
       </section>
 
       {/* What We Offer */}
-      <section className="mt-12 w-full">
+      <section className="mt-12 w-full animate-fade-up">
         <div className="flex items-center gap-2">
           <svg aria-hidden="true" className="h-5 w-5 text-[#b65437]" viewBox="0 0 24 24" fill="currentColor">
             <path d="M5 3h14v4H5zM3 9h18v12H3z"/>
@@ -128,15 +128,15 @@ export default function AboutPage() {
           <h2 className="text-xl md:text-2xl font-bold text-[#b65437]">What We Offer</h2>
         </div>
         <ul className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
-          <li className="group rounded-xl p-4 ring-1 ring-[#b6543726] bg-white">Africa-contextualised interactive modules</li>
-          <li className="group rounded-xl p-4 ring-1 ring-[#b6543726] bg-white">Case-based learning built on real organisational challenges</li>
-          <li className="group rounded-xl p-4 ring-1 ring-[#b6543726] bg-white">Boardroom &amp; executive pathways that convert understanding into outcomes</li>
-          <li className="group rounded-xl p-4 ring-1 ring-[#b6543726] bg-white">CPPD-aligned assessments that validate competence</li>
+          <li className="group rounded-xl p-4 ring-1 ring-[#b6543726] bg-white animate-fade-up" style={{ animationDelay: "0ms" }}>Africa-contextualised interactive modules</li>
+          <li className="group rounded-xl p-4 ring-1 ring-[#b6543726] bg-white animate-fade-up" style={{ animationDelay: "60ms" }}>Case-based learning built on real organisational challenges</li>
+          <li className="group rounded-xl p-4 ring-1 ring-[#b6543726] bg-white animate-fade-up" style={{ animationDelay: "120ms" }}>Boardroom &amp; executive pathways that convert understanding into outcomes</li>
+          <li className="group rounded-xl p-4 ring-1 ring-[#b6543726] bg-white animate-fade-up" style={{ animationDelay: "180ms" }}>CPPD-aligned assessments that validate competence</li>
         </ul>
       </section>
 
       {/* Ground-Breaking Features (kept, as requested) */}
-      <section className="mt-12 w-full">
+      <section className="mt-12 w-full animate-fade-up">
         <div className="flex items-center gap-2">
           <svg aria-hidden="true" className="h-5 w-5 text-[#b65437]" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 2a7 7 0 017 7c0 5-7 13-7 13S5 14 5 9a7 7 0 017-7zm0 9a2 2 0 100-4 2 2 0 000 4z"/>

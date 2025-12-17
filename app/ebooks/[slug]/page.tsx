@@ -369,7 +369,7 @@ export default function EbookDetailPage() {
   /** UI */
   if (err) {
     return (
-      <main className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 py-10">
+      <main className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 py-10 animate-fade-up">
         <h1 className="text-2xl font-bold">E-Book</h1>
         <p className="mt-3 text-red-600 text-sm">Error: {err}</p>
         <Link href="/ebooks" className="mt-4 inline-block underline">Back to E-Books</Link>
@@ -379,7 +379,7 @@ export default function EbookDetailPage() {
 
   if (!ebook) {
     return (
-      <main className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 py-10">
+      <main className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 py-10 animate-fade-up">
         <div className="rounded-2xl bg-white border border-light p-6 animate-pulse h-[320px]" />
       </main>
     );
@@ -387,7 +387,7 @@ export default function EbookDetailPage() {
 
   return (
     <main
-      className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 py-10 select-none"
+      className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 py-10 select-none animate-fade-up"
       onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
       onDragStart={(e) => { e.preventDefault(); }}
     >
@@ -400,7 +400,7 @@ export default function EbookDetailPage() {
         {/* LEFT */}
         <aside className="md:col-span-4">
           <div className="md:sticky md:top-20 space-y-4">
-            <div className="rounded-2xl bg-white border border-light overflow-hidden">
+            <div className="rounded-2xl bg-white border border-light overflow-hidden animate-fade-up">
               {ebook.cover_url ? (
                 <Image
                   src={ebook.cover_url}
@@ -418,7 +418,7 @@ export default function EbookDetailPage() {
               )}
             </div>
 
-            <div className="rounded-2xl bg-white border border-light p-4">
+            <div className="rounded-2xl bg-white border border-light p-4 animate-fade-up" style={{ animationDelay: "60ms" }}>
               <h1 className="text-2xl font-bold">{ebook.title}</h1>
               <div className="mt-2 text-sm text-muted">Price</div>
               <div className="text-xl font-semibold">{price}</div>
@@ -494,7 +494,7 @@ export default function EbookDetailPage() {
 
         {/* RIGHT: secure reader */}
         <section className="md:col-span-8">
-          <div ref={readerWrapRef} className="rounded-2xl bg-white border border-light secure-viewer">
+          <div ref={readerWrapRef} className="rounded-2xl bg-white border border-light secure-viewer animate-fade-up" style={{ animationDelay: "80ms" }}>
             {own.kind !== "owner" ? (
               <div className="w-full h-[70vh] md:h-[80vh] grid place-items-center bg-[color:var(--color-light)]/40">
                 <div className="text-center px-6">
