@@ -1,10 +1,13 @@
+// Static edge catalog: cached anon Supabase reads (no per-user cookies), safe for ISR/edge.
+export const runtime = "edge";
+export const revalidate = 600;
+
 import type { Metadata } from "next";
 import { buildCanonical, defaultOgImage, siteName } from "../seo-config";
 import Link from "next/link";
 import Image from "next/image";
-import { supabase } from "@/lib/supabaseClient";
 
-export const dynamic = "force-dynamic";
+import { getPublicCoursesCatalog } from "@/app/lib/public-data";
 
 export const metadata: Metadata = {
   title: "Knowledge Programs – PanAvest KDS CPPD Learning",
@@ -39,11 +42,7 @@ export const metadata: Metadata = {
 };
 
 export default async function KnowledgeIndex() {
-  const { data: items } = await supabase
-    .from("courses")
-    .select("id,slug,title,description,img,price,cpd_points,published,delivery_mode,interactive_path")
-    .eq("published", true)
-    .order("title", { ascending: true });
+  const items = await getPublicCoursesCatalog();
 
   return (
     <div className="mx-auto max-w-screen-2xl px-4 md:px-6 py-10">
@@ -54,7 +53,14 @@ export default async function KnowledgeIndex() {
         {(items ?? []).map((c) => (
           <Link key={c.id} href={`/knowledge/${c.slug}`} className="group rounded-2xl bg-white border border-light overflow-hidden hover:shadow-sm">
             <div className="border-b border-light bg-white">
-              <Image src={c.img || "/project-management.png"} alt={c.title} width={1200} height={900} className="w-full h-auto" />
+              <Image
+                src={c.img || "/project-management.png"}
+                alt={c.title ?? "Course cover"}
+                width={1200}
+                height={900}
+                className="w-full h-auto"
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+              />
             </div>
             <div className="px-5 py-4">
               <h3 className="font-semibold text-lg">{c.title}</h3>

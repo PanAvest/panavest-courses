@@ -1,12 +1,12 @@
-// app/page.tsx
+// Edge-friendly ISR: cached anon Supabase reads (no cookies) so static/edge is safe.
+export const runtime = "edge";
 export const revalidate = 60;
 
 import Image from "next/image";
 import Link from "next/link";
 
 import PartnersMarquee from "@/components/home/PartnersMarquee";
-import { getPartners } from "@/lib/getPartners";
-import getSupabaseServerComponentClient from "@/lib/supabaseServer";
+import { getPartnersCached, getPublicCoursesHome, getPublicEbooksHome } from "@/app/lib/public-data";
 
 /** ===== Brand ===== */
 const BRAND = {
@@ -14,50 +14,12 @@ const BRAND = {
   lightRing: "var(--color-light)",
 };
 
-type Course = {
-  id: string;
-  slug: string;
-  title: string;
-  description: string | null;
-  img: string | null;
-  cpd_points: number | null;
-  published: boolean | null;
-  created_at?: string | null;
-};
-
-type Ebook = {
-  id: string;
-  slug: string;
-  title: string;
-  description: string | null;
-  cover_url: string | null;
-  price_cents: number | null;
-  published: boolean | null;
-  created_at?: string | null;
-};
-
 export default async function HomePage() {
-  const supabase = getSupabaseServerComponentClient();
-
-  // Note: Compress /public/Partners assets (webp/avif) to keep rail lightweight.
-  const [{ data: cData }, { data: eData }, partners] = await Promise.all([
-    supabase
-      .from("courses")
-      .select("id, slug, title, description, img, cpd_points, published, created_at")
-      .eq("published", true)
-      .order("created_at", { ascending: false })
-      .limit(6),
-    supabase
-      .from("ebooks")
-      .select("id, slug, title, description, cover_url, price_cents, published, created_at")
-      .eq("published", true)
-      .order("created_at", { ascending: false })
-      .limit(8),
-    getPartners(),
+  const [courses, ebooks, partners] = await Promise.all([
+    getPublicCoursesHome(6),
+    getPublicEbooksHome(8),
+    getPartnersCached(),
   ]);
-
-  const courses = (cData ?? []) as Course[];
-  const ebooks = (eData ?? []) as Ebook[];
 
   const featuredList = courses.slice(0, 6);
   const ebooksList = ebooks;
@@ -137,12 +99,11 @@ export default async function HomePage() {
       <section className="relative isolate overflow-hidden bg-white">
         <div aria-hidden="true" className="absolute inset-0 -z-10 hidden md:block">
           <Image
-            src="/Boardroom.jpg"
+            src="/Boardroom.webp"
             alt=""
             fill
             priority
             sizes="100vw"
-            quality={95}
             className="object-cover object-center"
           />
           <div className="pointer-events-none absolute left-0 right-0 top-0 h-40 bg-gradient-to-b from-white/90 via-white/40 to-transparent" />
@@ -203,11 +164,12 @@ export default async function HomePage() {
           <div>
             <div className="mx-auto w-full max-w-[620px]">
               <Image
-                src="/hero-illustration.png"
+                src="/hero-illustration.webp"
                 alt="KDS learning preview"
                 width={1600}
                 height={1200}
                 priority
+                sizes="(min-width: 1280px) 50vw, 100vw"
                 className="h-auto w-full"
               />
             </div>
@@ -357,10 +319,10 @@ export default async function HomePage() {
                 className="group rounded-2xl bg-white border border-[color:var(--color-light)] hover:shadow-md transition overflow-hidden"
               >
                 <div className="relative w-full aspect-video bg-[color:var(--color-light)]/40">
-                  {c?.img ? (
+                  {c ? (
                     <Image
-                      src={c.img}
-                      alt={c.title}
+                      src={c.img ?? "/project-management.png"}
+                      alt={c.title ?? "Course cover"}
                       fill
                       sizes="(max-width:1024px) 50vw, 33vw"
                       className="object-cover"
@@ -415,10 +377,10 @@ export default async function HomePage() {
               >
                 <div className="relative">
                   <div className="relative w-full h-[280px] bg-[color:var(--color-light)]/40">
-                    {b?.cover_url ? (
+                    {b ? (
                       <Image
-                        src={b.cover_url}
-                        alt={b.title}
+                        src={b.cover_url ?? "/project-management.png"}
+                        alt={b.title ?? "E-book cover"}
                         fill
                         sizes="(max-width:640px) 100vw, (max-width:1024px) 50vw, 25vw"
                         className="object-cover"

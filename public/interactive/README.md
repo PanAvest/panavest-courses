@@ -1,0 +1,1 @@
+This folder holds legacy interactive course payloads (e.g., `ghie-business-ethics`) that are streamed by the in-app interactive player. They remain here to avoid breaking enrolled learners. Plan to migrate these assets to Supabase Storage/CDN and serve only lightweight thumbnails from `/public` once the migration is safe.

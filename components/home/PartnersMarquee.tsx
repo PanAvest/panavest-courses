@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 
-import type { PartnerLogo } from "@/lib/getPartners";
+type PartnerLogo = { src: string; alt: string };
 
 type Props = {
   partners: PartnerLogo[];

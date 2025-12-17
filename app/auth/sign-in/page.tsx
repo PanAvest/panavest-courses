@@ -1,8 +1,8 @@
+// Static edge sign-in shell; auth handled client-side via Supabase after hydration.
+export const runtime = "edge";
+
 import { Suspense } from "react";
 import SignInClient from "./SignInClient";
-
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
 
 export default function SignInPage() {
   return (
