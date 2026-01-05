@@ -100,14 +100,7 @@ export default async function Footer() {
               </SocialLink>
               <SocialLink href="https://www.instagram.com/panavest.inter.partners/?hl=en" label="Instagram">
                 <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
-                  <path
-                    fill="currentColor"
-                    d="M9 4h6l1 2h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2l1-2Z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M12 9.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9Zm0 2a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5Z"
-                  />
+                  <path fill="currentColor" d="M7 3h10a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4Zm10 2H7a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Zm-5 2.5A4.5 4.5 0 1 1 7.5 12 4.5 4.5 0 0 1 12 7.5Zm0 2A2.5 2.5 0 1 0 14.5 12 2.5 2.5 0 0 0 12 9.5Zm4.75-2.75a.75.75 0 1 1-.75.75.75.75 0 0 1 .75-.75"/>
                 </svg>
               </SocialLink>
               <SocialLink href="https://www.linkedin.com/company/panavest-international-and-partners" label="LinkedIn">
