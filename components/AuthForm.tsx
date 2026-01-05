@@ -55,6 +55,8 @@ export default function AuthForm({ mode }: { mode: Mode }) {
   const [country, setCountry] = useState<string>("");
   const [confirmPassword, setConfirmPassword] = useState<string>("");
   const [step, setStep] = useState<number>(0);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [busy, setBusy] = useState<boolean>(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -190,7 +192,7 @@ export default function AuthForm({ mode }: { mode: Mode }) {
             )}
 
             {step === 2 && (
-              <fieldset className="rounded-xl border border-[color:var(--color-light)] bg-[color:var(--color-light)]/40 px-3 py-3">
+              <fieldset className="mt-1 rounded-xl border border-[color:var(--color-light)] bg-[color:var(--color-light)]/40 px-3 py-3">
                 <legend className="px-1 text-sm font-medium">Highest educational qualification</legend>
                 <div className="mt-2 grid gap-2">
                   {educationOptions.map((option) => (
@@ -249,27 +251,46 @@ export default function AuthForm({ mode }: { mode: Mode }) {
 
                 <label className="block">
                   <span className="text-sm">Password</span>
-                  <input
-                    type="password"
-                    autoComplete="new-password"
-                    minLength={12}
-                    className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 ring-1 ring-[color:var(--color-light)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-brand)]/40"
-                    value={password}
-                    onChange={(ev) => setPassword(ev.target.value)}
-                    placeholder="Use 12+ characters"
-                  />
+                  <div className="mt-1 flex w-full items-center gap-2 rounded-xl bg-[color:var(--color-light)]/40 ring-1 ring-[color:var(--color-light)] focus-within:ring-2 focus-within:ring-[color:var(--color-brand)]/40">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      autoComplete="new-password"
+                      minLength={6}
+                      className="w-full rounded-xl bg-transparent px-3 py-2 focus:outline-none"
+                      value={password}
+                      onChange={(ev) => setPassword(ev.target.value)}
+                      placeholder="Use 6+ characters"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="px-3 text-xs font-semibold text-[color:var(--color-brand)]"
+                    >
+                      {showPassword ? "Hide" : "Show"}
+                    </button>
+                  </div>
                 </label>
 
                 <label className="block">
                   <span className="text-sm">Confirm password</span>
-                  <input
-                    type="password"
-                    autoComplete="new-password"
-                    className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 ring-1 ring-[color:var(--color-light)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-brand)]/40"
-                    value={confirmPassword}
-                    onChange={(ev) => setConfirmPassword(ev.target.value)}
-                    placeholder="Re-enter password"
-                  />
+                  <div className="mt-1 flex w-full items-center gap-2 rounded-xl bg-[color:var(--color-light)]/40 ring-1 ring-[color:var(--color-light)] focus-within:ring-2 focus-within:ring-[color:var(--color-brand)]/40">
+                    <input
+                      type={showConfirm ? "text" : "password"}
+                      autoComplete="new-password"
+                      minLength={6}
+                      className="w-full rounded-xl bg-transparent px-3 py-2 focus:outline-none"
+                      value={confirmPassword}
+                      onChange={(ev) => setConfirmPassword(ev.target.value)}
+                      placeholder="Re-enter password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirm((v) => !v)}
+                      className="px-3 text-xs font-semibold text-[color:var(--color-brand)]"
+                    >
+                      {showConfirm ? "Hide" : "Show"}
+                    </button>
+                  </div>
                 </label>
 
                 <PasswordRules strength={passwordStrength} />
@@ -293,16 +314,25 @@ export default function AuthForm({ mode }: { mode: Mode }) {
 
             <label className="block">
               <span className="text-sm">Password</span>
-              <input
-                type="password"
-                autoComplete="current-password"
-                required
-                minLength={12}
-                className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 ring-1 ring-[color:var(--color-light)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-brand)]/40"
-                value={password}
-                onChange={(ev) => setPassword(ev.target.value)}
-                placeholder="Use 12+ characters"
-              />
+              <div className="mt-1 flex w-full items-center gap-2 rounded-xl bg-[color:var(--color-light)]/40 ring-1 ring-[color:var(--color-light)] focus-within:ring-2 focus-within:ring-[color:var(--color-brand)]/40">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  required
+                  minLength={6}
+                  className="w-full rounded-xl bg-transparent px-3 py-2 focus:outline-none"
+                  value={password}
+                  onChange={(ev) => setPassword(ev.target.value)}
+                  placeholder="Use 6+ characters"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="px-3 text-xs font-semibold text-[color:var(--color-brand)]"
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
               <div className="mt-2 text-right text-xs text-[color:var(--color-text-muted)]">
                 <a href="/auth/reset" className="underline hover:text-[color:var(--color-brand)]">Forgot password?</a>
               </div>
@@ -404,7 +434,7 @@ function evaluatePassword(password: string, email: string, fullName: string): Pa
     return {
       label: "Weak",
       issues: [
-        "Use at least 12 characters",
+        "Use at least 6 characters",
         "Mix uppercase, lowercase, numbers, and special symbols",
         "Avoid names, email, or common words",
         "Avoid repeats or easy sequences like 123456 or qwerty",
@@ -418,7 +448,7 @@ function evaluatePassword(password: string, email: string, fullName: string): Pa
   const specialCharPattern = /[!@#$%^&*()[\]{};:'"\\|,.<>/?`~_\-+=]/;
   const commonWords = ["password", "passw0rd", "admin", "welcome", "letmein", "iloveyou", "qwerty"];
 
-  if (password.length < 12) issues.push("Use at least 12 characters (minimum 8)");
+  if (password.length < 6) issues.push("Use at least 6 characters (12+ recommended)");
   if (!/[A-Z]/.test(password)) issues.push("Add uppercase letters (A–Z)");
   if (!/[a-z]/.test(password)) issues.push("Add lowercase letters (a–z)");
   if (!/[0-9]/.test(password)) issues.push("Include numbers (0–9)");
