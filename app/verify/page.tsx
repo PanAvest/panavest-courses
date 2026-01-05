@@ -3,11 +3,12 @@ import { createClient } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 
 type VerifyPageProps = {
-  searchParams?: { cert_id?: string | string[] };
+  searchParams?: Promise<{ cert_id?: string | string[] }>;
 };
 
 export default async function VerifyPage({ searchParams }: VerifyPageProps) {
-  const raw = searchParams?.cert_id;
+  const params = searchParams ? await searchParams : undefined;
+  const raw = params?.cert_id;
   const certId = Array.isArray(raw) ? raw[0] : raw;
 
   const supabase = createClient();
