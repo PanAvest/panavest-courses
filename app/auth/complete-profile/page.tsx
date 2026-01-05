@@ -9,7 +9,7 @@ import { educationOptions } from "@/lib/profileConstants";
 export default function CompleteProfilePage() {
   const router = useRouter();
   const [fullName, setFullName] = useState("");
-  const [age, setAge] = useState("");
+  const [dob, setDob] = useState("");
   const [education, setEducation] = useState("");
   const [country, setCountry] = useState("");
   const [email, setEmail] = useState("");
@@ -34,13 +34,15 @@ export default function CompleteProfilePage() {
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("full_name, age, highest_education, country_code")
+        .select("full_name, age, date_of_birth, highest_education, country_code")
         .eq("id", user.id)
         .maybeSingle();
 
       if (cancelled) return;
       setFullName((profile?.full_name as string | null) ?? user.user_metadata.full_name ?? "");
-      setAge(profile?.age ? String(profile.age) : user.user_metadata.age ? String(user.user_metadata.age) : "");
+      const dobMeta = (user.user_metadata as Record<string, unknown>)?.date_of_birth;
+      const profileDob = (profile as Record<string, unknown> | null)?.["date_of_birth"] as string | null;
+      setDob(profileDob ?? (typeof dobMeta === "string" ? dobMeta : ""));
       setEducation((profile?.highest_education as string | null) ?? user.user_metadata.highest_education ?? "");
       setCountry((profile?.country_code as string | null) ?? user.user_metadata.country_code ?? "");
       setLoading(false);
@@ -56,7 +58,7 @@ export default function CompleteProfilePage() {
     setErr(null);
     setMsg(null);
 
-    const validationError = validateProfile({ fullName, age, education, country });
+    const validationError = validateProfile({ fullName, dob, education, country });
     if (validationError) {
       setErr(validationError);
       return;
@@ -73,13 +75,15 @@ export default function CompleteProfilePage() {
 
     try {
       const user = sessionData.session.user;
-      const profilePayload = {
-        id: user.id,
-        full_name: fullName.trim(),
-        age: Number(age),
-        highest_education: education,
-        country_code: country,
-        country_name: selectedCountry?.name ?? "",
+    const ageVal = calcAgeFromDob(dob);
+    const profilePayload = {
+      id: user.id,
+      full_name: fullName.trim(),
+      age: ageVal,
+      date_of_birth: dob,
+      highest_education: education,
+      country_code: country,
+      country_name: selectedCountry?.name ?? "",
       };
 
       // Update auth metadata (triggers will sync profile too)
@@ -142,16 +146,12 @@ export default function CompleteProfilePage() {
           </label>
 
           <label className="block">
-            <span className="text-sm">Age</span>
+            <span className="text-sm">Date of birth</span>
             <input
-              type="number"
-              inputMode="numeric"
-              min={13}
-              max={110}
+              type="date"
               className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 ring-1 ring-[color:var(--color-light)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-brand)]/40"
-              value={age}
-              onChange={(ev) => setAge(ev.target.value)}
-              placeholder="25"
+              value={dob}
+              onChange={(ev) => setDob(ev.target.value)}
             />
           </label>
 
@@ -217,11 +217,33 @@ export default function CompleteProfilePage() {
   );
 }
 
-function validateProfile(data: { fullName: string; age: string; education: string; country: string }) {
+function validateProfile(data: { fullName: string; dob: string; education: string; country: string }) {
   if (!data.fullName.trim()) return "Full name is required.";
-  const ageNumber = Number(data.age);
-  if (!Number.isFinite(ageNumber) || ageNumber < 13) return "Enter a valid age (13+).";
+  if (!data.dob.trim()) return "Date of birth is required.";
+  if (!isOldEnough(data.dob, 13)) return "You must be at least 13 years old.";
   if (!data.education) return "Select your highest educational qualification.";
   if (!data.country) return "Select your country.";
   return null;
+}
+
+function isOldEnough(dob: string, minYears: number) {
+  const d = new Date(dob);
+  if (Number.isNaN(d.getTime())) return false;
+  const today = new Date();
+  const age =
+    today.getFullYear() -
+    d.getFullYear() -
+    (today < new Date(today.getFullYear(), d.getMonth(), d.getDate()) ? 1 : 0);
+  return age >= minYears;
+}
+
+function calcAgeFromDob(dob: string): number | null {
+  const d = new Date(dob);
+  if (Number.isNaN(d.getTime())) return null;
+  const today = new Date();
+  return (
+    today.getFullYear() -
+    d.getFullYear() -
+    (today < new Date(today.getFullYear(), d.getMonth(), d.getDate()) ? 1 : 0)
+  );
 }

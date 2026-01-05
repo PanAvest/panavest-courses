@@ -17,7 +17,7 @@ type PasswordCheck = {
 
 type StepData = {
   fullName: string;
-  age: string;
+  dob: string;
   education: string;
   country: string;
   email: string;
@@ -26,7 +26,7 @@ type StepData = {
   passwordStrength: PasswordCheck;
 };
 
-const signUpSteps = ["Full name", "Age", "Education", "Country", "Account"];
+const signUpSteps = ["Full name", "Date of birth", "Education", "Country", "Account"];
 
 // Create the client only in the browser to avoid SSR issues
 const supabase: SupabaseClient | null = typeof window !== "undefined" ? getSupabaseClient() : null;
@@ -37,7 +37,7 @@ export default function AuthForm({ mode }: { mode: Mode }) {
   const [password, setPassword] = useState<string>("");
   // Sign-up only fields
   const [fullName, setFullName] = useState<string>("");
-  const [age, setAge] = useState<string>("");
+  const [dob, setDob] = useState<string>("");
   const [education, setEducation] = useState<string>("");
   const [country, setCountry] = useState<string>("");
   const [confirmPassword, setConfirmPassword] = useState<string>("");
@@ -88,7 +88,7 @@ export default function AuthForm({ mode }: { mode: Mode }) {
     if (mode === "sign-up" && step < signUpSteps.length - 1) {
       const stepError = validateStep(step, {
         fullName,
-        age,
+        dob,
         education,
         country,
         email: normalizedEmail,
@@ -120,7 +120,7 @@ export default function AuthForm({ mode }: { mode: Mode }) {
       } else {
         const validationError = validateSignUp({
           fullName,
-          age,
+          dob,
           education,
           country,
           password,
@@ -133,6 +133,7 @@ export default function AuthForm({ mode }: { mode: Mode }) {
         }
 
         const selectedCountry = COUNTRIES.find((c) => c.code === country);
+        const ageVal = calcAgeFromDob(dob);
 
         const { error } = await supabase.auth.signUp({
           email: normalizedEmail,
@@ -141,7 +142,8 @@ export default function AuthForm({ mode }: { mode: Mode }) {
             emailRedirectTo: `${window.location.origin}/auth/sign-in`,
             data: {
               full_name: fullName.trim(),
-              age: Number(age),
+              date_of_birth: dob,
+              age: ageVal,
               highest_education: education,
               country_code: country,
               country_name: selectedCountry?.name ?? "",
@@ -225,16 +227,12 @@ export default function AuthForm({ mode }: { mode: Mode }) {
 
             {step === 1 && (
               <label className="block">
-                <span className="text-sm">Age</span>
+                <span className="text-sm">Date of birth</span>
                 <input
-                  type="number"
-                  inputMode="numeric"
-                  min={13}
-                  max={110}
+                  type="date"
                   className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 ring-1 ring-[color:var(--color-light)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-brand)]/40"
-                  value={age}
-                  onChange={(ev) => setAge(ev.target.value)}
-                  placeholder="25"
+                  value={dob}
+                  onChange={(ev) => setDob(ev.target.value)}
                 />
               </label>
             )}
@@ -425,8 +423,9 @@ export default function AuthForm({ mode }: { mode: Mode }) {
 function validateStep(stepIndex: number, data: StepData) {
   if (stepIndex === 0 && !data.fullName.trim()) return "Full name is required.";
   if (stepIndex === 1) {
-    const ageNumber = Number(data.age);
-    if (!Number.isFinite(ageNumber) || ageNumber < 13) return "Enter a valid age (13+).";
+    const dob = data.dob?.trim();
+    if (!dob) return "Date of birth is required.";
+    if (!isOldEnough(dob, 13)) return "You must be at least 13 years old.";
   }
   if (stepIndex === 2 && !data.education) return "Select your highest educational qualification.";
   if (stepIndex === 3 && !data.country) return "Select your country.";
@@ -443,7 +442,7 @@ function validateStep(stepIndex: number, data: StepData) {
 
 function validateSignUp({
   fullName,
-  age,
+  dob,
   education,
   country,
   password,
@@ -451,7 +450,7 @@ function validateSignUp({
   passwordStrength,
 }: {
   fullName: string;
-  age: string;
+  dob: string;
   education: string;
   country: string;
   password: string;
@@ -459,9 +458,8 @@ function validateSignUp({
   passwordStrength: PasswordCheck;
 }) {
   if (!fullName.trim()) return "Full name is required.";
-
-  const ageNumber = Number(age);
-  if (!Number.isFinite(ageNumber) || ageNumber < 13) return "Enter a valid age (13+).";
+  if (!dob.trim()) return "Date of birth is required.";
+  if (!isOldEnough(dob, 13)) return "You must be at least 13 years old.";
 
   if (!education) return "Select your highest educational qualification.";
   if (!country) return "Select your country.";
@@ -473,6 +471,21 @@ function validateSignUp({
   if (confirmPassword !== password) return "Passwords do not match.";
 
   return null;
+}
+
+function isOldEnough(dob: string, minYears: number) {
+  const d = new Date(dob);
+  if (Number.isNaN(d.getTime())) return false;
+  const today = new Date();
+  const age = today.getFullYear() - d.getFullYear() - (today < new Date(today.getFullYear(), d.getMonth(), d.getDate()) ? 1 : 0);
+  return age >= minYears;
+}
+
+function calcAgeFromDob(dob: string): number | null {
+  const d = new Date(dob);
+  if (Number.isNaN(d.getTime())) return null;
+  const today = new Date();
+  return today.getFullYear() - d.getFullYear() - (today < new Date(today.getFullYear(), d.getMonth(), d.getDate()) ? 1 : 0);
 }
 
 function evaluatePassword(password: string, email: string, fullName: string): PasswordCheck {

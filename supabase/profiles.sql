@@ -13,6 +13,7 @@ create table if not exists public.profiles (
 -- Make sure new columns exist if the table was already created
 alter table public.profiles add column if not exists full_name text;
 alter table public.profiles add column if not exists age int;
+alter table public.profiles add column if not exists date_of_birth date;
 alter table public.profiles add column if not exists highest_education text;
 alter table public.profiles add column if not exists country_code text;
 alter table public.profiles add column if not exists country_name text;
@@ -26,11 +27,12 @@ language plpgsql
 security definer set search_path = public
 as $$
 begin
-  insert into public.profiles (id, full_name, age, highest_education, country_code, country_name, created_at, updated_at)
+  insert into public.profiles (id, full_name, age, date_of_birth, highest_education, country_code, country_name, created_at, updated_at)
   values (
     new.id,
     nullif(trim((new.raw_user_meta_data->>'full_name')::text), ''),
     nullif((new.raw_user_meta_data->>'age')::int, 0),
+    nullif((new.raw_user_meta_data->>'date_of_birth')::date, null),
     nullif(trim((new.raw_user_meta_data->>'highest_education')::text), ''),
     nullif(trim((new.raw_user_meta_data->>'country_code')::text), ''),
     nullif(trim((new.raw_user_meta_data->>'country_name')::text), ''),
@@ -40,6 +42,7 @@ begin
   on conflict (id) do update
     set full_name = excluded.full_name,
         age = excluded.age,
+        date_of_birth = excluded.date_of_birth,
         highest_education = excluded.highest_education,
         country_code = excluded.country_code,
         country_name = excluded.country_name,

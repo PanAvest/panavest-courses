@@ -29,6 +29,7 @@ type AdminUser = {
   banned?: boolean | null;
   full_name?: string | null;
   age?: number | null;
+  date_of_birth?: string | null;
   highest_education?: string | null;
   country_code?: string | null;
   country_name?: string | null;
@@ -121,6 +122,7 @@ function asAdminUser(x: unknown): AdminUser {
     banned: typeof r["banned"] === "boolean" ? r["banned"] : null,
     full_name: isStr(r["full_name"]) ? r["full_name"] : null,
     age: typeof r["age"] === "number" ? (r["age"] as number) : null,
+    date_of_birth: isStr(r["date_of_birth"]) ? r["date_of_birth"] : null,
     highest_education: isStr(r["highest_education"]) ? r["highest_education"] : null,
     country_code: isStr(r["country_code"]) ? r["country_code"] : null,
     country_name: isStr(r["country_name"]) ? r["country_name"] : null,
@@ -2452,7 +2454,7 @@ export default function AdminPage() {
                         <div className="font-semibold">{u.email ?? u.id}</div>
                         <div className="text-xs text-slate-500">
                           {u.full_name || "—"} {u.highest_education ? `· ${u.highest_education}` : ""}{" "}
-                          {u.age ? `· ${u.age}` : ""}
+                          {u.date_of_birth ? `· DOB: ${u.date_of_birth}` : ""}
                         </div>
                         <div className="text-xs text-slate-500">
                           {u.country_name || u.country_code || "—"}
@@ -2573,7 +2575,8 @@ export default function AdminPage() {
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <span className="text-slate-500">Age:</span> {selectedUser.age ?? "—"}
+                        <span className="text-slate-500">Date of birth:</span>{" "}
+                        {selectedUser.date_of_birth || "—"}
                       </div>
                       <div>
                         <span className="text-slate-500">Education:</span>{" "}

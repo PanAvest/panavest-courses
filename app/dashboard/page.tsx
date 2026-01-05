@@ -649,38 +649,47 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl sm:text-3xl font-bold">{fullName ? `Welcome, ${fullName}` : "Welcome"}</h1>
 
-        {!isEditingName ? (
-          <button
-            type="button"
-            onClick={() => setIsEditingName(true)}
-            className="rounded-lg border px-3 py-1.5 text-sm"
-            title="Your certificate uses this name"
+        <div className="flex items-center gap-2">
+          <Link
+            href="/settings"
+            className="rounded-lg border px-3 py-1.5 text-sm bg-white hover:bg-gray-50"
+            title="Profile settings"
           >
-            {fullName ? "Edit name" : "Add name"}
-          </button>
-        ) : (
-          <div className="flex items-center gap-2">
-            <input
-              className="rounded-md border px-3 py-1.5 text-sm"
-              placeholder="Your full name"
-              value={nameDraft}
-              onChange={(e) => setNameDraft(e.target.value)}
-            />
-            <button type="button" onClick={saveName} className="rounded-lg bg-[color:#0a1156] text-white px-3 py-1.5 text-sm">
-              Save
-            </button>
+            ⚙️ Settings
+          </Link>
+          {!isEditingName ? (
             <button
               type="button"
-              onClick={() => {
-                setIsEditingName(false);
-                setNameDraft(fullName);
-              }}
+              onClick={() => setIsEditingName(true)}
               className="rounded-lg border px-3 py-1.5 text-sm"
+              title="Your certificate uses this name"
             >
-              Cancel
+              {fullName ? "Edit name" : "Add name"}
             </button>
-          </div>
-        )}
+          ) : (
+            <div className="flex items-center gap-2">
+              <input
+                className="rounded-md border px-3 py-1.5 text-sm"
+                placeholder="Your full name"
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+              />
+              <button type="button" onClick={saveName} className="rounded-lg bg-[color:#0a1156] text-white px-3 py-1.5 text-sm">
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEditingName(false);
+                  setNameDraft(fullName);
+                }}
+                className="rounded-lg border px-3 py-1.5 text-sm"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <p className="mt-2 text-xs text-gray-500">Your certificate displays the name set here. You can update it anytime and re-download.</p>

@@ -19,7 +19,7 @@ export async function GET() {
     // Pull profile metadata (full name, age, edu, country)
     const { data: profiles } = await admin
       .from("profiles")
-      .select("id, full_name, age, highest_education, country_code, country_name")
+      .select("id, full_name, age, date_of_birth, highest_education, country_code, country_name")
       .in("id", userIds);
     const profileById = new Map<string, Record<string, unknown>>();
     (profiles ?? []).forEach((p) => profileById.set(String((p as { id: string }).id), p as Record<string, unknown>));
@@ -64,6 +64,7 @@ export async function GET() {
         banned,
         full_name: p?.["full_name"] ?? null,
         age: p?.["age"] ?? null,
+        date_of_birth: p?.["date_of_birth"] ?? null,
         highest_education: p?.["highest_education"] ?? null,
         country_code: p?.["country_code"] ?? null,
         country_name: p?.["country_name"] ?? null,
