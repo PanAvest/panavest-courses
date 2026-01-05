@@ -76,30 +76,28 @@ export default function Header() {
 
   return (
     <header className="w-full bg-[color:var(--color-bg)] md:bg-transparent">
-      {/* Compliance bar (desktop only) */}
-      <div className="hidden md:flex w-full items-center justify-center px-6 py-2 text-xs text-muted gap-4 bg-white/70 backdrop-blur">
-        <span>ISO 9001 (Quality Management)</span>
-        <span className="text-light">•</span>
-        <span>ISO 27001 (Information Security Management)</span>
-        <span className="text-light">•</span>
-        <span>Ghana Data Protection Act 843 & GDPR</span>
-        <span className="text-light">•</span>
-        <span>CPD/CPPD Accreditation Alignment</span>
-      </div>
-
       {/* Top bar */}
       <div className="w-full px-3 sm:px-4 md:px-6 h-16 md:h-20 flex items-center justify-between">
-        <Link href="/" className="flex items-center" aria-label="Panavest home">
-          <Image
-            src={logo}
-            alt="Panavest"
-            className="h-16 md:h-20 w-auto"
-            sizes="(max-width: 768px) 64px, 80px"
-            priority
-            unoptimized
-          />
-          <span className="sr-only">Panavest</span>
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link href="/" className="flex items-center" aria-label="Panavest home">
+            <Image
+              src={logo}
+              alt="Panavest"
+              className="h-16 md:h-20 w-auto"
+              sizes="(max-width: 768px) 64px, 80px"
+              priority
+              unoptimized
+            />
+            <span className="sr-only">Panavest</span>
+          </Link>
+          <div className="hidden md:flex flex-col text-[11px] leading-tight text-muted">
+            <span className="text-ink font-semibold">Our Standards</span>
+            <span>ISO 9001 (Quality Management)</span>
+            <span>ISO 27001 (Information Security Management)</span>
+            <span>Ghana Data Protection Act 843 & GDPR</span>
+            <span>CPD/CPPD Accreditation Alignment</span>
+          </div>
+        </div>
 
         {/* Desktop nav */}
         <nav className="hidden sm:flex items-center gap-6">
