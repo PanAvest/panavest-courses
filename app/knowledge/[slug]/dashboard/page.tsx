@@ -1096,52 +1096,64 @@ export default function CourseDashboard() {
     return completedQuizzes.includes(activeSlide.chapter_id);
   }, [completedQuizzes, activeSlide]);
 
+  const finalStatus = finalExam && finalExamQuestions.length > 0 ? (
+    <div className="flex flex-wrap items-center gap-2 text-[11px] md:text-xs">
+      {!canTakeFinal && !finalAttemptExists && (
+        <span className="px-2 py-1 rounded-full bg-amber-100 text-amber-800">
+          Complete all slides & chapter quizzes to unlock Final Exam
+        </span>
+      )}
+      {canTakeFinal && !finalAttemptExists && (
+        <button
+          type="button"
+          onClick={openFinalConfirm}
+          className="rounded-lg bg-[color:#0a1156] text-white px-3 py-1.5 text-xs md:text-sm hover:opacity-90"
+          aria-label="Start Final Exam"
+          title={isOnline ? "Start Final Exam" : "You are offline"}
+        >
+          Start Final Exam
+        </button>
+      )}
+      {finalAttemptExists && (
+        <span className="px-2 py-1 rounded-full bg-green-100 text-green-800">
+          Final Exam completed
+        </span>
+      )}
+    </div>
+  ) : null;
+
+  const menuButton = (
+    <button
+      type="button"
+      className="rounded-lg border px-3 py-1.5 text-xs font-medium shadow-[0_1px_2px_rgba(0,0,0,0.08)]"
+      onClick={() => setMobileNavOpen((v) => !v)}
+      aria-expanded={mobileNavOpen}
+      aria-controls="course-sidebar"
+    >
+      {mobileNavOpen ? "Hide Menu" : "Show Menu"}
+    </button>
+  );
+
   if (loading) return <div className="mx-auto max-w-screen-lg px-4 py-10">Loading…</div>;
   if (!course) return <div className="mx-auto max-w-screen-lg px-4 py-10">Not found.</div>;
 
   return (
     <div className="mx-auto max-w-screen-2xl px-4 md:px-6 py-6">
       {/* Header with Final Exam CTA beside title */}
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="text-xl md:text-2xl font-semibold">{course.title}</div>
-          {finalExam && finalExamQuestions.length > 0 && (
-            <>
-              {!canTakeFinal && !finalAttemptExists && (
-                <span className="text-[11px] md:text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-800">
-                  Complete all slides & chapter quizzes to unlock Final Exam
-                </span>
-              )}
-              {canTakeFinal && !finalAttemptExists && (
-                <button
-                  type="button"
-                  onClick={openFinalConfirm}
-                  className="rounded-lg bg-[color:#0a1156] text-white px-3 py-1.5 text-xs md:text-sm hover:opacity-90"
-                  aria-label="Start Final Exam"
-                  title={isOnline ? "Start Final Exam" : "You are offline"}
-                >
-                  Start Final Exam
-                </button>
-              )}
-              {finalAttemptExists && (
-                <span className="text-[11px] md:text-xs px-2 py-1 rounded-full bg-green-100 text-green-800">
-                  Final Exam completed
-                </span>
-              )}
-            </>
+      <div className="mb-4 flex flex-col gap-2 md:gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex-1 min-w-0 flex flex-col gap-1">
+          <div className="flex items-start justify-between gap-3">
+            <div className="text-lg md:text-2xl font-semibold leading-snug truncate">{course.title}</div>
+            <div className="md:hidden self-center">{menuButton}</div>
+          </div>
+          {userEmail && (
+            <div className="md:hidden text-xs text-muted truncate">{userEmail}</div>
           )}
+          {finalStatus}
         </div>
-        <div className="flex items-center gap-2 text-xs md:text-sm text-muted">
-          {userEmail && <span className="truncate max-w-[40vw] md:max-w-none">{userEmail}</span>}
-          <button
-            type="button"
-            className="md:hidden rounded-lg border px-3 py-1.5"
-            onClick={() => setMobileNavOpen(v => !v)}
-            aria-expanded={mobileNavOpen}
-            aria-controls="course-sidebar"
-          >
-            {mobileNavOpen ? "Hide Menu" : "Show Menu"}
-          </button>
+        <div className="hidden md:flex items-center gap-2 text-xs md:text-sm text-muted self-start">
+          {userEmail && <span className="truncate max-w-[40vw] md:max-w-[260px]">{userEmail}</span>}
+          <div className="self-center">{menuButton}</div>
         </div>
       </div>
 
