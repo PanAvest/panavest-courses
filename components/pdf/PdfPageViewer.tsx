@@ -67,6 +67,9 @@ export default function PdfPageViewer({ url, className = "", startPage = 1 }: Pr
   const [loadSeq, setLoadSeq] = useState(0); // for retry
   const [longLoad, setLongLoad] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [fallbackFullscreen, setFallbackFullscreen] = useState(false);
+
+  const effectiveFullscreen = isFullscreen || fallbackFullscreen;
 
   // Configure worker once
   useEffect(() => {
@@ -164,7 +167,14 @@ export default function PdfPageViewer({ url, className = "", startPage = 1 }: Pr
       renderTaskRef.current?.cancel();
       const pdfPage = await doc.getPage(pageNumber);
       const viewport = pdfPage.getViewport({ scale: 1 });
-      const scale = width / Math.max(1, viewport.width);
+      const heightLimit =
+        effectiveFullscreen && typeof window !== "undefined"
+          ? Math.max(280, window.innerHeight - 180)
+          : Number.POSITIVE_INFINITY;
+      const widthScale = width / Math.max(1, viewport.width);
+      const heightScale =
+        heightLimit === Number.POSITIVE_INFINITY ? widthScale : Math.min(widthScale, heightLimit / Math.max(1, viewport.height));
+      const scale = Math.min(widthScale, heightScale);
       const scaled = pdfPage.getViewport({ scale });
 
       // Render at device pixel ratio for crisp text, capped to avoid runaway memory.
@@ -198,7 +208,7 @@ export default function PdfPageViewer({ url, className = "", startPage = 1 }: Pr
         setStatus("error");
       }
     },
-    [measuredWidth],
+    [measuredWidth, effectiveFullscreen],
   );
 
   // Render current page when ready or width changes
@@ -228,8 +238,8 @@ export default function PdfPageViewer({ url, className = "", startPage = 1 }: Pr
   };
 
   const minHeightStyle = { minHeight: "clamp(260px, 55vw, 520px)" };
-  const fullscreenPadding = isFullscreen ? "p-4 sm:p-6 md:p-8" : "p-3";
-  const fullscreenInsetStyle: CSSProperties | undefined = isFullscreen
+  const fullscreenPadding = effectiveFullscreen ? "p-4 sm:p-6 md:p-8" : "p-3";
+  const fullscreenInsetStyle: CSSProperties | undefined = effectiveFullscreen
     ? {
         paddingTop: "calc(16px + env(safe-area-inset-top, 0px))",
         paddingBottom: "calc(16px + env(safe-area-inset-bottom, 0px))",
@@ -239,7 +249,8 @@ export default function PdfPageViewer({ url, className = "", startPage = 1 }: Pr
     : undefined;
   const containerStyle: CSSProperties = {
     ...minHeightStyle,
-    ...(isFullscreen ? { maxHeight: "calc(100vh - 180px)" } : {}),
+    ...(effectiveFullscreen ? { maxHeight: "calc(100vh - 180px)" } : {}),
+    touchAction: "pan-x pan-y pinch-zoom",
   };
 
   const toggleFullscreen = async () => {
@@ -248,19 +259,23 @@ export default function PdfPageViewer({ url, className = "", startPage = 1 }: Pr
     const doc = document as FullscreenDocument;
     try {
       const active = document.fullscreenElement || doc.webkitFullscreenElement;
-      if (!active) {
+      if (!active && !fallbackFullscreen) {
         if (node.requestFullscreen) {
           await node.requestFullscreen();
         } else if (node.webkitRequestFullscreen) {
           await Promise.resolve(node.webkitRequestFullscreen());
         }
+        const nowActive = document.fullscreenElement || doc.webkitFullscreenElement;
+        if (!nowActive) setFallbackFullscreen(true);
+      } else if (fallbackFullscreen) {
+        setFallbackFullscreen(false);
       } else if (document.exitFullscreen) {
         await document.exitFullscreen();
       } else if (doc.webkitExitFullscreen) {
         await Promise.resolve(doc.webkitExitFullscreen());
       }
     } catch {
-      /* ignore */
+      setFallbackFullscreen((prev) => !prev);
     }
   };
 
@@ -270,6 +285,7 @@ export default function PdfPageViewer({ url, className = "", startPage = 1 }: Pr
       const doc = document as FullscreenDocument;
       const active = document.fullscreenElement || doc.webkitFullscreenElement;
       setIsFullscreen(!!node && active === node);
+      if (active) setFallbackFullscreen(false);
     };
     document.addEventListener("fullscreenchange", handler);
     document.addEventListener("webkitfullscreenchange", handler);
@@ -279,10 +295,21 @@ export default function PdfPageViewer({ url, className = "", startPage = 1 }: Pr
     };
   }, []);
 
+  useEffect(() => {
+    if (fallbackFullscreen) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = prev;
+      };
+    }
+    return undefined;
+  }, [fallbackFullscreen]);
+
   return (
     <div
       ref={fullRef}
-      className={`w-full max-w-full rounded-lg border border-[color:var(--color-light)] bg-white ${fullscreenPadding} ${className}`}
+      className={`w-full max-w-full bg-white ${effectiveFullscreen ? "border-0 rounded-none shadow-none" : "rounded-lg border border-[color:var(--color-light)]"} ${fallbackFullscreen ? "fixed inset-0 z-[999]" : ""} ${fullscreenPadding} ${className}`}
       style={fullscreenInsetStyle}
       tabIndex={0}
       onKeyDown={onKeyDown}
@@ -341,7 +368,7 @@ export default function PdfPageViewer({ url, className = "", startPage = 1 }: Pr
 
       <div
         ref={containerRef}
-        className={`relative w-full ${isFullscreen ? "overflow-auto" : "overflow-hidden"}`}
+        className={`relative w-full ${effectiveFullscreen ? "overflow-auto" : "overflow-hidden"}`}
         style={containerStyle}
       >
         <canvas ref={canvasRef} className="block w-full h-auto" />
