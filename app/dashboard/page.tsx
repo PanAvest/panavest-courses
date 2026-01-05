@@ -499,128 +499,157 @@ export default function DashboardPage() {
         return `data:${blob.type};base64,${base64}`;
       };
 
-      const makeGradient = (w: number, h: number, stops: { offset: number; color: string }[]) => {
-        const canvas = document.createElement("canvas");
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return "";
-        const g = ctx.createLinearGradient(0, 0, w, 0);
-        stops.forEach((s) => g.addColorStop(s.offset, s.color));
-        ctx.fillStyle = g;
-        ctx.fillRect(0, 0, w, h);
-        return canvas.toDataURL("image/png");
-      };
-
-      const logoUrl = "/logo.png";
+      const sidebarLogoUrl = "https://icujvqmqwacpysxjfkxd.supabase.co/storage/v1/object/public/Cert%20Assets/Panavest%20logo%20trans%20white.png";
       const signatureUrl = "https://icujvqmqwacpysxjfkxd.supabase.co/storage/v1/object/public/Cert%20Assets/Prof%20Signature.png";
 
-      const [logoData, sigData, qrData] = await Promise.all([
-        toDataUrl(logoUrl).catch(() => ""),
+      const [sidebarLogoData, sigData, qrData] = await Promise.all([
+        toDataUrl(sidebarLogoUrl).catch(() => ""),
         toDataUrl(signatureUrl).catch(() => ""),
         verifyUrl ? toDataUrl(`https://quickchart.io/qr?text=${encodeURIComponent(verifyUrl)}&size=280&margin=1`).catch(() => "") : Promise.resolve(""),
-      ]);
-      const headerGradient = makeGradient(2000, 260, [
-        { offset: 0, color: "#0a1156" },
-        { offset: 0.65, color: "#0a1156" },
-        { offset: 0.75, color: "#d2a756" },
-        { offset: 1, color: "#f1d48f" },
       ]);
 
       const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 10;
+      const safeZone = 40;
+      const sidebarWidth = 80;
+      const dividerWidth = 1.5;
+      const visualCenterY = pageHeight / 2 - 15;
+      const navy: [number, number, number] = [10, 17, 86];
+      const gold: [number, number, number] = [210, 167, 86];
+      const background: [number, number, number] = [252, 250, 245];
+      const darkGrey: [number, number, number] = [70, 75, 85];
+      const midGrey: [number, number, number] = [120, 125, 135];
+      const lightGrey: [number, number, number] = [180, 183, 190];
+      const contentLeft = sidebarWidth + 12;
+      const contentRight = pageWidth - safeZone;
+      const contentWidth = contentRight - contentLeft;
+      const contentCenterX = contentLeft + contentWidth / 2;
 
       // Background
-      doc.setFillColor(255, 255, 255);
+      doc.setFillColor(...background);
       doc.rect(0, 0, pageWidth, pageHeight, "F");
 
-      // Border
-      doc.setDrawColor(10, 17, 86);
-      doc.setLineWidth(3);
-      doc.rect(margin, margin, pageWidth - margin * 2, pageHeight - margin * 2);
+      // Sidebar and divider
+      doc.setFillColor(...navy);
+      doc.rect(0, 0, sidebarWidth, pageHeight, "F");
+      doc.setDrawColor(...gold);
+      doc.setLineWidth(dividerWidth);
+      doc.line(sidebarWidth, 0, sidebarWidth, pageHeight);
 
-      // Header band
-      const headerHeight = 28;
-      if (headerGradient) {
-        doc.addImage(headerGradient, "PNG", margin + 4, margin + 4, pageWidth - (margin + 4) * 2, headerHeight, undefined, "FAST");
-      } else {
-        doc.setFillColor(10, 17, 86);
-        doc.rect(margin + 4, margin + 4, pageWidth - (margin + 4) * 2, headerHeight, "F");
-      }
-      doc.setTextColor(255, 255, 255);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(12);
-      doc.text("CERTIFICATE", margin + 10, margin + 16, { align: "left" });
-      doc.text("of Appreciation", margin + 10, margin + 24, { align: "left" });
-      if (logoData) {
-        doc.addImage(logoData, "PNG", pageWidth - margin - 26, margin + 8, 22, 12, undefined, "FAST");
+      // Sidebar top logo
+      const emblemX = sidebarWidth / 2;
+      const emblemY = safeZone;
+      const sidebarLogoW = 36;
+      const sidebarLogoH = 36;
+      if (sidebarLogoData) {
+        doc.addImage(sidebarLogoData, "PNG", emblemX - sidebarLogoW / 2, emblemY - sidebarLogoH / 2, sidebarLogoW, sidebarLogoH, undefined, "FAST");
       }
 
-      // Body
-      const centerX = pageWidth / 2;
-      let cursorY = margin + headerHeight + 26;
-
-      doc.setTextColor(10, 17, 86);
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.text("Proudly Presented To", centerX, cursorY, { align: "center" });
-      cursorY += 16;
-
-      doc.setFontSize(34);
-      doc.setFont("helvetica", "bold");
-      doc.text(recipient || "Your Name", centerX, cursorY, { align: "center" });
-      cursorY += 16;
-
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(55, 65, 81);
-      doc.text("for successfully completing", centerX, cursorY, { align: "center" });
-      cursorY += 14;
-
-      doc.setFont("helvetica", "italic");
-      doc.setFontSize(19);
-      doc.setTextColor(31, 41, 55);
-      doc.text(course, centerX, cursorY, { align: "center" });
-      cursorY += 20;
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(11);
-      doc.setTextColor(55, 65, 81);
-      doc.text(`Certificate No: ${certNumber}`, centerX, cursorY, { align: "center" });
-      cursorY += 10;
-      doc.text(`Issued: ${new Date(issuedAt).toLocaleDateString()}`, centerX, cursorY, { align: "center" });
-
-      // Footer: signature left, QR right
-      const footerY = pageHeight - margin - 32;
-      const leftX = margin + 16;
-      const rightX = pageWidth - margin - 22;
-
-      if (sigData) {
-        doc.addImage(sigData, "PNG", leftX, footerY - 16, 60, 18, undefined, "FAST");
-      }
-      doc.setDrawColor(10, 17, 86);
-      doc.setLineWidth(0.6);
-      doc.line(leftX, footerY + 4, leftX + 70, footerY + 4);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.setTextColor(10, 17, 86);
-      doc.text("Authorized Signatory", leftX + 35, footerY + 12, { align: "center" });
-
+      // Sidebar QR
+      const qrBoxSize = 44;
+      const qrBoxX = emblemX - qrBoxSize / 2;
+      const qrBoxTop = pageHeight - safeZone - qrBoxSize;
+      doc.setFillColor(255, 255, 255);
+      doc.rect(qrBoxX, qrBoxTop, qrBoxSize, qrBoxSize, "F");
       if (qrData) {
-        const qrSize = 38;
-        const qrTop = pageHeight - margin - qrSize - 10;
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(10);
-        doc.setTextColor(55, 65, 81);
-        doc.text("Scan to verify", rightX, qrTop - 6, { align: "center" });
-        doc.addImage(qrData, "PNG", rightX - qrSize / 2, qrTop, qrSize, qrSize, undefined, "FAST");
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(10);
-        doc.setTextColor(10, 17, 86);
-        doc.text(certNumber, rightX, qrTop + qrSize + 8, { align: "center" });
+        const qrInset = 4;
+        doc.addImage(qrData, "PNG", qrBoxX + qrInset, qrBoxTop + qrInset, qrBoxSize - qrInset * 2, qrBoxSize - qrInset * 2, undefined, "FAST");
       }
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      doc.setTextColor(255, 255, 255);
+      doc.text("Scan to verify", emblemX, qrBoxTop + qrBoxSize + 6, { align: "center" });
+
+      // Main header
+      doc.setTextColor(...navy);
+      doc.setFont("times", "bold");
+      doc.setFontSize(15);
+      const headerDims = doc.getTextDimensions("PANAVEST INTERNATIONAL");
+      doc.text("PANAVEST INTERNATIONAL", contentCenterX, safeZone + headerDims.h, { align: "center" });
+
+      // Core block
+      const courseLines = doc.splitTextToSize(course || "Course Title", 160);
+      const blockItems: {
+        text: string | string[];
+        font: "times" | "helvetica";
+        style: "bold" | "normal" | "italic";
+        size: number;
+        color: [number, number, number];
+        underline?: boolean;
+        spacingAfter?: number;
+      }[] = [
+        { text: "CERTIFICATE", font: "times", style: "bold", size: 34, color: gold, spacingAfter: 5 },
+        { text: "of Appreciation", font: "helvetica", style: "normal", size: 12, color: midGrey, spacingAfter: 7 },
+        { text: "Proudly Presented To", font: "helvetica", style: "normal", size: 9, color: darkGrey, spacingAfter: 6 },
+        { text: recipient || "Recipient Name", font: "times", style: "italic", size: 26, color: navy, underline: true, spacingAfter: 6 },
+        { text: "for successfully completing", font: "helvetica", style: "normal", size: 9, color: darkGrey, spacingAfter: 5 },
+        { text: courseLines, font: "times", style: "bold", size: 16, color: navy, spacingAfter: 0 },
+      ];
+
+      let blockHeight = 0;
+      for (const item of blockItems) {
+        doc.setFont(item.font, item.style);
+        doc.setFontSize(item.size);
+        const dims = doc.getTextDimensions(Array.isArray(item.text) ? item.text.join("\n") : item.text);
+        blockHeight += dims.h;
+        if (item.underline) blockHeight += 4;
+        blockHeight += item.spacingAfter ?? 0;
+      }
+      let yCursor = visualCenterY - blockHeight / 2;
+
+      for (const item of blockItems) {
+        doc.setFont(item.font, item.style);
+        doc.setFontSize(item.size);
+        doc.setTextColor(...item.color);
+        const dims = doc.getTextDimensions(Array.isArray(item.text) ? item.text.join("\n") : item.text);
+        const baselineY = yCursor + dims.h;
+        doc.text(item.text, contentCenterX, baselineY, { align: "center" });
+        yCursor += dims.h;
+
+        if (item.underline) {
+          const nameWidth = Math.min(
+            doc.getTextWidth(typeof item.text === "string" ? item.text : item.text.join(" ")) + 12,
+            contentWidth - 20,
+          );
+          const lineStart = contentCenterX - nameWidth / 2;
+          const lineY = yCursor + 2;
+          doc.setDrawColor(...lightGrey);
+          doc.setLineWidth(0.5);
+          doc.line(lineStart, lineY, lineStart + nameWidth, lineY);
+          yCursor += 4;
+        }
+
+        yCursor += item.spacingAfter ?? 0;
+      }
+
+      // Footer
+      const footerBaseline = pageHeight - safeZone;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(...darkGrey);
+      doc.text(`Issued: ${new Date(issuedAt).toLocaleDateString()}`, contentLeft, footerBaseline - 8, { align: "left" });
+      doc.text(`Certificate No: ${certNumber}`, contentLeft, footerBaseline - 2, { align: "left" });
+
+      const signatureLineWidth = 70;
+      const signatureLineX1 = contentRight - signatureLineWidth;
+      const signatureLineX2 = contentRight;
+      const signatureHeight = 18;
+      const signatureY = footerBaseline - signatureHeight;
+      if (sigData) {
+        doc.addImage(sigData, "PNG", signatureLineX1, signatureY, signatureLineWidth, signatureHeight, undefined, "FAST");
+      } else {
+        doc.setFont("times", "italic");
+        doc.setFontSize(11);
+        doc.setTextColor(...navy);
+        doc.text("Signature on file", signatureLineX1 + signatureLineWidth / 2, signatureY + signatureHeight / 2, { align: "center", baseline: "middle" });
+      }
+      doc.setDrawColor(...navy);
+      doc.setLineWidth(0.6);
+      doc.line(signatureLineX1, footerBaseline, signatureLineX2, footerBaseline);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9.5);
+      doc.text("Authorized Signatory", signatureLineX2, footerBaseline + 6, { align: "right" });
 
       const filename = certNumber ? `PanAvest-Certificate-${certNumber}.pdf` : "PanAvest-Certificate.pdf";
       doc.save(filename);
