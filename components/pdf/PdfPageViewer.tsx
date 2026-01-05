@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties, KeyboardEvent } from "react";
+import type { CSSProperties, KeyboardEvent, TouchEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as pdfjs from "pdfjs-dist";
 
@@ -58,6 +58,7 @@ export default function PdfPageViewer({ url, className = "", startPage = 1 }: Pr
   const resizeObsRef = useRef<ResizeObserver | null>(null);
   const resizeRafRef = useRef<number | null>(null);
   const containerWidthRef = useRef<number>(0);
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
 
   const [page, setPage] = useState(Math.max(1, startPage));
   const [numPages, setNumPages] = useState<number | null>(null);
@@ -169,7 +170,7 @@ export default function PdfPageViewer({ url, className = "", startPage = 1 }: Pr
       const viewport = pdfPage.getViewport({ scale: 1 });
       const heightLimit =
         effectiveFullscreen && typeof window !== "undefined"
-          ? Math.max(280, window.innerHeight - 180)
+          ? Math.max(320, window.innerHeight - 140)
           : Number.POSITIVE_INFINITY;
       const widthScale = width / Math.max(1, viewport.width);
       const heightScale =
@@ -249,7 +250,12 @@ export default function PdfPageViewer({ url, className = "", startPage = 1 }: Pr
     : undefined;
   const containerStyle: CSSProperties = {
     ...minHeightStyle,
-    ...(effectiveFullscreen ? { maxHeight: "calc(100vh - 180px)" } : {}),
+    ...(effectiveFullscreen
+      ? {
+          maxHeight: "calc(100dvh - 120px)",
+          minHeight: "calc(100dvh - 140px)",
+        }
+      : {}),
     touchAction: "pan-x pan-y pinch-zoom",
   };
 
@@ -264,6 +270,12 @@ export default function PdfPageViewer({ url, className = "", startPage = 1 }: Pr
           await node.requestFullscreen();
         } else if (node.webkitRequestFullscreen) {
           await Promise.resolve(node.webkitRequestFullscreen());
+        }
+        // Try to lock to landscape when entering fullscreen; ignore failures.
+        try {
+          await (screen.orientation as ScreenOrientation | undefined)?.lock?.("landscape");
+        } catch {
+          /* ignore */
         }
         const nowActive = document.fullscreenElement || doc.webkitFullscreenElement;
         if (!nowActive) setFallbackFullscreen(true);
@@ -306,6 +318,33 @@ export default function PdfPageViewer({ url, className = "", startPage = 1 }: Pr
     return undefined;
   }, [fallbackFullscreen]);
 
+  const handleTouchStart = (e: TouchEvent<HTMLDivElement>) => {
+    if (!effectiveFullscreen || e.touches.length !== 1) return;
+    const t = e.touches[0];
+    touchStartRef.current = { x: t.clientX, y: t.clientY, time: Date.now() };
+  };
+
+  const handleTouchEnd = (e: TouchEvent<HTMLDivElement>) => {
+    if (!effectiveFullscreen || !touchStartRef.current) return;
+    if (e.changedTouches.length !== 1) return;
+    const start = touchStartRef.current;
+    touchStartRef.current = null;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    const dt = Date.now() - start.time;
+    if (dt > 800) return;
+
+    if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy)) {
+      if (dx < 0 && canNext) setPage((p) => p + 1);
+      else if (dx > 0 && canPrev) setPage((p) => Math.max(1, p - 1));
+    } else if (dy > 72 && Math.abs(dy) > Math.abs(dx)) {
+      // Swipe down to exit
+      if (fallbackFullscreen) setFallbackFullscreen(false);
+      else void document.exitFullscreen?.();
+    }
+  };
+
   return (
     <div
       ref={fullRef}
@@ -313,6 +352,8 @@ export default function PdfPageViewer({ url, className = "", startPage = 1 }: Pr
       style={fullscreenInsetStyle}
       tabIndex={0}
       onKeyDown={onKeyDown}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
       role="group"
       aria-label="PDF viewer"
     >
@@ -360,9 +401,9 @@ export default function PdfPageViewer({ url, className = "", startPage = 1 }: Pr
           type="button"
           onClick={toggleFullscreen}
           className="rounded-md border px-3 py-1 hover:bg-[color:var(--color-light)]/50"
-          aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+          aria-label={effectiveFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
         >
-          {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+          {effectiveFullscreen ? "Exit Fullscreen" : "Fullscreen"}
         </button>
       </div>
 
@@ -371,6 +412,47 @@ export default function PdfPageViewer({ url, className = "", startPage = 1 }: Pr
         className={`relative w-full ${effectiveFullscreen ? "overflow-auto" : "overflow-hidden"}`}
         style={containerStyle}
       >
+        {effectiveFullscreen && (
+          <>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (canPrev) setPage((p) => Math.max(1, p - 1));
+              }}
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-20 rounded-full bg-black/35 text-white px-3 py-2 text-sm backdrop-blur hover:bg-black/45"
+              aria-label="Previous slide"
+            >
+              ←
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (canNext) setPage((p) => p + 1);
+              }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 z-20 rounded-full bg-black/35 text-white px-3 py-2 text-sm backdrop-blur hover:bg-black/45"
+              aria-label="Next slide"
+            >
+              →
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (fallbackFullscreen) setFallbackFullscreen(false);
+                else void document.exitFullscreen?.();
+              }}
+              className="absolute right-3 top-3 z-20 rounded-full bg-black/40 text-white px-3 py-2 text-xs font-semibold backdrop-blur hover:bg-black/55"
+              aria-label="Exit fullscreen"
+            >
+              ✕
+            </button>
+          </>
+        )}
         <canvas ref={canvasRef} className="block w-full h-auto" />
         {errorMsg && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm text-red-700 bg-white/85">
