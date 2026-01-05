@@ -92,10 +92,10 @@ export default function Header() {
           </Link>
           <div className="hidden md:flex flex-col text-[11px] leading-tight text-muted">
             <span className="text-ink font-semibold">Our Standards</span>
-            <span>ISO 9001 (Quality Management)</span>
-            <span>ISO 27001 (Information Security Management)</span>
-            <span>Ghana Data Protection Act 843 & GDPR</span>
-            <span>CPD/CPPD Accreditation Alignment</span>
+            <span>ISO 9001 Quality Management – Aligned</span>
+            <span>ISO 21001 Educational Organizations – Informed</span>
+            <span>ISO/IEC 27001 Information Security – Aligned</span>
+            <span>CPD / Assessment-Based Certification – Accredited-Ready</span>
           </div>
         </div>
 
