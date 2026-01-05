@@ -4,6 +4,19 @@ import type { KeyboardEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as pdfjs from "pdfjs-dist";
 
+// pdfjs uses Promise.withResolvers in newer builds; polyfill for runtimes that lack it.
+if (typeof Promise !== "undefined" && !(Promise as unknown as { withResolvers?: unknown }).withResolvers) {
+  (Promise as unknown as { withResolvers?: <T>() => { promise: Promise<T>; resolve: (value: T | PromiseLike<T>) => void; reject: (reason?: unknown) => void } }).withResolvers = function withResolvers<T>() {
+    let resolve!: (value: T | PromiseLike<T>) => void;
+    let reject!: (reason?: unknown) => void;
+    const promise = new Promise<T>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    return { promise, resolve, reject };
+  };
+}
+
 type PdfDoc = { numPages: number; getPage(n: number): Promise<PdfPage> };
 type PdfPage = {
   getViewport: (opts: { scale: number }) => { width: number; height: number };
@@ -30,6 +43,7 @@ let workerSet = false;
 export default function PdfPageViewer({ url, className = "", startPage = 1 }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const fullRef = useRef<HTMLDivElement | null>(null);
   const pdfDocRef = useRef<PdfDoc | null>(null);
   const renderTaskRef = useRef<RenderTask | null>(null);
   const resizeObsRef = useRef<ResizeObserver | null>(null);
@@ -43,6 +57,7 @@ export default function PdfPageViewer({ url, className = "", startPage = 1 }: Pr
   const [measuredWidth, setMeasuredWidth] = useState<number>(0);
   const [loadSeq, setLoadSeq] = useState(0); // for retry
   const [longLoad, setLongLoad] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Configure worker once
   useEffect(() => {
@@ -143,7 +158,8 @@ export default function PdfPageViewer({ url, className = "", startPage = 1 }: Pr
       const scale = width / Math.max(1, viewport.width);
       const scaled = pdfPage.getViewport({ scale });
 
-      const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
+      // Render at device pixel ratio for crisp text, capped to avoid runaway memory.
+      const dpr = typeof window !== "undefined" ? Math.min(window.devicePixelRatio || 1, 2.5) : 1;
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
 
@@ -204,10 +220,33 @@ export default function PdfPageViewer({ url, className = "", startPage = 1 }: Pr
 
   const minHeightStyle = { minHeight: "clamp(260px, 55vw, 520px)" };
 
+  const toggleFullscreen = async () => {
+    const node = fullRef.current;
+    if (!node) return;
+    try {
+      if (!document.fullscreenElement) {
+        await node.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch {
+      /* ignore */
+    }
+  };
+
+  useEffect(() => {
+    const handler = () => {
+      const node = fullRef.current;
+      setIsFullscreen(!!node && document.fullscreenElement === node);
+    };
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
+
   return (
     <div
-      ref={containerRef}
-      className={`w-full max-w-full overflow-hidden rounded-lg border border-[color:var(--color-light)] bg-white p-3 ${className}`}
+      ref={fullRef}
+      className={`w-full max-w-full rounded-lg border border-[color:var(--color-light)] bg-white p-3 ${className}`}
       tabIndex={0}
       onKeyDown={onKeyDown}
       role="group"
@@ -252,7 +291,22 @@ export default function PdfPageViewer({ url, className = "", startPage = 1 }: Pr
         </div>
       </div>
 
-      <div className="relative w-full" style={minHeightStyle}>
+      <div className="flex flex-wrap items-center justify-end gap-2 mb-3 text-xs md:text-sm">
+        <button
+          type="button"
+          onClick={toggleFullscreen}
+          className="rounded-md border px-3 py-1 hover:bg-[color:var(--color-light)]/50"
+          aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+        >
+          {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+        </button>
+      </div>
+
+      <div
+        ref={containerRef}
+        className="relative w-full overflow-hidden"
+        style={minHeightStyle}
+      >
         <canvas ref={canvasRef} className="block w-full h-auto" />
         {errorMsg && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm text-red-700 bg-white/85">
