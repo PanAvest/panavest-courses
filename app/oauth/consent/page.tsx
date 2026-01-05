@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
+
+export const dynamic = "force-dynamic";
 
 type ConsentParams = {
   client_id: string;
@@ -16,6 +18,20 @@ type ConsentParams = {
 };
 
 export default function ConsentPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto flex min-h-[60vh] max-w-md items-center justify-center text-[color:var(--color-text-muted)]">
+          Loading...
+        </div>
+      }
+    >
+      <ConsentInner />
+    </Suspense>
+  );
+}
+
+function ConsentInner() {
   const router = useRouter();
   const qs = useSearchParams();
   const params = useMemo<ConsentParams>(() => {
