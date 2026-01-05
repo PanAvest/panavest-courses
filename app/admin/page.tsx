@@ -27,6 +27,12 @@ type AdminUser = {
   email_confirmed_at?: string | null;
   created_at?: string | null;
   banned?: boolean | null;
+  full_name?: string | null;
+  age?: number | null;
+  highest_education?: string | null;
+  country_code?: string | null;
+  country_name?: string | null;
+  certificates?: Array<{ id: string; certificate_no: string | null; course_title: string | null }>;
 };
 type Chapter = {
   id?: string;
@@ -113,6 +119,18 @@ function asAdminUser(x: unknown): AdminUser {
       : null,
     created_at: isStr(r["created_at"]) ? r["created_at"] : null,
     banned: typeof r["banned"] === "boolean" ? r["banned"] : null,
+    full_name: isStr(r["full_name"]) ? r["full_name"] : null,
+    age: typeof r["age"] === "number" ? (r["age"] as number) : null,
+    highest_education: isStr(r["highest_education"]) ? r["highest_education"] : null,
+    country_code: isStr(r["country_code"]) ? r["country_code"] : null,
+    country_name: isStr(r["country_name"]) ? r["country_name"] : null,
+    certificates: Array.isArray(r["certificates"])
+      ? (r["certificates"] as Array<Record<string, unknown>>).map((c) => ({
+          id: String(c["id"] ?? ""),
+          certificate_no: isStr(c["certificate_no"]) ? c["certificate_no"] : null,
+          course_title: isStr(c["course_title"]) ? c["course_title"] : null,
+        }))
+      : [],
   };
 }
 function asKnowledgeArray(x: unknown): Knowledge[] {
@@ -1067,6 +1085,15 @@ export default function AdminPage() {
   const [userActionBusy, setUserActionBusy] = useState<string | null>(null);
   const [courseActionBusy, setCourseActionBusy] = useState<string | null>(null);
   async function act(userId: string, endpoint: UserAction): Promise<void> {
+    const warnings: Record<UserAction, string> = {
+      ban: "Ban this user? They will be blocked from signing in.",
+      unban: "Unban this user and allow sign-in?",
+      revoke: "Revoke this user's active sessions? They will be signed out.",
+      "clear-history": "Clear course progress, quiz attempts, and exams for this user?",
+      delete: "Delete this user permanently? This cannot be undone.",
+    };
+    const warn = warnings[endpoint];
+    if (warn && !confirm(`${warn}\n\nContinue?`)) return;
     setUserActionBusy(`${endpoint}:${userId}`);
     const url =
       endpoint === "delete"
@@ -2421,7 +2448,16 @@ export default function AdminPage() {
                 <tbody>
                   {filteredUsers.map((u) => (
                     <tr key={u.id} className="border-t">
-                      <td className="py-2 pr-3">{u.email ?? u.id}</td>
+                      <td className="py-2 pr-3">
+                        <div className="font-semibold">{u.email ?? u.id}</div>
+                        <div className="text-xs text-slate-500">
+                          {u.full_name || "—"} {u.highest_education ? `· ${u.highest_education}` : ""}{" "}
+                          {u.age ? `· ${u.age}` : ""}
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          {u.country_name || u.country_code || "—"}
+                        </div>
+                      </td>
                       <td className="py-2 pr-3">{u.created_at ?? "—"}</td>
                       <td className="py-2 pr-3">{u.email_confirmed_at ? "Yes" : "No"}</td>
                       <td className="py-2 pr-3">{u.banned ? "Banned" : "Active"}</td>
@@ -2533,6 +2569,22 @@ export default function AdminPage() {
                       <span className="text-slate-500">Email:</span> {selectedUser.email ?? "—"}
                     </div>
                     <div>
+                      <span className="text-slate-500">Name:</span> {selectedUser.full_name || "—"}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="text-slate-500">Age:</span> {selectedUser.age ?? "—"}
+                      </div>
+                      <div>
+                        <span className="text-slate-500">Education:</span>{" "}
+                        {selectedUser.highest_education || "—"}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Country:</span>{" "}
+                      {selectedUser.country_name || selectedUser.country_code || "—"}
+                    </div>
+                    <div>
                       <span className="text-slate-500">Created:</span> {selectedUser.created_at ?? "—"}
                     </div>
                     <div>
@@ -2545,6 +2597,25 @@ export default function AdminPage() {
                   </div>
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-lg p-3 ring-1 ring-slate-200">
+                      <div className="font-medium">Certificates</div>
+                      <ul className="mt-2 text-sm list-disc ms-5 space-y-1">
+                        {(selectedUser.certificates ?? []).map((c) => (
+                          <li key={c.id} className="flex items-center gap-2">
+                            <span>{c.course_title || "Course"}</span>
+                            <a
+                              href={`/verify?cert_id=${encodeURIComponent(c.id)}`}
+                              className="text-[11px] underline text-[color:var(--color-brand)]"
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              View certificate
+                            </a>
+                          </li>
+                        ))}
+                        {(selectedUser.certificates?.length ?? 0) === 0 && <li className="text-slate-500">None</li>}
+                      </ul>
+                    </div>
                     <div className="rounded-lg p-3 ring-1 ring-slate-200">
                       <div className="font-medium">Courses Purchased</div>
                       <ul className="mt-2 text-sm list-disc ms-5 space-y-1">
