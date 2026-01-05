@@ -1,6 +1,6 @@
 "use client";
 
-import type { KeyboardEvent } from "react";
+import type { CSSProperties, KeyboardEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as pdfjs from "pdfjs-dist";
 
@@ -27,6 +27,15 @@ type RenderTask = { promise: Promise<void>; cancel: () => void };
 type PdfJsAPI<TDoc> = {
   getDocument: (params: { url: string }) => { promise: Promise<TDoc> };
   GlobalWorkerOptions: { workerSrc: string };
+};
+
+type FullscreenDocument = Document & {
+  webkitExitFullscreen?: () => Promise<void> | void;
+  webkitFullscreenElement?: Element | null;
+};
+
+type FullscreenElement = HTMLElement & {
+  webkitRequestFullscreen?: () => Promise<void> | void;
 };
 
 type Status = "idle" | "loading" | "rendering" | "error";
@@ -219,15 +228,36 @@ export default function PdfPageViewer({ url, className = "", startPage = 1 }: Pr
   };
 
   const minHeightStyle = { minHeight: "clamp(260px, 55vw, 520px)" };
+  const fullscreenPadding = isFullscreen ? "p-4 sm:p-6 md:p-8" : "p-3";
+  const fullscreenInsetStyle: CSSProperties | undefined = isFullscreen
+    ? {
+        paddingTop: "calc(16px + env(safe-area-inset-top, 0px))",
+        paddingBottom: "calc(16px + env(safe-area-inset-bottom, 0px))",
+        paddingLeft: "calc(12px + env(safe-area-inset-left, 0px))",
+        paddingRight: "calc(12px + env(safe-area-inset-right, 0px))",
+      }
+    : undefined;
+  const containerStyle: CSSProperties = {
+    ...minHeightStyle,
+    ...(isFullscreen ? { maxHeight: "calc(100vh - 180px)" } : {}),
+  };
 
   const toggleFullscreen = async () => {
-    const node = fullRef.current;
+    const node = fullRef.current as FullscreenElement | null;
     if (!node) return;
+    const doc = document as FullscreenDocument;
     try {
-      if (!document.fullscreenElement) {
-        await node.requestFullscreen();
-      } else {
+      const active = document.fullscreenElement || doc.webkitFullscreenElement;
+      if (!active) {
+        if (node.requestFullscreen) {
+          await node.requestFullscreen();
+        } else if (node.webkitRequestFullscreen) {
+          await Promise.resolve(node.webkitRequestFullscreen());
+        }
+      } else if (document.exitFullscreen) {
         await document.exitFullscreen();
+      } else if (doc.webkitExitFullscreen) {
+        await Promise.resolve(doc.webkitExitFullscreen());
       }
     } catch {
       /* ignore */
@@ -237,16 +267,23 @@ export default function PdfPageViewer({ url, className = "", startPage = 1 }: Pr
   useEffect(() => {
     const handler = () => {
       const node = fullRef.current;
-      setIsFullscreen(!!node && document.fullscreenElement === node);
+      const doc = document as FullscreenDocument;
+      const active = document.fullscreenElement || doc.webkitFullscreenElement;
+      setIsFullscreen(!!node && active === node);
     };
     document.addEventListener("fullscreenchange", handler);
-    return () => document.removeEventListener("fullscreenchange", handler);
+    document.addEventListener("webkitfullscreenchange", handler);
+    return () => {
+      document.removeEventListener("fullscreenchange", handler);
+      document.removeEventListener("webkitfullscreenchange", handler);
+    };
   }, []);
 
   return (
     <div
       ref={fullRef}
-      className={`w-full max-w-full rounded-lg border border-[color:var(--color-light)] bg-white p-3 ${className}`}
+      className={`w-full max-w-full rounded-lg border border-[color:var(--color-light)] bg-white ${fullscreenPadding} ${className}`}
+      style={fullscreenInsetStyle}
       tabIndex={0}
       onKeyDown={onKeyDown}
       role="group"
@@ -304,8 +341,8 @@ export default function PdfPageViewer({ url, className = "", startPage = 1 }: Pr
 
       <div
         ref={containerRef}
-        className="relative w-full overflow-hidden"
-        style={minHeightStyle}
+        className={`relative w-full ${isFullscreen ? "overflow-auto" : "overflow-hidden"}`}
+        style={containerStyle}
       >
         <canvas ref={canvasRef} className="block w-full h-auto" />
         {errorMsg && (
