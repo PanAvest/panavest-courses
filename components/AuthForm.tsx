@@ -6,6 +6,7 @@ import Link from "next/link";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { COUNTRIES } from "@/lib/countries";
+import { educationOptions } from "@/lib/profileConstants";
 
 type Mode = "sign-in" | "sign-up";
 
@@ -26,21 +27,6 @@ type StepData = {
 };
 
 const signUpSteps = ["Full name", "Age", "Education", "Country", "Account"];
-
-const educationOptions = [
-  "Junior High School (JHS)",
-  "Senior High School (SHS)",
-  "Technical and Vocational Education and Training (TVET)",
-  "Teacher Education Colleges",
-  "Nursing and Health Training Colleges",
-  "Tertiary Education",
-  "Diploma",
-  "Higher National Diploma (HND)",
-  "Bachelor’s Degree",
-  "Postgraduate Diploma",
-  "Master’s Degree",
-  "Doctorate (PhD)",
-];
 
 // Create the client only in the browser to avoid SSR issues
 const supabase: SupabaseClient | null = typeof window !== "undefined" ? getSupabaseClient() : null;
@@ -69,6 +55,29 @@ export default function AuthForm({ mode }: { mode: Mode }) {
   const passwordStrength: PasswordCheck = useMemo(() => {
     return evaluatePassword(password, normalizedEmail, fullName);
   }, [password, normalizedEmail, fullName]);
+
+  async function handleGoogleAuth() {
+    setErr(null);
+    setMsg(null);
+    const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/auth/complete-profile` : undefined;
+    if (!supabase) {
+      setErr("Client not ready. Refresh and try again.");
+      return;
+    }
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo,
+          queryParams: { access_type: "offline", prompt: "consent" },
+        },
+      });
+      if (error) throw error;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setErr(message);
+    }
+  }
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -156,6 +165,21 @@ export default function AuthForm({ mode }: { mode: Mode }) {
       <p className="mt-1 text-sm text-[color:var(--color-text-muted)]">
         {mode === "sign-in" ? "Welcome back!" : "Start your PanAvest journey."}
       </p>
+
+      <div className="mt-4 space-y-3">
+        <button
+          type="button"
+          onClick={handleGoogleAuth}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-[color:var(--color-light)] bg-white px-4 py-2 font-semibold text-[color:var(--color-brand)] hover:bg-[color:var(--color-light)]/60"
+        >
+          Continue with Google
+        </button>
+        <div className="flex items-center gap-3 text-xs text-[color:var(--color-text-muted)]">
+          <div className="h-px flex-1 bg-[color:var(--color-light)]" />
+          <span>{mode === "sign-up" ? "or create with email" : "or sign in with email"}</span>
+          <div className="h-px flex-1 bg-[color:var(--color-light)]" />
+        </div>
+      </div>
 
       {mode === "sign-up" && msg && (
         <div className="mt-6 space-y-4 rounded-2xl bg-[color:var(--color-light)]/70 p-5 text-center">
