@@ -13,6 +13,19 @@ type PasswordCheck = {
   issues: string[];
 };
 
+type StepData = {
+  fullName: string;
+  age: string;
+  education: string;
+  country: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+  passwordStrength: PasswordCheck;
+};
+
+const signUpSteps = ["Full name", "Age", "Education", "Country", "Account"];
+
 const educationOptions = [
   "Junior High School (JHS)",
   "Senior High School (SHS)",
@@ -41,6 +54,7 @@ export default function AuthForm({ mode }: { mode: Mode }) {
   const [education, setEducation] = useState<string>("");
   const [country, setCountry] = useState<string>("");
   const [confirmPassword, setConfirmPassword] = useState<string>("");
+  const [step, setStep] = useState<number>(0);
   const [busy, setBusy] = useState<boolean>(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -57,6 +71,27 @@ export default function AuthForm({ mode }: { mode: Mode }) {
     e.preventDefault();
     setErr(null);
     setMsg(null);
+
+    // Progress through steps before final submit
+    if (mode === "sign-up" && step < signUpSteps.length - 1) {
+      const stepError = validateStep(step, {
+        fullName,
+        age,
+        education,
+        country,
+        email: normalizedEmail,
+        password,
+        confirmPassword,
+        passwordStrength,
+      });
+      if (stepError) {
+        setErr(stepError);
+        return;
+      }
+      setStep((s) => s + 1);
+      return;
+    }
+
     setBusy(true);
 
     if (!supabase) {
@@ -120,141 +155,182 @@ export default function AuthForm({ mode }: { mode: Mode }) {
       </p>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-        {mode === "sign-up" && (
+        {mode === "sign-up" ? (
           <>
-            <label className="block">
-              <span className="text-sm">Full name</span>
-              <input
-                type="text"
-                autoComplete="name"
-                required
-                className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 ring-1 ring-[var(--color-light)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-brand)]/40"
-                value={fullName}
-                onChange={(ev) => setFullName(ev.target.value)}
-                placeholder="Ama Mensah"
-              />
-            </label>
+            <StepHeader current={step} total={signUpSteps.length} label={signUpSteps[step]} />
 
-            <label className="block">
-              <span className="text-sm">Age</span>
-              <input
-                type="number"
-                inputMode="numeric"
-                min={13}
-                max={110}
-                required
-                className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 ring-1 ring-[color:var(--color-light)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-brand)]/40"
-                value={age}
-                onChange={(ev) => setAge(ev.target.value)}
-                placeholder="25"
-              />
-            </label>
+            {step === 0 && (
+              <label className="block">
+                <span className="text-sm">Full name</span>
+                <input
+                  type="text"
+                  autoComplete="name"
+                  className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 ring-1 ring-[color:var(--color-light)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-brand)]/40"
+                  value={fullName}
+                  onChange={(ev) => setFullName(ev.target.value)}
+                  placeholder="Ama Mensah"
+                />
+              </label>
+            )}
 
-            <fieldset className="rounded-xl border border-[color:var(--color-light)] bg-[color:var(--color-light)]/40 px-3 py-3">
-              <legend className="px-1 text-sm font-medium">Highest educational qualification</legend>
-              <div className="mt-2 grid gap-2">
-                {educationOptions.map((option) => (
-                  <label key={option} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="radio"
-                      name="education"
-                      required
-                      value={option}
-                      checked={education === option}
-                      onChange={(ev) => setEducation(ev.target.value)}
-                      className="h-4 w-4 accent-[color:var(--color-brand)]"
-                    />
-                    <span>{option}</span>
-                  </label>
-                ))}
-              </div>
-              <p className="mt-2 text-xs text-[color:var(--color-text-muted)]">
-                Doctorate (PhD) is optional—select the level that best fits you.
-              </p>
-            </fieldset>
+            {step === 1 && (
+              <label className="block">
+                <span className="text-sm">Age</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={13}
+                  max={110}
+                  className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 ring-1 ring-[color:var(--color-light)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-brand)]/40"
+                  value={age}
+                  onChange={(ev) => setAge(ev.target.value)}
+                  placeholder="25"
+                />
+              </label>
+            )}
 
-            <label className="block">
-              <span className="text-sm">Country</span>
-              <select
-                required
-                name="country"
-                autoComplete="country-name"
-                className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 ring-1 ring-[color:var(--color-light)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-brand)]/40"
-                value={country}
-                onChange={(ev) => setCountry(ev.target.value)}
-              >
-                <option value="">Select your country</option>
-                {COUNTRIES.map(({ code, name, flag }) => (
-                  <option key={code} value={code}>
-                    {flag} {name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            {step === 2 && (
+              <fieldset className="rounded-xl border border-[color:var(--color-light)] bg-[color:var(--color-light)]/40 px-3 py-3">
+                <legend className="px-1 text-sm font-medium">Highest educational qualification</legend>
+                <div className="mt-2 grid gap-2">
+                  {educationOptions.map((option) => (
+                    <label key={option} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="radio"
+                        name="education"
+                        value={option}
+                        checked={education === option}
+                        onChange={(ev) => setEducation(ev.target.value)}
+                        className="h-4 w-4 accent-[color:var(--color-brand)]"
+                      />
+                      <span>{option}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs text-[color:var(--color-text-muted)]">
+                  Doctorate (PhD) is optional—select the level that best fits you.
+                </p>
+              </fieldset>
+            )}
+
+            {step === 3 && (
+              <label className="block">
+                <span className="text-sm">Country</span>
+                <select
+                  name="country"
+                  autoComplete="country-name"
+                  className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 ring-1 ring-[color:var(--color-light)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-brand)]/40"
+                  value={country}
+                  onChange={(ev) => setCountry(ev.target.value)}
+                >
+                  <option value="">Select your country</option>
+                  {COUNTRIES.map(({ code, name, flag }) => (
+                    <option key={code} value={code}>
+                      {flag} {name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+
+            {step === 4 && (
+              <>
+                <label className="block">
+                  <span className="text-sm">Email</span>
+                  <input
+                    type="email"
+                    autoComplete="email"
+                    className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 ring-1 ring-[color:var(--color-light)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-brand)]/40"
+                    value={email}
+                    onChange={(ev) => setEmail(ev.target.value)}
+                    placeholder="you@example.com"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-sm">Password</span>
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    minLength={12}
+                    className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 ring-1 ring-[color:var(--color-light)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-brand)]/40"
+                    value={password}
+                    onChange={(ev) => setPassword(ev.target.value)}
+                    placeholder="Use 12+ characters"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-sm">Confirm password</span>
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 ring-1 ring-[color:var(--color-light)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-brand)]/40"
+                    value={confirmPassword}
+                    onChange={(ev) => setConfirmPassword(ev.target.value)}
+                    placeholder="Re-enter password"
+                  />
+                </label>
+
+                <PasswordRules strength={passwordStrength} />
+              </>
+            )}
           </>
-        )}
-
-        <label className="block">
-          <span className="text-sm">Email</span>
-          <input
-            type="email"
-            autoComplete="email"
-            required
-            className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 ring-1 ring-[color:var(--color-light)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-brand)]/40"
-            value={email}
-            onChange={(ev) => setEmail(ev.target.value)}
-            placeholder="you@example.com"
-          />
-        </label>
-
-        <label className="block">
-          <span className="text-sm">Password</span>
-          <input
-            type="password"
-            autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
-            required
-            minLength={12}
-            className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 ring-1 ring-[color:var(--color-light)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-brand)]/40"
-            value={password}
-            onChange={(ev) => setPassword(ev.target.value)}
-            placeholder="Use 12+ characters"
-          />
-          {mode === "sign-in" && (
-            <div className="mt-2 text-right text-xs text-[color:var(--color-text-muted)]">
-              <a href="/auth/reset" className="underline hover:text-[color:var(--color-brand)]">Forgot password?</a>
-            </div>
-          )}
-        </label>
-
-        {mode === "sign-up" && (
+        ) : (
           <>
             <label className="block">
-              <span className="text-sm">Confirm password</span>
+              <span className="text-sm">Email</span>
+              <input
+                type="email"
+                autoComplete="email"
+                required
+                className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 ring-1 ring-[color:var(--color-light)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-brand)]/40"
+                value={email}
+                onChange={(ev) => setEmail(ev.target.value)}
+                placeholder="you@example.com"
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-sm">Password</span>
               <input
                 type="password"
-                autoComplete="new-password"
+                autoComplete="current-password"
                 required
+                minLength={12}
                 className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 ring-1 ring-[color:var(--color-light)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-brand)]/40"
-                value={confirmPassword}
-                onChange={(ev) => setConfirmPassword(ev.target.value)}
-                placeholder="Re-enter password"
+                value={password}
+                onChange={(ev) => setPassword(ev.target.value)}
+                placeholder="Use 12+ characters"
               />
+              <div className="mt-2 text-right text-xs text-[color:var(--color-text-muted)]">
+                <a href="/auth/reset" className="underline hover:text-[color:var(--color-brand)]">Forgot password?</a>
+              </div>
             </label>
-
-            <PasswordRules strength={passwordStrength} />
           </>
         )}
 
         {err && <div className="rounded-lg bg-red-600/10 px-3 py-2 text-sm text-red-700">{err}</div>}
         {msg && <div className="rounded-lg bg-green-600/10 px-3 py-2 text-sm text-green-800">{msg}</div>}
 
-        <button
-          type="submit"
-          disabled={busy}
-          className="w-full rounded-xl bg-[color:var(--color-brand)] px-4 py-2 font-semibold text-white hover:opacity-90 disabled:opacity-50"
-        >
-          {busy ? "Please wait..." : cta}
-        </button>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          {mode === "sign-up" && step > 0 && (
+            <button
+              type="button"
+              onClick={() => setStep((s) => Math.max(0, s - 1))}
+              className="w-full rounded-xl border border-[color:var(--color-light)] px-4 py-2 font-semibold text-[color:var(--color-brand)] hover:bg-[color:var(--color-light)]/60 sm:w-auto"
+            >
+              Back
+            </button>
+          )}
+          <button
+            type="submit"
+            disabled={busy}
+            className="w-full rounded-xl bg-[color:var(--color-brand)] px-4 py-2 font-semibold text-white hover:opacity-90 disabled:opacity-50 sm:w-auto"
+          >
+            {busy ? "Please wait..." : mode === "sign-up" && step < signUpSteps.length - 1 ? "Next" : cta}
+          </button>
+        </div>
       </form>
 
       <div className="mt-4 text-center text-sm text-[color:var(--color-text-muted)]">
@@ -266,6 +342,25 @@ export default function AuthForm({ mode }: { mode: Mode }) {
       </div>
     </div>
   );
+}
+
+function validateStep(stepIndex: number, data: StepData) {
+  if (stepIndex === 0 && !data.fullName.trim()) return "Full name is required.";
+  if (stepIndex === 1) {
+    const ageNumber = Number(data.age);
+    if (!Number.isFinite(ageNumber) || ageNumber < 13) return "Enter a valid age (13+).";
+  }
+  if (stepIndex === 2 && !data.education) return "Select your highest educational qualification.";
+  if (stepIndex === 3 && !data.country) return "Select your country.";
+  if (stepIndex === 4) {
+    if (!data.email) return "Email is required.";
+    if (!data.password) return "Password is required.";
+    if (data.passwordStrength.issues.length > 0) {
+      return `Update your password to meet our strength rules: ${data.passwordStrength.issues.join("; ")}`;
+    }
+    if (data.password !== data.confirmPassword) return "Passwords do not match.";
+  }
+  return null;
 }
 
 function validateSignUp({
@@ -383,6 +478,26 @@ function PasswordRules({ strength }: { strength: PasswordCheck }) {
           strength.issues.map((issue) => <li key={issue}>{issue}</li>)
         )}
       </ul>
+    </div>
+  );
+}
+
+function StepHeader({ current, total, label }: { current: number; total: number; label: string }) {
+  const pct = Math.round(((current + 1) / total) * 100);
+
+  return (
+    <div className="rounded-xl bg-[color:var(--color-light)]/60 px-3 py-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-sm font-medium">
+          Step {current + 1} of {total}: <span className="text-[color:var(--color-brand)]">{label}</span>
+        </div>
+        <div className="w-full rounded-full bg-[color:var(--color-light)] sm:w-40">
+          <div
+            className="h-2 rounded-full bg-[color:var(--color-brand)] transition-all"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      </div>
     </div>
   );
 }
