@@ -273,7 +273,7 @@ export default function PdfPageViewer({ url, className = "", startPage = 1 }: Pr
         }
         // Try to lock to landscape when entering fullscreen; ignore failures.
         try {
-          const orientation = screen.orientation as (ScreenOrientation & { lock?: (o: OrientationLockType | "landscape") => Promise<void> }) | undefined;
+          const orientation = screen.orientation as (ScreenOrientation & { lock?: (o: "landscape" | "landscape-primary" | "landscape-secondary" | "any") => Promise<void> }) | undefined;
           await orientation?.lock?.("landscape").catch(() => undefined);
         } catch {
           /* ignore */
