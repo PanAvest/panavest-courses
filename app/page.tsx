@@ -215,7 +215,7 @@ export default async function HomePage() {
             {/* Left copy */}
             <div className="flex flex-col gap-4 text-center md:text-left">
               {/* pill matches hero style */}
-              <span className="inline-flex items-center gap-2 rounded-full border border-[color:var(--color-light)] bg-white/70 px-3 py-1 text-xs sm:text-xs">
+              <span className="inline-flex items-center gap-2 rounded-full border border-[color:var(--color-light)] bg-white/90 px-2.5 py-0.5 text-[11px] sm:text-xs">
                 <span
                   className="h-2 w-2 rounded-full"
                   style={{ background: BRAND.primary }}
