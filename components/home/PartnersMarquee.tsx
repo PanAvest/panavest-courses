@@ -21,7 +21,10 @@ export function PartnersMarquee({ partners }: Props) {
           {[0, 1].map((dup) => (
             <div key={`slide-${dup}`} className="partners-logos-slide">
               {partners.map((partner) => (
-                <div key={`${partner.src}-${dup}`} className="partners-logo-item inline-flex items-center justify-center px-6 sm:px-7 lg:px-8">
+                <div
+                  key={`${partner.src}-${dup}`}
+                  className="partners-logo-item inline-flex items-center justify-center px-4 sm:px-7 lg:px-8 w-1/2 sm:w-auto"
+                >
                   <Image
                     src={partner.src}
                     alt={partner.alt}
@@ -30,7 +33,7 @@ export function PartnersMarquee({ partners }: Props) {
                     loading="lazy"
                     decoding="async"
                     sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
-                    className="partners-logo-img h-24 sm:h-26 md:h-30 w-auto object-contain grayscale opacity-60 transition hover:opacity-100 hover:grayscale-0 focus:opacity-100 focus:grayscale-0"
+                    className="partners-logo-img h-24 sm:h-26 md:h-30 w-auto object-contain grayscale opacity-60 transition hover:opacity-100 hover:grayscale-0 focus:opacity-100 focus:grayscale-0 transform scale-[1.8] sm:scale-100 md:scale-100 origin-center"
                   />
                 </div>
               ))}

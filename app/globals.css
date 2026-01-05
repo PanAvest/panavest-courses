@@ -115,6 +115,45 @@ body {
   }
 }
 
+@media (max-width: 768px) {
+  .partners-logos {
+    display: block;
+    padding: 20px 0;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .partners-logos::before,
+  .partners-logos::after {
+    display: block;
+  }
+  .partners-logos-slide {
+    display: inline-flex;
+    align-items: center;
+    gap: 120px;
+    padding: 0 72px;
+    flex-wrap: nowrap;
+    animation: partners-slide 45s linear infinite;
+  }
+  .partners-logos-slide:nth-of-type(2) {
+    display: inline-flex;
+  }
+  .partners-logo-item {
+    width: auto !important;
+    padding: 0 !important;
+    justify-content: center;
+    align-items: center;
+    flex: 0 0 auto;
+  }
+  .partners-logo-img {
+    height: 70px !important;
+    width: auto !important;
+    max-width: none;
+    max-height: none;
+    transform: none !important;
+    margin: 0;
+  }
+}
+
 /* ─────────── Certificate print isolation ─────────── */
 @page {
   size: A4 landscape;

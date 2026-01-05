@@ -97,7 +97,7 @@ export default async function HomePage() {
   return (
     <>
       {/* ===== HERO (no bg, no card, no shadow) ===== */}
-      <section className="relative isolate overflow-hidden bg-white">
+      <section className="relative isolate overflow-hidden bg-white md:bg-black">
         <div aria-hidden="true" className="absolute inset-0 -z-10 hidden md:block animate-fade-up">
           <Image
             src="/Boardroom.webp"
@@ -108,22 +108,21 @@ export default async function HomePage() {
             blurDataURL={BOARDROOM_BLUR}
             className="object-cover object-center"
           />
-          <div className="pointer-events-none absolute left-0 right-0 top-0 h-40 bg-gradient-to-b from-white/90 via-white/40 to-transparent" />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/90 via-white/35 to-transparent" />
+          <div className="pointer-events-none absolute inset-0 bg-black/40" />
         </div>
 
-        <div className="relative z-10 mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-20 grid gap-10 lg:grid-cols-[1.08fr_.92fr] items-center">
+        <div className="relative z-10 mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-20 grid gap-10 lg:grid-cols-[1.08fr_.92fr] items-center text-[color:var(--color-ink)] md:text-white">
           {/* Left copy */}
           <div className="animate-fade-up">
-            <span className="inline-flex items-center gap-2 rounded-full border border-[color:var(--color-light)] bg-white/70 px-3 py-1 text-xs">
+            <span className="inline-flex items-center gap-2 rounded-full border border-[color:var(--color-light)] bg-white/70 px-3 py-1 text-xs text-[color:var(--color-ink)] md:border-white/30 md:bg-white/10 md:text-white">
               <span className="h-2 w-2 rounded-full" style={{ background: BRAND.primary }} />
               KDS is powered by <b>PanAvest International &amp; Partners</b>
             </span>
 
-            <h1 className="mt-4 font-extrabold leading-[1.02] text-[44px] sm:text-[64px] text-black">
+            <h1 className="mt-4 font-extrabold leading-[1.02] text-[44px] sm:text-[64px] text-[color:var(--color-ink)] md:text-white">
               Learn. <span style={{ color: BRAND.primary }}>Assess.</span> Excel.
             </h1>
-            <p className="mt-4 text-[16px] sm:text-[18px] text-black max-w-2xl">
+            <p className="mt-4 text-[16px] sm:text-[18px] max-w-2xl">
               Certified CPD (CPPD) pathways for modern professionals — industry-aligned modules,
               interactive assessments, and verifiable certificates.
             </p>
@@ -139,25 +138,25 @@ export default async function HomePage() {
             </div>
 
             {/* trust pills (SVGs, no emojis) */}
-            <div className="mt-8 flex flex-wrap items-center gap-3 text-xs text-black/70">
-              <span className="inline-flex items-center gap-2 rounded-lg bg-white/70 ring-1 ring-[color:var(--color-light)] px-3 py-1">
+            <div className="mt-8 flex flex-wrap items-center gap-3 text-xs text-[color:var(--color-ink)]/80 md:text-white/80">
+              <span className="inline-flex items-center gap-2 rounded-lg bg-white/70 ring-1 ring-[color:var(--color-light)] px-3 py-1 md:bg-white/10 md:ring-white/25">
                 <IconCheck /> Certified CPD (CPPD)
               </span>
-              <span className="inline-flex items-center gap-2 rounded-lg bg-white/70 ring-1 ring-[color:var(--color-light)] px-3 py-1">
+              <span className="inline-flex items-center gap-2 rounded-lg bg-white/70 ring-1 ring-[color:var(--color-light)] px-3 py-1 md:bg-white/10 md:ring-white/25">
                 <IconBeaker /> Rigorous assessments
               </span>
-              <span className="inline-flex items-center gap-2 rounded-lg bg-white/70 ring-1 ring-[color:var(--color-light)] px-3 py-1">
+              <span className="inline-flex items-center gap-2 rounded-lg bg-white/70 ring-1 ring-[color:var(--color-light)] px-3 py-1 md:bg-white/10 md:ring-white/25">
                 <IconShield /> Verifiable certificates
               </span>
             </div>
 
             {/* Nyansakasa quote */}
             <figure className="mt-8">
-              <blockquote className="text-[15px] sm:text-[17px] leading-relaxed text-black">
+              <blockquote className="text-[15px] sm:text-[17px] leading-relaxed text-[color:var(--color-ink)] md:text-white/90">
                 <span className="mt-1 block italic">
                   “What you plant in your mind grows in your life.”
                 </span>
-                <span className="block font-semibold text-ink"> - Prof. Douglas Boateng</span>
+                <span className="block font-semibold text-[color:var(--color-ink)] md:text-white"> - Prof. Douglas Boateng</span>
               </blockquote>
             </figure>
           </div>
