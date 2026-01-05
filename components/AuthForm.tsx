@@ -2,6 +2,7 @@
 
 import { type FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { COUNTRIES } from "@/lib/countries";
@@ -155,6 +156,29 @@ export default function AuthForm({ mode }: { mode: Mode }) {
       <p className="mt-1 text-sm text-[color:var(--color-text-muted)]">
         {mode === "sign-in" ? "Welcome back!" : "Start your PanAvest journey."}
       </p>
+
+      {mode === "sign-up" && msg && (
+        <div className="mt-6 space-y-4 rounded-2xl bg-[color:var(--color-light)]/70 p-5 text-center">
+          <p className="text-lg font-semibold text-[color:var(--color-brand)]">Account created</p>
+          <p className="text-sm text-[color:var(--color-text-muted)]">
+            Check your email to verify, then sign in to continue.
+          </p>
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
+            <Link
+              href="/"
+              className="w-full rounded-xl bg-[color:var(--color-brand)] px-4 py-2 text-center font-semibold text-white hover:opacity-90 sm:w-auto"
+            >
+              Go to homepage
+            </Link>
+            <Link
+              href="/auth/sign-in"
+              className="w-full rounded-xl border border-[color:var(--color-light)] px-4 py-2 text-center font-semibold text-[color:var(--color-brand)] hover:bg-[color:var(--color-light)]/60 sm:w-auto"
+            >
+              Sign in
+            </Link>
+          </div>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
         {mode === "sign-up" ? (
