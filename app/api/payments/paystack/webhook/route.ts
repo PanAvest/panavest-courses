@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { grantBundledEbooks } from "@/lib/grantBundledEbooks";
 
 type ChargeSuccessData = {
   status: string;                 // "success"
   reference: string;
   amount: number;                 // minor units
   currency: string;
+  paid_at?: string | null;
   metadata?: {
     user_id?: string;
     course_id?: string;
@@ -49,6 +51,14 @@ export async function POST(req: NextRequest) {
         { user_id: userId, course_id: courseId, paid: true },
         { onConflict: "user_id,course_id" },
       );
+
+      const bundle = await grantBundledEbooks(admin, {
+        courseId,
+        userId,
+        paidAt: payload.data?.paid_at ?? new Date().toISOString(),
+        reference: payload.data?.reference ?? null,
+      });
+      if (bundle.error) console.warn("[bundles] webhook failed", bundle.error);
     }
 
     // EBOOKS

@@ -1,6 +1,7 @@
 // app/api/payments/paystack/callback/route.ts
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { grantBundledEbooks } from "@/lib/grantBundledEbooks";
 
 type PaystackVerifyOk = {
   status: true;
@@ -83,6 +84,15 @@ export async function GET(request: Request) {
           },
           { onConflict: "user_id,course_id" }
         );
+
+      // Grant bundled ebooks (non-blocking)
+      const bundle = await grantBundledEbooks(sb, {
+        courseId: meta.course_id,
+        userId: meta.user_id,
+        paidAt: d.paid_at || now,
+        reference: d.reference,
+      });
+      if (bundle.error) console.warn("[bundles] callback failed", bundle.error);
 
       // Redirect to course dashboard WITH reference so your page logic can react if needed
       return NextResponse.redirect(

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import type { ReactNode } from "react";
 import { flushSync } from "react-dom";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { issueCertificateForCourse, IssueCertificateError } from "@/lib/client/issueCertificate";
@@ -70,6 +71,9 @@ type ChapterQuizScore = {
   completedAt: string | null;
 };
 
+type LinkedEbookMeta = { id: string; slug: string; title: string; cover_url: string | null };
+type LinkedEbook = { ebook_id: string; slug: string; title: string; cover_url: string | null; owned: boolean };
+
 /** Types for anti-copy/auto-end guards on window */
 type ExamGuards = {
   onCopy: (e: ClipboardEvent) => void;
@@ -131,6 +135,11 @@ function secondsToClock(s: number) {
 
 /** Local progress key helper (scoped per-user per-course) */
 const progressKey = (userId: string, courseId: string) => `pv.progress.${userId}.${courseId}`;
+
+function pickLinkedEbook(e: LinkedEbookMeta | LinkedEbookMeta[] | null | undefined): LinkedEbookMeta | null {
+  if (!e) return null;
+  return Array.isArray(e) ? e[0] ?? null : e;
+}
 
 function VideoPlayer({
   src,
@@ -234,6 +243,7 @@ export default function CourseDashboard() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [interactiveStatus, setInteractiveStatus] = useState<InteractiveState>("not_started");
   const [interactiveLastSeen, setInteractiveLastSeen] = useState<string | null>(null);
+  const [includedEbooks, setIncludedEbooks] = useState<LinkedEbook[]>([]);
 
   // quizzes
   const [quizByChapter, setQuizByChapter] = useState<Record<string, QuizQuestion[]>>({});
@@ -348,6 +358,53 @@ export default function CourseDashboard() {
         } catch {
           // non-blocking
         }
+      }
+
+      // Bundled e-books (if this course includes any)
+      try {
+        const { data: bundleLinks } = await supabase
+          .from("program_ebook_links")
+          .select("ebook_id, ebooks!inner(id,slug,title,cover_url)")
+          .eq("course_id", c.id)
+          .eq("active", true);
+
+        const ebookIds = (bundleLinks ?? [])
+          .map((row: { ebook_id?: string | null }) => row.ebook_id)
+          .filter((id): id is string => typeof id === "string" && id.length > 0);
+
+        let ownedIds = new Set<string>();
+        if (ebookIds.length > 0) {
+          const { data: ownedRows } = await supabase
+            .from("ebook_purchases")
+            .select("ebook_id,status")
+            .eq("user_id", userId)
+            .in("ebook_id", ebookIds);
+          ownedIds = new Set(
+            (ownedRows ?? [])
+              .map((r: { ebook_id?: string; status?: string | null }) => (r.status === "paid" ? r.ebook_id : null))
+              .filter((id): id is string => typeof id === "string" && id.length > 0)
+          );
+        }
+
+        const mapped = (bundleLinks ?? [])
+          .map((row: { ebook_id?: string | null; ebooks?: LinkedEbookMeta | LinkedEbookMeta[] | null }) => {
+            const meta = pickLinkedEbook(row.ebooks);
+            const id = row.ebook_id || meta?.id;
+            if (!meta || !id) return null;
+            return {
+              ebook_id: id,
+              slug: meta.slug,
+              title: meta.title,
+              cover_url: meta.cover_url ?? null,
+              owned: ownedIds.has(id),
+            } as LinkedEbook;
+          })
+          .filter(Boolean) as LinkedEbook[];
+
+        setIncludedEbooks(mapped);
+      } catch (err) {
+        console.warn("bundled ebooks fetch failed", err);
+        setIncludedEbooks([]);
       }
 
       // chapters (ordered)
@@ -1156,6 +1213,51 @@ export default function CourseDashboard() {
           <div className="self-center">{menuButton}</div>
         </div>
       </div>
+
+      {includedEbooks.length > 0 && (
+        <div className="mb-4 grid gap-3 md:grid-cols-2">
+          {includedEbooks.map((eb) => (
+            <div key={eb.ebook_id} className="flex items-center gap-3 rounded-2xl border border-light bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+              <div className="h-20 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-[color:var(--color-light)]">
+                {eb.cover_url ? (
+                  <Image
+                    src={eb.cover_url}
+                    alt={eb.title}
+                    width={96}
+                    height={120}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-[11px] text-muted">E-book</div>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[11px] uppercase tracking-wide text-muted">Included e-book</div>
+                <div className="text-sm md:text-base font-semibold leading-snug">{eb.title}</div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Link
+                    href={`/ebooks/${eb.slug}`}
+                    className="inline-flex items-center justify-center rounded-lg bg-[color:#0a1156] px-3 py-1.5 text-xs md:text-sm font-semibold text-white hover:opacity-90"
+                  >
+                    {eb.owned ? "Open e-book" : "View e-book"}
+                  </Link>
+                  <Link
+                    href="/dashboard"
+                    className="inline-flex items-center justify-center rounded-lg px-3 py-1.5 text-xs md:text-sm ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                  >
+                    Library
+                  </Link>
+                </div>
+                {!eb.owned && (
+                  <div className="mt-2 text-[11px] text-amber-700">
+                    Access is activating—refresh in a moment if you just paid.
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Pre-test checklist banner */}
       <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs md:text-sm">

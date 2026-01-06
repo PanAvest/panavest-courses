@@ -1,6 +1,7 @@
 // app/api/payments/paystack/verify/route.ts
 import { NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { grantBundledEbooks } from "@/lib/grantBundledEbooks";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -68,6 +69,15 @@ export async function GET(req: NextRequest) {
           { onConflict: "user_id,course_id" }
         );
       if (up.error) return Response.json({ ok: false, error: up.error.message }, { status: 500 });
+
+      // Grant bundled ebooks (if any) alongside the course
+      const bundle = await grantBundledEbooks(supabase, {
+        courseId: meta.course_id,
+        userId: meta.user_id,
+        paidAt: data.paid_at || new Date().toISOString(),
+        reference,
+      });
+      if (bundle.error) console.warn("[bundles] verify failed", bundle.error);
 
       return Response.json({ ok: true, kind: "course", slug: meta.slug, reference }, { status: 200 });
     }

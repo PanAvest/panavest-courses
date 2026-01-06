@@ -83,6 +83,32 @@ export interface Database {
           created_at: string | null;
         }>;
       };
+      program_ebook_links: {
+        Row: {
+          id: string;
+          course_id: string;
+          ebook_id: string;
+          active: boolean | null;
+          created_at: string | null;
+          created_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          course_id: string;
+          ebook_id: string;
+          active?: boolean | null;
+          created_at?: string | null;
+          created_by?: string | null;
+        };
+        Update: Partial<{
+          id: string;
+          course_id: string;
+          ebook_id: string;
+          active: boolean | null;
+          created_at: string | null;
+          created_by: string | null;
+        }>;
+      };
     };
     Views: {};
     Functions: {};
