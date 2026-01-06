@@ -22,12 +22,15 @@ type Course = {
   interactive_path?: string | null;
 };
 
+type BundledEbook = { ebook_id: string; slug: string; title: string; cover_url: string | null };
+
 export default function CoursePreview() {
   const params = useParams<{ slug: string }>();
   const slug = params?.slug as string;
 
   const [loading, setLoading] = useState(true);
   const [course, setCourse] = useState<Course | null>(null);
+  const [bundledEbooks, setBundledEbooks] = useState<BundledEbook[]>([]);
 
   // auth/enrollment state
   const [userId, setUserId] = useState<string | null>(null);
@@ -70,6 +73,30 @@ export default function CoursePreview() {
       }
 
       if (mounted) setUserId(user.id);
+
+      // Bundled ebooks (active links)
+      try {
+        const { data: links } = await supabase
+          .from("program_ebook_links")
+          .select("ebook_id,ebooks!inner(id,slug,title,cover_url)")
+          .eq("course_id", course.id)
+          .eq("active", true);
+
+        if (mounted) {
+          const mapped =
+            links
+              ?.map((row: { ebook_id?: string | null; ebooks?: { id?: string; slug?: string; title?: string; cover_url?: string | null } | null }) => {
+                const e = row.ebooks;
+                const id = row.ebook_id || e?.id;
+                if (!e || !id || !e.slug || !e.title) return null;
+                return { ebook_id: id, slug: e.slug, title: e.title, cover_url: e.cover_url ?? null } as BundledEbook;
+              })
+              .filter(Boolean) as BundledEbook[] || [];
+          setBundledEbooks(mapped);
+        }
+      } catch {
+        if (mounted) setBundledEbooks([]);
+      }
 
       // enrollment (is it paid?)
       const { data: enr } = await supabase
@@ -147,6 +174,34 @@ export default function CoursePreview() {
             </span>
             <span className="ml-2 text-muted">· {course.cpd_points ?? 0} CPPD</span>
           </div>
+
+          {bundledEbooks.length > 0 && (
+            <div className="mt-4 rounded-lg bg-[color:var(--color-light)]/30 ring-1 ring-[color:var(--color-light)] p-3">
+              <div className="text-xs font-semibold text-[#0a1156] uppercase tracking-wide">Includes e-book</div>
+              <div className="mt-2 grid gap-2">
+                {bundledEbooks.map((b) => (
+                  <Link
+                    key={b.ebook_id}
+                    href={`/ebooks/${b.slug}`}
+                    className="flex items-center gap-3 rounded-lg bg-white ring-1 ring-[color:var(--color-light)] px-3 py-2 hover:bg-[color:var(--color-light)]/40"
+                  >
+                    <div className="h-12 w-10 rounded-md bg-white overflow-hidden ring-1 ring-[color:var(--color-light)]">
+                      {b.cover_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={b.cover_url} alt={b.title} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="h-full w-full flex items-center justify-center text-[10px] text-muted">E-book</div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold leading-tight">{b.title}</div>
+                      <div className="text-[11px] text-muted truncate">Tap to view details</div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="mt-4 grid gap-2">
             {/* Coming soon => disable enrollment/continuation */}
