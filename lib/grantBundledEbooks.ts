@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/types";
 
 type AdminClient = SupabaseClient<Database>;
+type EbookPurchaseInsert = Database["public"]["Tables"]["ebook_purchases"]["Insert"];
 
 /**
  * Grant ebook entitlements that are bundled with a course purchase.
@@ -38,14 +39,14 @@ export async function grantBundledEbooks(
   if (ebookIds.length === 0) return { granted: 0 };
 
   // 2) Upsert entitlements into ebook_purchases
-  const rows = ebookIds.map((ebookId) => ({
+  const rows: EbookPurchaseInsert[] = ebookIds.map((ebookId) => ({
     user_id: userId,
     ebook_id: ebookId,
     status: "paid",
     paid_at: paidAt ?? now,
     updated_at: now,
     paystack_reference: reference ?? null,
-  })) as Array<Record<string, unknown>>;
+  }));
 
   const { error: upsertErr } = await admin
     .from("ebook_purchases")

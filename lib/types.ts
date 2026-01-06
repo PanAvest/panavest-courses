@@ -83,6 +83,32 @@ export interface Database {
           created_at: string | null;
         }>;
       };
+      ebook_purchases: {
+        Row: {
+          user_id: string;
+          ebook_id: string;
+          status: string | null;
+          paid_at: string | null;
+          updated_at: string | null;
+          paystack_reference: string | null;
+        };
+        Insert: {
+          user_id: string;
+          ebook_id: string;
+          status?: string | null;
+          paid_at?: string | null;
+          updated_at?: string | null;
+          paystack_reference?: string | null;
+        };
+        Update: Partial<{
+          user_id: string;
+          ebook_id: string;
+          status: string | null;
+          paid_at: string | null;
+          updated_at: string | null;
+          paystack_reference: string | null;
+        }>;
+      };
       program_ebook_links: {
         Row: {
           id: string;
