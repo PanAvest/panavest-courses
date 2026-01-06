@@ -49,7 +49,7 @@ export async function grantBundledEbooks(
   }));
 
   const { error: upsertErr } = await admin
-    .from<"ebook_purchases">("ebook_purchases")
+    .from("ebook_purchases")
     .upsert(rows, { onConflict: "user_id,ebook_id" });
 
   if (upsertErr) {
