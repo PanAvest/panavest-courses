@@ -94,6 +94,16 @@ type FinalExamQuestion = {
   correct_index: number;
   created_at?: string | null;
 };
+type Bundle = {
+  id?: string;
+  course_id: string;
+  ebook_id: string;
+  active: boolean;
+  course_title?: string;
+  course_slug?: string;
+  ebook_title?: string;
+  ebook_slug?: string;
+};
 
 /* ───────────────────────────── Utilities ───────────────────────────── */
 const isStr = (x: unknown): x is string => typeof x === "string";
@@ -186,6 +196,24 @@ function asSlides(x: unknown): Slide[] {
       asset_url: isStr(r["asset_url"]) ? r["asset_url"] : null,
       body: isStr(r["body"]) ? r["body"] : null,
       created_at: isStr(r["created_at"]) ? r["created_at"] : null,
+    };
+  });
+}
+function asBundles(x: unknown): Bundle[] {
+  if (!Array.isArray(x)) return [];
+  return x.map((b) => {
+    const r = (b && typeof b === "object" ? b : {}) as Record<string, unknown>;
+    const course = r["courses"] && typeof r["courses"] === "object" ? (r["courses"] as Record<string, unknown>) : {};
+    const ebook = r["ebooks"] && typeof r["ebooks"] === "object" ? (r["ebooks"] as Record<string, unknown>) : {};
+    return {
+      id: isStr(r["id"]) ? r["id"] : undefined,
+      course_id: String(r["course_id"] ?? ""),
+      ebook_id: String(r["ebook_id"] ?? ""),
+      active: typeof r["active"] === "boolean" ? r["active"] : true,
+      course_title: isStr(course["title"]) ? course["title"] : undefined,
+      course_slug: isStr(course["slug"]) ? course["slug"] : undefined,
+      ebook_title: isStr(ebook["title"]) ? ebook["title"] : undefined,
+      ebook_slug: isStr(ebook["slug"]) ? ebook["slug"] : undefined,
     };
   });
 }
@@ -931,6 +959,12 @@ export default function AdminPage() {
   });
   const [savingEbook, setSavingEbook] = useState(false);
   const [loadingEbooks, setLoadingEbooks] = useState(false);
+  const [bundles, setBundles] = useState<Bundle[]>([]);
+  const [bundleForm, setBundleForm] = useState<Bundle>({
+    course_id: "",
+    ebook_id: "",
+    active: true,
+  });
 
   const refreshEbooksAbort = useRef<AbortController | null>(null);
   const refreshEbooks = useCallback(async () => {
@@ -952,6 +986,19 @@ export default function AdminPage() {
   useEffect(() => {
     if (tab === "catalog" || tab === "prices") void refreshEbooks();
   }, [tab, refreshEbooks]);
+
+  const refreshBundles = useCallback(async () => {
+    try {
+      const r = await fetch("/api/admin/bundles", { cache: "no-store" });
+      const d = r.ok ? await r.json() : [];
+      setBundles(asBundles(d));
+    } catch (err) {
+      console.error("bundles fetch failed", err);
+    }
+  }, []);
+  useEffect(() => {
+    if (tab === "catalog") void refreshBundles();
+  }, [tab, refreshBundles]);
 
   async function saveEbook() {
     if (!ebookForm.slug.trim() || !ebookForm.title.trim())
@@ -1009,6 +1056,42 @@ export default function AdminPage() {
     setUploading(false);
     if (!url) return alert("Upload failed");
     setEbookForm((f) => ({ ...f, [field]: url }));
+  }
+
+  async function saveBundle() {
+    if (!bundleForm.course_id || !bundleForm.ebook_id) {
+      alert("Select a course and an e-book");
+      return;
+    }
+    const payload: Bundle = {
+      id: bundleForm.id,
+      course_id: bundleForm.course_id,
+      ebook_id: bundleForm.ebook_id,
+      active: bundleForm.active,
+    };
+    const r = await fetch("/api/admin/bundles", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!r.ok) {
+      alert("Save bundle failed");
+      return;
+    }
+    setBundleForm({ course_id: "", ebook_id: "", active: true });
+    await refreshBundles();
+  }
+
+  async function deleteBundle(id?: string) {
+    if (!id) return;
+    if (!confirm("Delete this bundle link?")) return;
+    const r = await fetch(`/api/admin/bundles?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (!r.ok) {
+      alert("Delete failed");
+      return;
+    }
+    if (bundleForm.id === id) setBundleForm({ course_id: "", ebook_id: "", active: true });
+    await refreshBundles();
   }
 
   /* ── Users ── */
@@ -1604,6 +1687,106 @@ export default function AdminPage() {
                 </div>
               ))}
               {ebooks.length === 0 && <div className="text-slate-500 text-sm">No e-books yet.</div>}
+            </div>
+          </Section>
+
+          <Section
+            title="Course ↔ E-book Bundles"
+            right={
+              <button className="px-3 py-1.5 rounded-lg ring-1 ring-slate-200 text-sm" onClick={refreshBundles}>
+                Refresh
+              </button>
+            }
+          >
+            <div className="grid gap-3">
+              <div className="grid gap-2 sm:grid-cols-2">
+                <label className="grid gap-1">
+                  <span className="text-xs text-slate-500">Course</span>
+                  <select
+                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+                    value={bundleForm.course_id}
+                    onChange={(e) => setBundleForm((f) => ({ ...f, course_id: (e.target as HTMLSelectElement).value }))}
+                  >
+                    <option value="">— Choose course —</option>
+                    {knowledge.map((k) => (
+                      <option key={k.id ?? k.slug} value={k.id}>
+                        {k.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-1">
+                  <span className="text-xs text-slate-500">E-book</span>
+                  <select
+                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+                    value={bundleForm.ebook_id}
+                    onChange={(e) => setBundleForm((f) => ({ ...f, ebook_id: (e.target as HTMLSelectElement).value }))}
+                  >
+                    <option value="">— Choose e-book —</option>
+                    {ebooks.map((e) => (
+                      <option key={e.id ?? e.slug} value={e.id}>
+                        {e.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={bundleForm.active}
+                  onChange={(e) => setBundleForm((f) => ({ ...f, active: (e.target as HTMLInputElement).checked }))}
+                />
+                <span className="text-sm">Active</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={saveBundle}
+                  className="rounded-lg bg-[#0a1156] text-white px-4 py-2 font-semibold hover:opacity-90"
+                >
+                  Save Bundle
+                </button>
+                <button
+                  onClick={() => setBundleForm({ course_id: "", ebook_id: "", active: true })}
+                  className="rounded-lg px-4 py-2 ring-1 ring-slate-200"
+                >
+                  Reset
+                </button>
+              </div>
+
+              <div className="grid gap-2">
+                {bundles.map((b) => (
+                  <div key={b.id ?? `${b.course_id}-${b.ebook_id}`} className="flex items-start justify-between gap-3 rounded-lg p-3 ring-1 ring-slate-200">
+                    <div className="text-sm">
+                      <div className="font-semibold">{b.course_title ?? b.course_id}</div>
+                      <div className="text-xs text-slate-500">E-book: {b.ebook_title ?? b.ebook_id}</div>
+                      <div className="text-xs text-slate-500">{b.active ? "Active" : "Inactive"}</div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() =>
+                          setBundleForm({
+                            id: b.id,
+                            course_id: b.course_id,
+                            ebook_id: b.ebook_id,
+                            active: b.active,
+                          })
+                        }
+                        className="px-3 py-1.5 rounded-lg ring-1 ring-slate-200 text-sm"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => void deleteBundle(b.id)}
+                        className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {bundles.length === 0 && <div className="text-slate-500 text-sm">No bundles yet.</div>}
+              </div>
             </div>
           </Section>
         </div>
