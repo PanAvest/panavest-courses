@@ -139,6 +139,45 @@ export interface Database {
         }>;
         Relationships: [];
       };
+      site_settings: {
+        Row: {
+          id: string;
+          hero_title: string | null;
+          hero_subtitle: string | null;
+          primary_color: string | null;
+          accent_color: string | null;
+          bg_color: string | null;
+          text_color: string | null;
+          social: Json | null;
+          footer_copy: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          hero_title?: string | null;
+          hero_subtitle?: string | null;
+          primary_color?: string | null;
+          accent_color?: string | null;
+          bg_color?: string | null;
+          text_color?: string | null;
+          social?: Json | null;
+          footer_copy?: string | null;
+          updated_at?: string | null;
+        };
+        Update: Partial<{
+          id: string;
+          hero_title: string | null;
+          hero_subtitle: string | null;
+          primary_color: string | null;
+          accent_color: string | null;
+          bg_color: string | null;
+          text_color: string | null;
+          social: Json | null;
+          footer_copy: string | null;
+          updated_at: string | null;
+        }>;
+        Relationships: [];
+      };
     };
     Views: {};
     Functions: {};
