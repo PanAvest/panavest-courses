@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/types";
 
-type AdminClient = SupabaseClient<any, any, any>;
+type AdminClient = SupabaseClient<Database>;
 
 /**
  * Grant ebook entitlements that are bundled with a course purchase.
