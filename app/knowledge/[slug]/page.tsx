@@ -84,9 +84,9 @@ export default function CoursePreview() {
 
         if (mounted) {
           const mapped =
-            links
-              ?.map((row: { ebook_id?: string | null; ebooks?: { id?: string; slug?: string; title?: string; cover_url?: string | null } | null }) => {
-                const e = row.ebooks;
+            (links ?? [])
+              .map((row: { ebook_id: string; ebooks: { id: string; slug: string; title: string; cover_url: string | null }[] }) => {
+                const e = Array.isArray(row.ebooks) ? row.ebooks[0] : (row.ebooks as unknown as { id?: string; slug?: string; title?: string; cover_url?: string | null } | undefined);
                 const id = row.ebook_id || e?.id;
                 if (!e || !id || !e.slug || !e.title) return null;
                 return { ebook_id: id, slug: e.slug, title: e.title, cover_url: e.cover_url ?? null } as BundledEbook;
