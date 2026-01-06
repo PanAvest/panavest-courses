@@ -15,7 +15,7 @@ import type { Database } from "@/lib/types";
  * Each helper ensures we only touch cookies/server APIs from a server context,
  * so importing this file in a client bundle will error immediately.
  */
-export type SupabaseServerClient = SupabaseClient<Database, "public">;
+export type SupabaseServerClient = SupabaseClient<Database>;
 
 const context = { cookies };
 
