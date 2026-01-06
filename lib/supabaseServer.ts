@@ -15,20 +15,20 @@ import type { Database } from "@/lib/types";
  * Each helper ensures we only touch cookies/server APIs from a server context,
  * so importing this file in a client bundle will error immediately.
  */
-export type SupabaseServerClient = SupabaseClient<Database>;
+export type SupabaseServerClient = SupabaseClient<Database, "public">;
 
 const context = { cookies };
 
 export function getSupabaseServerComponentClient(): SupabaseServerClient {
-  return createServerComponentClient<Database>(context);
+  return createServerComponentClient<Database, "public">(context);
 }
 
 export function getSupabaseServerActionClient(): SupabaseServerClient {
-  return createServerActionClient<Database>(context);
+  return createServerActionClient<Database, "public">(context);
 }
 
 export function getSupabaseRouteHandlerClient(): SupabaseServerClient {
-  return createRouteHandlerClient<Database>(context);
+  return createRouteHandlerClient<Database, "public">(context);
 }
 
 /** Default export matches the most common usage (server components/loaders). */
