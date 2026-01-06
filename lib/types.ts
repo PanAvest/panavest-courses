@@ -50,6 +50,7 @@ export interface Database {
           published: boolean | null;
           created_at: string | null;
         }>;
+        Relationships: [];
       };
       ebooks: {
         Row: {
@@ -82,6 +83,7 @@ export interface Database {
           published: boolean | null;
           created_at: string | null;
         }>;
+        Relationships: [];
       };
       ebook_purchases: {
         Row: {
@@ -108,6 +110,7 @@ export interface Database {
           updated_at: string | null;
           paystack_reference: string | null;
         }>;
+        Relationships: [];
       };
       program_ebook_links: {
         Row: {
@@ -134,10 +137,12 @@ export interface Database {
           created_at: string | null;
           created_by: string | null;
         }>;
+        Relationships: [];
       };
     };
     Views: {};
     Functions: {};
     Enums: {};
+    CompositeTypes: {};
   };
 }
