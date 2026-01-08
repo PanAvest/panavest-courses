@@ -104,6 +104,31 @@ type Bundle = {
   ebook_title?: string;
   ebook_slug?: string;
 };
+type GlossaryEntry = {
+  term: string;
+  definition: string;
+  synonyms?: string;
+  tags?: string;
+  pos?: string;
+  pronunciation?: string;
+  examples?: string;
+};
+type PapaParse = {
+  parse: (input: string, options: { header: boolean; skipEmptyLines: boolean }) => {
+    data: Record<string, unknown>[];
+  };
+  unparse: (data: GlossaryEntry[]) => string;
+};
+
+const defaultGlossaryEntry: GlossaryEntry = {
+  term: "",
+  definition: "",
+  synonyms: "",
+  tags: "",
+  pos: "",
+  pronunciation: "",
+  examples: "",
+};
 
 /* ───────────────────────────── Utilities ───────────────────────────── */
 const isStr = (x: unknown): x is string => typeof x === "string";
@@ -118,6 +143,23 @@ const fromCsv = (v: string) =>
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
+const readGlossaryField = (row: Record<string, unknown>, key: string): string => {
+  const value = row[key];
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return String(value);
+  return "";
+};
+const adminTabs = ["catalog", "content", "prices", "media", "users", "deploy", "ai"] as const;
+type AdminTab = (typeof adminTabs)[number];
+const adminTabLabels: Record<AdminTab, string> = {
+  catalog: "Catalog",
+  content: "Content",
+  prices: "Prices",
+  media: "Media",
+  users: "Users",
+  deploy: "Deploy",
+  ai: "AI Admin",
+};
 
 /* Adapters (safe parsing) */
 function asAdminUser(x: unknown): AdminUser {
@@ -322,11 +364,301 @@ function Section({
   );
 }
 
+function AiGlossaryAdmin() {
+  const [entries, setEntries] = useState<GlossaryEntry[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [draft, setDraft] = useState<GlossaryEntry>({ ...defaultGlossaryEntry });
+  const [query, setQuery] = useState("");
+  const [dirty, setDirty] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState("Ready");
+  const papaRef = useRef<PapaParse | null>(null);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const rows = entries.map((entry, index) => ({ entry, index }));
+    return q ? rows.filter(({ entry }) => entry.term.toLowerCase().includes(q)) : rows;
+  }, [entries, query]);
+
+  const loadPapa = useCallback(
+    () =>
+      new Promise<PapaParse>((resolve, reject) => {
+        if (papaRef.current) return resolve(papaRef.current);
+        const existing = (window as Window & { Papa?: PapaParse }).Papa;
+        if (existing) {
+          papaRef.current = existing;
+          return resolve(existing);
+        }
+        const script = document.createElement("script");
+        script.src = "https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js";
+        script.async = true;
+        script.onload = () => {
+          const loaded = (window as Window & { Papa?: PapaParse }).Papa;
+          if (!loaded) return reject(new Error("PapaParse failed to load"));
+          papaRef.current = loaded;
+          resolve(loaded);
+        };
+        script.onerror = () => reject(new Error("PapaParse failed to load"));
+        document.head.appendChild(script);
+      }),
+    [],
+  );
+
+  const loadCsv = useCallback(async () => {
+    setLoading(true);
+    setStatus("Loading CSV...");
+    try {
+      const Papa = await loadPapa();
+      const res = await fetch("/scmpedia_full.csv", { cache: "no-store" });
+      if (!res.ok) throw new Error("CSV not found.");
+      const csv = await res.text();
+      const parsed = Papa.parse(csv, { header: true, skipEmptyLines: true });
+      const rows = Array.isArray(parsed.data) ? parsed.data : [];
+      const data = rows
+        .map((row) => {
+          const term = (readGlossaryField(row, "term") || readGlossaryField(row, "Term")).trim();
+          const definition = (
+            readGlossaryField(row, "definition") || readGlossaryField(row, "Definition")
+          ).trim();
+          return {
+            term,
+            definition,
+            synonyms: readGlossaryField(row, "synonyms") || readGlossaryField(row, "Synonyms"),
+            tags: readGlossaryField(row, "tags") || readGlossaryField(row, "Tags"),
+            pos: readGlossaryField(row, "pos") || readGlossaryField(row, "Pos"),
+            pronunciation:
+              readGlossaryField(row, "pronunciation") || readGlossaryField(row, "Pronunciation"),
+            examples: readGlossaryField(row, "examples") || readGlossaryField(row, "Examples"),
+          };
+        })
+        .filter((entry) => entry.term && entry.definition);
+      setEntries(data);
+      setSelectedIndex(null);
+      setDraft({ ...defaultGlossaryEntry });
+      setDirty(false);
+      setStatus(`Loaded ${data.length} terms`);
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : "Failed to load CSV");
+    } finally {
+      setLoading(false);
+    }
+  }, [loadPapa]);
+
+  useEffect(() => {
+    void loadCsv();
+  }, [loadCsv]);
+
+  const handleSelect = (entry: GlossaryEntry, index: number) => {
+    setSelectedIndex(index);
+    setDraft({ ...entry });
+  };
+
+  const handleNew = () => {
+    setSelectedIndex(null);
+    setDraft({ ...defaultGlossaryEntry });
+  };
+
+  const handleSave = () => {
+    if (!draft.term.trim() || !draft.definition.trim()) {
+      setStatus("Term and definition are required.");
+      return;
+    }
+    setEntries((prev) => {
+      const next = [...prev];
+      if (selectedIndex === null) {
+        next.unshift({ ...draft });
+      } else {
+        next[selectedIndex] = { ...draft };
+      }
+      return next;
+    });
+    setDirty(true);
+    setStatus("Changes saved locally. Download CSV to apply.");
+  };
+
+  const handleDownload = useCallback(async () => {
+    setStatus("Preparing CSV...");
+    try {
+      const Papa = await loadPapa();
+      const csv = Papa.unparse(entries);
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "scmpedia_full.csv";
+      link.click();
+      URL.revokeObjectURL(url);
+      setDirty(false);
+      setStatus("CSV downloaded.");
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : "Failed to export CSV");
+    }
+  }, [entries, loadPapa]);
+
+  const statusLabel = dirty ? "Unsaved changes · Download CSV to apply." : status;
+
+  return (
+    <div className="mt-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-lg font-semibold">PanAvest AI Glossary</h2>
+          <p className="text-sm text-slate-500">
+            Manage glossary terms and export a new CSV for deployment.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={loadCsv}
+            disabled={loading}
+            className="px-3 py-1.5 rounded-lg border border-[color:var(--color-light)]/40 bg-white text-sm shadow-sm hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 disabled:opacity-50"
+          >
+            {loading ? "Loading…" : "Reload CSV"}
+          </button>
+          <button
+            type="button"
+            onClick={handleDownload}
+            disabled={loading || entries.length === 0}
+            className="px-3 py-1.5 rounded-lg bg-[#0a1156] text-white text-sm shadow-sm hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 disabled:opacity-50"
+          >
+            Download CSV
+          </button>
+        </div>
+      </div>
+      <div className="mt-2 text-xs text-slate-500">{statusLabel}</div>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-[320px_1fr]">
+        <Section title="Entries">
+          <input
+            value={query}
+            onChange={(e) => setQuery((e.target as HTMLInputElement).value)}
+            placeholder="Search terms..."
+            className="h-10 w-full rounded-lg bg-white px-3 border border-[color:var(--color-light)]/40 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+          />
+          <div className="mt-3 max-h-[60vh] space-y-2 overflow-y-auto">
+            {filtered.map(({ entry, index }) => (
+              <button
+                key={`${entry.term}-${index}`}
+                type="button"
+                onClick={() => handleSelect(entry, index)}
+                className={`w-full rounded-lg px-3 py-2 text-left text-sm transition focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 ${
+                  selectedIndex === index
+                    ? "bg-[color:var(--color-light)]/50 text-slate-900 font-semibold"
+                    : "bg-[color:var(--color-light)]/20 hover:bg-[color:var(--color-light)]/40"
+                }`}
+              >
+                {entry.term}
+              </button>
+            ))}
+            {filtered.length === 0 && <div className="text-xs text-slate-500">No matching terms.</div>}
+          </div>
+        </Section>
+
+        <Section title="Editor">
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="grid gap-1">
+              <span className="text-xs text-slate-500">Term</span>
+              <input
+                value={draft.term}
+                onChange={(e) => setDraft({ ...draft, term: (e.target as HTMLInputElement).value })}
+                className="h-10 rounded-lg bg-white px-3 border border-[color:var(--color-light)]/40 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+              />
+            </label>
+            <label className="grid gap-1">
+              <span className="text-xs text-slate-500">Part of Speech</span>
+              <input
+                value={draft.pos ?? ""}
+                onChange={(e) => setDraft({ ...draft, pos: (e.target as HTMLInputElement).value })}
+                className="h-10 rounded-lg bg-white px-3 border border-[color:var(--color-light)]/40 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+              />
+            </label>
+            <label className="grid gap-1 md:col-span-2">
+              <span className="text-xs text-slate-500">Definition</span>
+              <textarea
+                value={draft.definition}
+                onChange={(e) =>
+                  setDraft({ ...draft, definition: (e.target as HTMLTextAreaElement).value })
+                }
+                className="min-h-[110px] rounded-lg bg-white px-3 py-2 border border-[color:var(--color-light)]/40 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+              />
+            </label>
+            <label className="grid gap-1">
+              <span className="text-xs text-slate-500">Pronunciation</span>
+              <input
+                value={draft.pronunciation ?? ""}
+                onChange={(e) =>
+                  setDraft({ ...draft, pronunciation: (e.target as HTMLInputElement).value })
+                }
+                className="h-10 rounded-lg bg-white px-3 border border-[color:var(--color-light)]/40 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+              />
+            </label>
+            <label className="grid gap-1">
+              <span className="text-xs text-slate-500">Synonyms</span>
+              <input
+                value={draft.synonyms ?? ""}
+                onChange={(e) =>
+                  setDraft({ ...draft, synonyms: (e.target as HTMLInputElement).value })
+                }
+                className="h-10 rounded-lg bg-white px-3 border border-[color:var(--color-light)]/40 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+              />
+            </label>
+            <label className="grid gap-1 md:col-span-2">
+              <span className="text-xs text-slate-500">Tags</span>
+              <input
+                value={draft.tags ?? ""}
+                onChange={(e) => setDraft({ ...draft, tags: (e.target as HTMLInputElement).value })}
+                className="h-10 rounded-lg bg-white px-3 border border-[color:var(--color-light)]/40 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+              />
+            </label>
+            <label className="grid gap-1 md:col-span-2">
+              <span className="text-xs text-slate-500">Example</span>
+              <textarea
+                value={draft.examples ?? ""}
+                onChange={(e) =>
+                  setDraft({ ...draft, examples: (e.target as HTMLTextAreaElement).value })
+                }
+                className="min-h-[96px] rounded-lg bg-white px-3 py-2 border border-[color:var(--color-light)]/40 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+              />
+            </label>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={handleNew}
+              className="px-3 py-1.5 rounded-lg border border-[color:var(--color-light)]/40 bg-white text-sm shadow-sm hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+            >
+              New Entry
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              className="px-3 py-1.5 rounded-lg bg-[#0a1156] text-white text-sm shadow-sm hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+            >
+              Save Entry
+            </button>
+          </div>
+          <div className="mt-3 text-xs text-slate-500">
+            Changes are local until you download the CSV and replace{" "}
+            <code>public/scmpedia_full.csv</code> in the repo.
+          </div>
+        </Section>
+      </div>
+    </div>
+  );
+}
+
 /* ───────────────────────────── Component ──────────────────────────── */
 export default function AdminPage() {
   /* Tabs (Overview removed) */
-  type Tab = "catalog" | "content" | "prices" | "media" | "users" | "deploy";
-  const [tab, setTab] = useState<Tab>("catalog");
+  const [tab, setTab] = useState<AdminTab>("catalog");
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const value = params.get("tab");
+    if (value && adminTabs.includes(value as AdminTab)) {
+      setTab(value as AdminTab);
+    }
+  }, []);
 
   /* ── Catalog (Courses + Ebooks) ── */
   const [knowledge, setKnowledge] = useState<Knowledge[]>([]);
@@ -1329,7 +1661,7 @@ export default function AdminPage() {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl md:text-3xl font-bold">Master Admin</h1>
         <div className="flex flex-wrap gap-2">
-          {(["catalog", "content", "prices", "media", "users", "deploy"] as const).map((t) => (
+          {adminTabs.map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -1337,7 +1669,7 @@ export default function AdminPage() {
                 tab === t ? "bg-[#0a1156] text-white" : "bg-white hover:bg-slate-50"
               }`}
             >
-              {t[0].toUpperCase() + t.slice(1)}
+              {adminTabLabels[t]}
             </button>
           ))}
         </div>
@@ -2876,6 +3208,9 @@ export default function AdminPage() {
           </Section>
         </div>
       )}
+
+      {/* ───────────── PanAvest AI Glossary ───────────── */}
+      {tab === "ai" && <AiGlossaryAdmin />}
 
       {/* ───────────── Deploy ───────────── */}
       {tab === "deploy" && (
