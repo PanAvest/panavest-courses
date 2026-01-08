@@ -312,7 +312,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl bg-white border border-slate-200 p-5">
+    <div className="rounded-xl bg-white border border-black/5 p-5 shadow-sm transition-shadow duration-200 hover:shadow-md">
       <div className="flex items-center justify-between gap-3">
         <h2 className="font-semibold">{title}</h2>
         {right}
@@ -1333,7 +1333,7 @@ export default function AdminPage() {
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`px-3 py-1.5 rounded-lg ring-1 ring-slate-200 text-sm transition ${
+              className={`px-3 py-1.5 rounded-lg border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 text-sm transition ${
                 tab === t ? "bg-[#0a1156] text-white" : "bg-white hover:bg-slate-50"
               }`}
             >
@@ -1361,7 +1361,7 @@ export default function AdminPage() {
                     onChange={(e) =>
                       setKForm((f) => ({ ...f, [k]: (e.target as HTMLInputElement).value }))
                     }
-                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+                    className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                   />
                 </label>
               ))}
@@ -1370,7 +1370,7 @@ export default function AdminPage() {
                 <select
                   value={kForm.delivery_mode ?? "slides"}
                   onChange={(e) => setKForm((f) => ({ ...f, delivery_mode: (e.target as HTMLSelectElement).value as "slides" | "interactive" }))}
-                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+                  className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                 >
                   <option value="slides">Standard</option>
                   <option value="interactive">Interactive (Storyline)</option>
@@ -1388,7 +1388,7 @@ export default function AdminPage() {
                     value={kForm.interactive_path ?? ""}
                     onChange={(e) => setKForm((f) => ({ ...f, interactive_path: (e.target as HTMLInputElement).value }))}
                     placeholder="/interactive/ghie-business-ethics/story_html5.html?v=ios-safe-3"
-                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+                    className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                   />
                 </label>
               )}
@@ -1407,7 +1407,7 @@ export default function AdminPage() {
                             : Number((e.target as HTMLInputElement).value),
                       }))
                     }
-                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+                    className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                   />
                 </label>
                 <label className="grid gap-1">
@@ -1424,7 +1424,7 @@ export default function AdminPage() {
                             : Number((e.target as HTMLInputElement).value),
                       }))
                     }
-                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+                    className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                   />
                 </label>
               </div>
@@ -1433,7 +1433,7 @@ export default function AdminPage() {
                 <input
                   value={kForm.img ?? ""}
                   onChange={(e) => setKForm((f) => ({ ...f, img: (e.target as HTMLInputElement).value }))}
-                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+                  className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                 />
               </label>
               <label className="grid gap-1">
@@ -1443,7 +1443,7 @@ export default function AdminPage() {
                   onChange={(e) =>
                     setKForm((f) => ({ ...f, accredited: fromCsv((e.target as HTMLInputElement).value) }))
                   }
-                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+                  className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                 />
               </label>
               <div className="flex flex-wrap gap-4">
@@ -1489,7 +1489,7 @@ export default function AdminPage() {
                       interactive_path: "",
                     })
                   }
-                  className="rounded-lg px-4 py-2 ring-1 ring-slate-200"
+                  className="rounded-lg px-4 py-2 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                 >
                   Reset
                 </button>
@@ -1500,7 +1500,7 @@ export default function AdminPage() {
           <Section
             title="Courses List"
             right={
-              <button onClick={refreshKnowledge} className="px-3 py-1.5 rounded-lg ring-1 ring-slate-200 text-sm">
+              <button onClick={refreshKnowledge} className="px-3 py-1.5 rounded-lg border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 text-sm">
                 Refresh
               </button>
             }
@@ -1509,7 +1509,7 @@ export default function AdminPage() {
               {knowledge.map((k) => (
                 <div
                   key={k.id ?? k.slug}
-                  className="flex items-start justify-between gap-3 rounded-lg p-3 ring-1 ring-slate-200"
+                  className="flex items-start justify-between gap-3 rounded-lg p-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                 >
                   <div className="text-sm">
                     <div className="font-semibold">{k.title}</div>
@@ -1519,7 +1519,7 @@ export default function AdminPage() {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => setKForm(k)} className="px-3 py-1.5 rounded-lg ring-1 ring-slate-200 text-sm">
+                    <button onClick={() => setKForm(k)} className="px-3 py-1.5 rounded-lg border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 text-sm">
                       Edit
                     </button>
                     <button
@@ -1548,7 +1548,7 @@ export default function AdminPage() {
                 <input
                   value={ebookForm.slug}
                   onChange={(e) => setEbookForm((f) => ({ ...f, slug: (e.target as HTMLInputElement).value }))}
-                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+                  className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                 />
               </label>
               <label className="grid gap-1">
@@ -1556,7 +1556,7 @@ export default function AdminPage() {
                 <input
                   value={ebookForm.title}
                   onChange={(e) => setEbookForm((f) => ({ ...f, title: (e.target as HTMLInputElement).value }))}
-                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+                  className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                 />
               </label>
               <label className="grid gap-1">
@@ -1566,7 +1566,7 @@ export default function AdminPage() {
                   onChange={(e) =>
                     setEbookForm((f) => ({ ...f, description: (e.target as HTMLTextAreaElement).value }))
                   }
-                  className="min-h-[90px] rounded-lg bg-white px-3 py-2 ring-1 ring-slate-200"
+                  className="min-h-[90px] rounded-lg bg-white px-3 py-2 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                 />
               </label>
               <div className="grid gap-3 sm:grid-cols-2">
@@ -1580,7 +1580,7 @@ export default function AdminPage() {
                       const cents = Math.round(Number((e.target as HTMLInputElement).value || 0) * 100);
                       setEbookForm((f) => ({ ...f, price_cents: Number.isFinite(cents) ? cents : 0 }));
                     }}
-                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+                    className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                   />
                 </label>
                 <label className="inline-flex items-center gap-2 mt-6 sm:mt-0">
@@ -1603,7 +1603,7 @@ export default function AdminPage() {
                   <input
                     value={((ebookForm as Record<string, unknown>)[field] as string) ?? ""}
                     onChange={(e) => setEbookForm((f) => ({ ...f, [field]: (e.target as HTMLInputElement).value }))}
-                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+                    className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                   />
                   <input
                     type="file"
@@ -1636,7 +1636,7 @@ export default function AdminPage() {
                       published: true,
                     })
                   }
-                  className="rounded-lg px-4 py-2 ring-1 ring-slate-200"
+                  className="rounded-lg px-4 py-2 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                 >
                   Reset
                 </button>
@@ -1647,14 +1647,14 @@ export default function AdminPage() {
           <Section
             title="E-books List"
             right={
-              <button className="px-3 py-1.5 rounded-lg ring-1 ring-slate-200 text-sm" onClick={refreshEbooks}>
+              <button className="px-3 py-1.5 rounded-lg border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 text-sm" onClick={refreshEbooks}>
                 {loadingEbooks ? "Refreshing…" : "Refresh"}
               </button>
             }
           >
             <div className="grid gap-2">
               {ebooks.map((e) => (
-                <div key={e.id ?? e.slug} className="flex items-start justify-between gap-3 rounded-lg p-3 ring-1 ring-slate-200">
+                <div key={e.id ?? e.slug} className="flex items-start justify-between gap-3 rounded-lg p-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30">
                   <div className="flex items-start gap-3">
                     {e.cover_url ? (
                       <Image
@@ -1662,7 +1662,7 @@ export default function AdminPage() {
                         alt={e.title}
                         width={56}
                         height={56}
-                        className="rounded-md ring-1 ring-slate-200 object-cover"
+                        className="rounded-md border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 object-cover"
                       />
                     ) : (
                       <div className="h-14 w-14 rounded-md bg-slate-100" />
@@ -1677,7 +1677,7 @@ export default function AdminPage() {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => setEbookForm(e)} className="px-3 py-1.5 rounded-lg ring-1 ring-slate-200 text-sm">
+                    <button onClick={() => setEbookForm(e)} className="px-3 py-1.5 rounded-lg border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 text-sm">
                       Edit
                     </button>
                     <button onClick={() => void deleteEbook(e.id)} className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm">
@@ -1693,7 +1693,7 @@ export default function AdminPage() {
           <Section
             title="Course ↔ E-book Bundles"
             right={
-              <button className="px-3 py-1.5 rounded-lg ring-1 ring-slate-200 text-sm" onClick={refreshBundles}>
+              <button className="px-3 py-1.5 rounded-lg border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 text-sm" onClick={refreshBundles}>
                 Refresh
               </button>
             }
@@ -1703,7 +1703,7 @@ export default function AdminPage() {
                 <label className="grid gap-1">
                   <span className="text-xs text-slate-500">Course</span>
                   <select
-                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+                    className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                     value={bundleForm.course_id}
                     onChange={(e) => setBundleForm((f) => ({ ...f, course_id: (e.target as HTMLSelectElement).value }))}
                   >
@@ -1718,7 +1718,7 @@ export default function AdminPage() {
                 <label className="grid gap-1">
                   <span className="text-xs text-slate-500">E-book</span>
                   <select
-                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+                    className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                     value={bundleForm.ebook_id}
                     onChange={(e) => setBundleForm((f) => ({ ...f, ebook_id: (e.target as HTMLSelectElement).value }))}
                   >
@@ -1748,7 +1748,7 @@ export default function AdminPage() {
                 </button>
                 <button
                   onClick={() => setBundleForm({ course_id: "", ebook_id: "", active: true })}
-                  className="rounded-lg px-4 py-2 ring-1 ring-slate-200"
+                  className="rounded-lg px-4 py-2 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                 >
                   Reset
                 </button>
@@ -1756,7 +1756,7 @@ export default function AdminPage() {
 
               <div className="grid gap-2">
                 {bundles.map((b) => (
-                  <div key={b.id ?? `${b.course_id}-${b.ebook_id}`} className="flex items-start justify-between gap-3 rounded-lg p-3 ring-1 ring-slate-200">
+                  <div key={b.id ?? `${b.course_id}-${b.ebook_id}`} className="flex items-start justify-between gap-3 rounded-lg p-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30">
                     <div className="text-sm">
                       <div className="font-semibold">{b.course_title ?? b.course_id}</div>
                       <div className="text-xs text-slate-500">E-book: {b.ebook_title ?? b.ebook_id}</div>
@@ -1772,7 +1772,7 @@ export default function AdminPage() {
                             active: b.active,
                           })
                         }
-                        className="px-3 py-1.5 rounded-lg ring-1 ring-slate-200 text-sm"
+                        className="px-3 py-1.5 rounded-lg border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 text-sm"
                       >
                         Edit
                       </button>
@@ -1798,7 +1798,7 @@ export default function AdminPage() {
           {/* Picker */}
           <Section title="Pick Course">
             <select
-              className="h-10 w-full rounded-lg bg-white px-3 ring-1 ring-slate-200"
+              className="h-10 w-full rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
               value={selectedCourseId}
               onChange={(e) => setSelectedCourseId((e.target as HTMLSelectElement).value)}
             >
@@ -1817,7 +1817,7 @@ export default function AdminPage() {
                   <div key={ch.id ?? ch.title} className="flex items-center gap-2">
                     <button
                       onClick={() => setChForm(ch)}
-                      className={`flex-1 text-left rounded-lg px-3 py-2 ring-1 ring-slate-200 ${
+                      className={`flex-1 text-left rounded-lg px-3 py-2 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 ${
                         chForm.id === (ch.id ?? "") ? "bg-slate-100" : "bg-white hover:bg-slate-50"
                       }`}
                     >
@@ -1847,7 +1847,7 @@ export default function AdminPage() {
                   <input
                     value={chForm.title}
                     onChange={(e) => setChForm((f) => ({ ...f, title: (e.target as HTMLInputElement).value }))}
-                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+                    className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                   />
                 </label>
                 <label className="grid gap-1">
@@ -1858,7 +1858,7 @@ export default function AdminPage() {
                     onChange={(e) =>
                       setChForm((f) => ({ ...f, order_index: Number((e.target as HTMLInputElement).value || 0) }))
                     }
-                    className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+                    className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                   />
                 </label>
               </div>
@@ -1872,7 +1872,7 @@ export default function AdminPage() {
                 </button>
                 <button
                   onClick={() => setChForm({ ...emptyChapter, course_id: selectedCourseId })}
-                  className="rounded-lg px-4 py-2 ring-1 ring-slate-200"
+                  className="rounded-lg px-4 py-2 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                 >
                   New Chapter
                 </button>
@@ -1885,7 +1885,7 @@ export default function AdminPage() {
                   <div key={s.id ?? s.title} className="flex items-center gap-2">
                     <button
                       onClick={() => setSlForm(s)}
-                      className={`flex-1 text-left rounded-lg px-3 py-2 ring-1 ring-slate-200 ${
+                      className={`flex-1 text-left rounded-lg px-3 py-2 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 ${
                         slForm.id === (s.id ?? "") ? "bg-slate-100" : "bg-white hover:bg-slate-50"
                       }`}
                     >
@@ -1911,7 +1911,7 @@ export default function AdminPage() {
                     <input
                       value={slForm.title}
                       onChange={(e) => setSlForm((f) => ({ ...f, title: (e.target as HTMLInputElement).value }))}
-                      className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+                      className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                     />
                   </label>
                   <label className="grid gap-1">
@@ -1922,7 +1922,7 @@ export default function AdminPage() {
                       onChange={(e) =>
                         setSlForm((f) => ({ ...f, order_index: Number((e.target as HTMLInputElement).value || 0) }))
                       }
-                      className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+                      className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                     />
                   </label>
                 </div>
@@ -1935,7 +1935,7 @@ export default function AdminPage() {
                   <div
                     contentEditable
                     suppressContentEditableWarning
-                    className="min-h-[120px] rounded-lg bg-white px-3 py-2 ring-1 ring-slate-200 text-sm"
+                    className="min-h-[120px] rounded-lg bg-white px-3 py-2 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 text-sm"
                     onInput={(e) =>
                       setSlForm((f) => ({ ...f, body: (e.target as HTMLDivElement).innerHTML }))
                     }
@@ -1951,7 +1951,7 @@ export default function AdminPage() {
                       onChange={(e) =>
                         setSlForm((f) => ({ ...f, intro_video_url: (e.target as HTMLInputElement).value }))
                       }
-                      className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+                      className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                     />
                   </label>
                   <label className="grid gap-1">
@@ -1959,7 +1959,7 @@ export default function AdminPage() {
                     <input
                       value={slForm.asset_url ?? ""}
                       onChange={(e) => setSlForm((f) => ({ ...f, asset_url: (e.target as HTMLInputElement).value }))}
-                      className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+                      className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                     />
                   </label>
                 </div>
@@ -2001,7 +2001,7 @@ export default function AdminPage() {
                   </button>
                   <button
                     onClick={() => setSlForm({ ...emptySlide, chapter_id: chForm.id ?? "" })}
-                    className="rounded-lg px-4 py-2 ring-1 ring-slate-200"
+                    className="rounded-lg px-4 py-2 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                   >
                     New Slide
                   </button>
@@ -2029,7 +2029,7 @@ export default function AdminPage() {
                                 : Number((e.target as HTMLInputElement).value),
                           }))
                         }
-                        className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+                        className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                       />
                     </label>
                     <label className="grid gap-1">
@@ -2047,7 +2047,7 @@ export default function AdminPage() {
                                 : Number((e.target as HTMLInputElement).value),
                           }))
                         }
-                        className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+                        className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                       />
                     </label>
                   </div>
@@ -2061,7 +2061,7 @@ export default function AdminPage() {
                     </button>
                     <button
                       onClick={() => void refreshQuiz(chForm.id ?? "")}
-                      className="rounded-lg px-4 py-2 ring-1 ring-slate-200"
+                      className="rounded-lg px-4 py-2 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                     >
                       Refresh
                     </button>
@@ -2069,7 +2069,7 @@ export default function AdminPage() {
 
                   <div className="mt-6 grid gap-3">
                     <div className="text-sm font-semibold">Questions</div>
-                    <div className="rounded-lg border border-dashed border-slate-300 p-3 text-xs flex flex-col gap-2">
+                    <div className="rounded-lg border border-dashed border-black/10 p-3 text-xs flex flex-col gap-2 shadow-sm">
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-semibold text-slate-700">Bulk upload (CSV)</span>
                         <a href="/templates/quiz-bulk-template.csv" className="underline text-blue-700" download>
@@ -2091,7 +2091,7 @@ export default function AdminPage() {
                     </div>
                     <div className="grid gap-2">
                       {questions.map((q, i) => (
-                        <div key={q.id ?? i} className="rounded-lg p-3 ring-1 ring-slate-200">
+                        <div key={q.id ?? i} className="rounded-lg p-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30">
                           {editingQuestionId === (q.id ?? null) && editingQ ? (
                             <div className="grid gap-2">
                               <input
@@ -2101,7 +2101,7 @@ export default function AdminPage() {
                                     prev ? { ...prev, question: (e.target as HTMLInputElement).value } : prev,
                                   )
                                 }
-                                className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200 text-sm"
+                                className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 text-sm"
                               />
                               <input
                                 value={toCsv(editingQ.options)}
@@ -2112,7 +2112,7 @@ export default function AdminPage() {
                                       : prev,
                                   )
                                 }
-                                className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200 text-sm"
+                                className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 text-sm"
                                 placeholder="Options (comma separated)"
                               />
                               <input
@@ -2128,14 +2128,14 @@ export default function AdminPage() {
                                       : prev,
                                   )
                                 }
-                                className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200 text-sm"
+                                className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 text-sm"
                                 placeholder="Correct index (0-based)"
                               />
                               <div className="flex gap-2">
                                 <button onClick={commitEditQuestion} className="px-3 py-1.5 rounded-lg bg-[#0a1156] text-white text-sm">
                                   Save
                                 </button>
-                                <button onClick={cancelEditQuestion} className="px-3 py-1.5 rounded-lg ring-1 ring-slate-200 text-sm">
+                                <button onClick={cancelEditQuestion} className="px-3 py-1.5 rounded-lg border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 text-sm">
                                   Cancel
                                 </button>
                               </div>
@@ -2152,7 +2152,7 @@ export default function AdminPage() {
                                 ))}
                               </ol>
                               <div className="mt-2 flex gap-2">
-                                <button onClick={() => startEditQuestion(q)} className="px-3 py-1.5 rounded-lg ring-1 ring-slate-200 text-sm">
+                                <button onClick={() => startEditQuestion(q)} className="px-3 py-1.5 rounded-lg border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 text-sm">
                                   Edit
                                 </button>
                                 <button onClick={() => void deleteQuestion(q.id)} className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm">
@@ -2180,7 +2180,7 @@ export default function AdminPage() {
                               question: (e.target as HTMLInputElement).value,
                             }))
                           }
-                          className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+                          className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                         />
                       </label>
                       <label className="grid gap-1">
@@ -2194,7 +2194,7 @@ export default function AdminPage() {
                               options: fromCsv((e.target as HTMLInputElement).value),
                             }))
                           }
-                          className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+                          className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                         />
                       </label>
                       <label className="grid gap-1">
@@ -2209,7 +2209,7 @@ export default function AdminPage() {
                               correct_index: Number((e.target as HTMLInputElement).value || 0),
                             }))
                           }
-                          className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+                          className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                         />
                       </label>
                       <div className="flex gap-2">
@@ -2226,7 +2226,7 @@ export default function AdminPage() {
                               id: undefined,
                             })
                           }
-                          className="rounded-lg px-4 py-2 ring-1 ring-slate-200"
+                          className="rounded-lg px-4 py-2 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                         >
                           Reset
                         </button>
@@ -2253,7 +2253,7 @@ export default function AdminPage() {
                         onChange={(e) =>
                           setExamForm((f) => ({ ...f, course_id: selectedCourseId, title: (e.target as HTMLInputElement).value }))
                         }
-                        className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+                        className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                       />
                     </label>
                     <label className="grid gap-1">
@@ -2264,7 +2264,7 @@ export default function AdminPage() {
                         onChange={(e) =>
                           setExamForm((f) => ({ ...f, course_id: selectedCourseId, pass_mark: Number((e.target as HTMLInputElement).value || 0) }))
                         }
-                        className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+                        className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                       />
                     </label>
                   </div>
@@ -2284,7 +2284,7 @@ export default function AdminPage() {
                                 : Number((e.target as HTMLInputElement).value),
                           }))
                         }
-                        className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+                        className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                       />
                     </label>
                     <label className="grid gap-1">
@@ -2302,7 +2302,7 @@ export default function AdminPage() {
                                 : Math.max(1, Number((e.target as HTMLInputElement).value)),
                           }))
                         }
-                        className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+                        className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                       />
                     </label>
                   </div>
@@ -2322,7 +2322,7 @@ export default function AdminPage() {
                     {exam?.id && (
                       <button
                         onClick={() => void refreshExamQuestions(exam.id!)}
-                        className="rounded-lg px-4 py-2 ring-1 ring-slate-200"
+                        className="rounded-lg px-4 py-2 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                       >
                         Refresh
                       </button>
@@ -2333,7 +2333,7 @@ export default function AdminPage() {
                   {exam?.id ? (
                     <div className="mt-6 grid gap-3">
                       <div className="text-sm font-semibold">Exam Questions</div>
-                      <div className="rounded-lg border border-dashed border-slate-300 p-3 text-xs flex flex-col gap-2">
+                    <div className="rounded-lg border border-dashed border-black/10 p-3 text-xs flex flex-col gap-2 shadow-sm">
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-semibold text-slate-700">Bulk upload (CSV)</span>
                           <a href="/templates/final-exam-bulk-template.csv" className="underline text-blue-700" download>
@@ -2355,7 +2355,7 @@ export default function AdminPage() {
                       </div>
                       <div className="grid gap-2">
                         {examQ.map((q, i) => (
-                          <div key={q.id ?? i} className="rounded-lg p-3 ring-1 ring-slate-200">
+                          <div key={q.id ?? i} className="rounded-lg p-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30">
                             {editingExamQId === (q.id ?? null) ? (
                               <div className="grid gap-2">
                                 <input
@@ -2368,7 +2368,7 @@ export default function AdminPage() {
                                       id: q.id,
                                     }))
                                   }
-                                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200 text-sm"
+                                  className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 text-sm"
                                 />
                                 <input
                                   value={toCsv(examQForm.options)}
@@ -2380,7 +2380,7 @@ export default function AdminPage() {
                                       id: q.id,
                                     }))
                                   }
-                                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200 text-sm"
+                                  className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 text-sm"
                                   placeholder="Options (comma separated)"
                                 />
                                 <input
@@ -2394,7 +2394,7 @@ export default function AdminPage() {
                                       id: q.id,
                                     }))
                                   }
-                                  className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200 text-sm"
+                                  className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 text-sm"
                                   placeholder="Correct index (0-based)"
                                 />
                                 <div className="flex gap-2">
@@ -2406,7 +2406,7 @@ export default function AdminPage() {
                                   </button>
                                   <button
                                     onClick={cancelEditExamQuestion}
-                                    className="px-3 py-1.5 rounded-lg ring-1 ring-slate-200 text-sm"
+                                    className="px-3 py-1.5 rounded-lg border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 text-sm"
                                   >
                                     Cancel
                                   </button>
@@ -2426,7 +2426,7 @@ export default function AdminPage() {
                                 <div className="mt-2 flex gap-2">
                                   <button
                                     onClick={() => startEditExamQuestion(q)}
-                                    className="px-3 py-1.5 rounded-lg ring-1 ring-slate-200 text-sm"
+                                    className="px-3 py-1.5 rounded-lg border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 text-sm"
                                   >
                                     Edit
                                   </button>
@@ -2462,7 +2462,7 @@ export default function AdminPage() {
                                 prompt: (e.target as HTMLInputElement).value,
                               }))
                             }
-                            className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+                            className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                           />
                         </label>
                         <label className="grid gap-1">
@@ -2476,7 +2476,7 @@ export default function AdminPage() {
                                 options: fromCsv((e.target as HTMLInputElement).value),
                               }))
                             }
-                            className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+                            className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                           />
                         </label>
                         <label className="grid gap-1">
@@ -2491,7 +2491,7 @@ export default function AdminPage() {
                                 correct_index: Number((e.target as HTMLInputElement).value || 0),
                               }))
                             }
-                            className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+                            className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                           />
                         </label>
                         <div className="flex gap-2">
@@ -2505,7 +2505,7 @@ export default function AdminPage() {
                             onClick={() =>
                               setExamQForm({ exam_id: exam.id!, prompt: "", options: [], correct_index: 0 })
                             }
-                            className="rounded-lg px-4 py-2 ring-1 ring-slate-200"
+                            className="rounded-lg px-4 py-2 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                           >
                             Reset
                           </button>
@@ -2529,7 +2529,7 @@ export default function AdminPage() {
                 placeholder="Search by title…"
                 value={priceSearch}
                 onChange={(e) => setPriceSearch((e.target as HTMLInputElement).value)}
-                className="h-10 rounded-lg bg-white px-3 ring-1 ring-slate-200 w-full sm:w-80"
+                className="h-10 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 w-full sm:w-80"
               />
             </div>
             <div className="mt-4 overflow-auto">
@@ -2590,7 +2590,7 @@ export default function AdminPage() {
                   alt="Uploaded"
                   width={320}
                   height={180}
-                  className="rounded-lg ring-1 ring-slate-200 object-cover"
+                  className="rounded-lg border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 object-cover"
                 />
                 <div className="text-sm mt-2">URL:</div>
                 <code className="text-xs break-all">{uploadedUrl}</code>
@@ -2611,9 +2611,9 @@ export default function AdminPage() {
                   placeholder="Search email or id…"
                   value={userQuery}
                   onChange={(e) => setUserQuery((e.target as HTMLInputElement).value)}
-                  className="h-9 rounded-lg bg-white px-3 ring-1 ring-slate-200 w-60"
+                  className="h-9 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 w-60"
                 />
-                <button onClick={refreshUsers} className="px-3 py-1.5 rounded-lg ring-1 ring-slate-200 text-sm">
+                <button onClick={refreshUsers} className="px-3 py-1.5 rounded-lg border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 text-sm">
                   {usersLoading ? "Refreshing…" : "Refresh"}
                 </button>
               </div>
@@ -2632,7 +2632,7 @@ export default function AdminPage() {
                 </thead>
                 <tbody>
                   {filteredUsers.map((u) => (
-                    <tr key={u.id} className="border-t">
+                    <tr key={u.id} className="border-t border-black/5">
                       <td className="py-2 pr-3">
                         <div className="font-semibold">{u.email ?? u.id}</div>
                         <div className="text-xs text-slate-500">
@@ -2654,7 +2654,7 @@ export default function AdminPage() {
                               setSelectedPurchases(null);
                               void loadPurchases(u.id);
                             }}
-                            className="px-3 py-1.5 rounded-lg ring-1 ring-slate-200 text-xs"
+                            className="px-3 py-1.5 rounded-lg border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 text-xs"
                           >
                             View
                           </button>
@@ -2678,14 +2678,14 @@ export default function AdminPage() {
                           <button
                             onClick={() => void act(u.id, "revoke")}
                             disabled={userActionBusy === `revoke:${u.id}`}
-                            className="px-3 py-1.5 rounded-lg ring-1 ring-slate-200 text-xs disabled:opacity-50"
+                            className="px-3 py-1.5 rounded-lg border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 text-xs disabled:opacity-50"
                           >
                             Revoke Sessions
                           </button>
                           <button
                             onClick={() => void act(u.id, "clear-history")}
                             disabled={userActionBusy === `clear-history:${u.id}`}
-                            className="px-3 py-1.5 rounded-lg ring-1 ring-slate-200 text-xs disabled:opacity-50"
+                            className="px-3 py-1.5 rounded-lg border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 text-xs disabled:opacity-50"
                           >
                             Clear History
                           </button>
@@ -2698,13 +2698,13 @@ export default function AdminPage() {
                           </button>
                           <button
                             onClick={() => void generateConfirmLink(u.email)}
-                            className="px-3 py-1.5 rounded-lg ring-1 ring-slate-200 text-xs"
+                            className="px-3 py-1.5 rounded-lg border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 text-xs"
                           >
                             Copy Confirm Link
                           </button>
                           <button
                             onClick={() => void generateResetLink(u.email)}
-                            className="px-3 py-1.5 rounded-lg ring-1 ring-slate-200 text-xs"
+                            className="px-3 py-1.5 rounded-lg border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 text-xs"
                           >
                             Copy Reset Link
                           </button>
@@ -2733,7 +2733,7 @@ export default function AdminPage() {
                     setSelectedPurchases(null);
                   }}
                 />
-                <div className="relative z-10 w-full max-w-2xl rounded-2xl bg-white border border-slate-200 p-5 max-h-[90vh] overflow-auto">
+                <div className="relative z-10 w-full max-w-2xl rounded-xl bg-white border border-black/5 p-5 max-h-[90vh] overflow-auto shadow-sm transition-shadow duration-200 hover:shadow-md">
                   <div className="flex items-center justify-between">
                     <div className="text-lg font-semibold">User Details</div>
                     <button
@@ -2783,7 +2783,7 @@ export default function AdminPage() {
                   </div>
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-lg p-3 ring-1 ring-slate-200">
+                    <div className="rounded-lg p-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30">
                       <div className="font-medium">Certificates</div>
                       <ul className="mt-2 text-sm list-disc ms-5 space-y-1">
                         {(selectedUser.certificates ?? []).map((c) => (
@@ -2802,7 +2802,7 @@ export default function AdminPage() {
                         {(selectedUser.certificates?.length ?? 0) === 0 && <li className="text-slate-500">None</li>}
                       </ul>
                     </div>
-                    <div className="rounded-lg p-3 ring-1 ring-slate-200">
+                    <div className="rounded-lg p-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30">
                       <div className="font-medium">Courses Purchased</div>
                       <ul className="mt-2 text-sm list-disc ms-5 space-y-1">
                         {(selectedPurchases?.courses ?? []).map((c, i) => {
@@ -2847,7 +2847,7 @@ export default function AdminPage() {
                         {(selectedPurchases?.courses?.length ?? 0) === 0 && <li className="text-slate-500">None</li>}
                       </ul>
                     </div>
-                    <div className="rounded-lg p-3 ring-1 ring-slate-200">
+                    <div className="rounded-lg p-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30">
                       <div className="font-medium">E-books Purchased</div>
                       <ul className="mt-2 text-sm list-disc ms-5 space-y-1">
                         {(selectedPurchases?.ebooks ?? []).map((e, i) => {
@@ -2917,7 +2917,7 @@ function PriceRow({
   }
 
   return (
-    <tr className="border-t">
+    <tr className="border-t border-black/5">
       <td className="py-2 pr-3 capitalize">{row.kind}</td>
       <td className="py-2 pr-3">{row.title}</td>
       <td className="py-2 pr-3">
@@ -2926,7 +2926,7 @@ function PriceRow({
           <input
             value={val}
             onChange={(e) => setVal((e.target as HTMLInputElement).value)}
-            className="h-9 w-32 rounded-lg bg-white px-3 ring-1 ring-slate-200"
+            className="h-9 w-32 rounded-lg bg-white px-3 border border-black/5 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
           />
         </div>
       </td>

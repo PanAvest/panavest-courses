@@ -64,7 +64,7 @@ export default function EnrollCTA({ courseId, slug, className }: Props) {
         </Link>
         <Link
           href={`/auth/sign-up?redirect=${redirect}`}
-          className="rounded-lg px-5 py-3 ring-1 ring-[var(--color-light)] bg-white hover:bg-[color:var(--color-light)]/30"
+          className="rounded-xl px-5 py-3 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
         >
           Create account
         </Link>

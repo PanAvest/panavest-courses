@@ -33,7 +33,7 @@ export default function InteractivePlayer({ src, title = "Interactive course pla
   };
 
   return (
-    <div className={`relative w-full overflow-hidden rounded-lg border border-light bg-black aspect-[16/9] ${className}`}>
+    <div className={`relative w-full overflow-hidden rounded-xl bg-black shadow-sm transition-shadow duration-200 hover:shadow-md aspect-[16/9] ${className}`}>
       <iframe
         ref={iframeRef}
         src={src}

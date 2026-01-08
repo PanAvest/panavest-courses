@@ -252,7 +252,7 @@ const SimpleCertificate = forwardRef<HTMLDivElement, CertificateProps>(
             type="button"
             onClick={handleDownloadPdf}
             disabled={downloading}
-            className="rounded px-3 py-1 text-xs border hover:bg-gray-50 disabled:opacity-60"
+            className="rounded px-3 py-1 text-xs bg-white shadow-sm transition-shadow duration-200 hover:shadow-md disabled:opacity-60 focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
           >
             {downloading ? "Preparing PDF…" : "Download certificate (PDF)"}
           </button>

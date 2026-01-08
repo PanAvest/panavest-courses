@@ -380,7 +380,7 @@ export default function EbookDetailPage() {
   if (!ebook) {
     return (
       <main className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 py-10 animate-fade-up">
-        <div className="rounded-2xl bg-white border border-light p-6 animate-pulse h-[320px]" />
+        <div className="rounded-xl bg-white border border-[color:var(--color-light)]/40 p-6 shadow-sm transition-shadow duration-200 hover:shadow-md animate-pulse h-[320px]" />
       </main>
     );
   }
@@ -400,7 +400,7 @@ export default function EbookDetailPage() {
         {/* LEFT */}
         <aside className="md:col-span-4">
           <div className="md:sticky md:top-20 space-y-4">
-            <div className="rounded-2xl bg-white border border-light overflow-hidden animate-fade-up">
+            <div className="rounded-xl bg-white border border-[color:var(--color-light)]/40 shadow-sm transition-shadow duration-200 hover:shadow-md overflow-hidden animate-fade-up">
               {ebook.cover_url ? (
                 <Image
                   src={ebook.cover_url}
@@ -418,7 +418,7 @@ export default function EbookDetailPage() {
               )}
             </div>
 
-            <div className="rounded-2xl bg-white border border-light p-4 animate-fade-up" style={{ animationDelay: "60ms" }}>
+            <div className="rounded-xl bg-white border border-[color:var(--color-light)]/40 p-4 shadow-sm transition-shadow duration-200 hover:shadow-md animate-fade-up" style={{ animationDelay: "60ms" }}>
               <h1 className="text-2xl font-bold">{ebook.title}</h1>
               <div className="mt-2 text-sm text-muted">Price</div>
               <div className="text-xl font-semibold">{price}</div>
@@ -427,7 +427,7 @@ export default function EbookDetailPage() {
                 {own.kind === "loading" && (<div className="text-sm text-muted">Checking access…</div>)}
 
                 {verifying && (
-                  <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2">
+                  <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200/40 rounded-md p-2 shadow-sm">
                     Verifying payment (ref: {verifying})… You’ll be unlocked automatically once confirmed.
                   </div>
                 )}
@@ -442,7 +442,7 @@ export default function EbookDetailPage() {
                     </Link>
                     <Link
                       href={dashboardHref}
-                      className="inline-flex items-center justify-center rounded-lg px-5 py-3 ring-1 ring-[var(--color-light)] hover:bg-[color:var(--color-light)]/50 w-full sm:w-auto"
+                      className="inline-flex items-center justify-center rounded-xl px-5 py-3 bg-white shadow-sm hover:shadow-md transition-shadow duration-200 w-full sm:w-auto focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                     >
                       Go to Dashboard
                     </Link>
@@ -460,7 +460,7 @@ export default function EbookDetailPage() {
                     </button>
                     <Link
                       href={dashboardHref}
-                      className="inline-flex items-center justify-center rounded-lg px-5 py-3 ring-1 ring-[var(--color-light)] hover:bg-[color:var(--color-light)]/50 w-full sm:w-auto"
+                      className="inline-flex items-center justify-center rounded-xl px-5 py-3 bg-white shadow-sm hover:shadow-md transition-shadow duration-200 w-full sm:w-auto focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                     >
                       Go to Dashboard
                     </Link>
@@ -477,7 +477,7 @@ export default function EbookDetailPage() {
                     </button>
                     <Link
                       href={dashboardHref}
-                      className="inline-flex items-center justify-center rounded-lg px-5 py-3 ring-1 ring-[var(--color-light)] hover:bg-[color:var(--color-light)]/50 w-full sm:w-auto"
+                      className="inline-flex items-center justify-center rounded-xl px-5 py-3 bg-white shadow-sm hover:shadow-md transition-shadow duration-200 w-full sm:w-auto focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                     >
                       Go to Dashboard
                     </Link>
@@ -494,7 +494,7 @@ export default function EbookDetailPage() {
 
         {/* RIGHT: secure reader */}
         <section className="md:col-span-8">
-          <div ref={readerWrapRef} className="rounded-2xl bg-white border border-light secure-viewer animate-fade-up" style={{ animationDelay: "80ms" }}>
+          <div ref={readerWrapRef} className="rounded-xl bg-white border border-[color:var(--color-light)]/40 shadow-sm transition-shadow duration-200 hover:shadow-md secure-viewer animate-fade-up" style={{ animationDelay: "80ms" }}>
             {own.kind !== "owner" ? (
               <div className="w-full h-[70vh] md:h-[80vh] grid place-items-center bg-[color:var(--color-light)]/40">
                 <div className="text-center px-6">
@@ -509,31 +509,31 @@ export default function EbookDetailPage() {
             ) : (
               <div className="relative">
                 {/* Toolbar */}
-                <div className="sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b border-light bg-white/90 px-3 py-2">
+                <div className="sticky top-0 z-10 flex flex-wrap items-center gap-2 bg-white/90 px-3 py-2 shadow-[0_4px_12px_rgba(0,0,0,0.04)]">
                   <button
                     onClick={() => { setFitMode("fit-width"); setZoom((z) => Math.max(MIN_ZOOM, Math.round((z - 0.1) * 10) / 10)); }}
-                    className="rounded-md px-3 py-1 ring-1 ring-[var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                    className="rounded-xl px-3 py-1 bg-white shadow-sm hover:shadow-md transition-shadow duration-200 focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                     aria-label="Zoom out"
                   >
                     −
                   </button>
                   <button
                     onClick={() => { setFitMode("fit-width"); setZoom((z) => Math.min(MAX_ZOOM, Math.round((z + 0.1) * 10) / 10)); }}
-                    className="rounded-md px-3 py-1 ring-1 ring-[var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                    className="rounded-xl px-3 py-1 bg-white shadow-sm hover:shadow-md transition-shadow duration-200 focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                     aria-label="Zoom in"
                   >
                     +
                   </button>
                   <button
                     onClick={() => { setFitMode("fit-width"); setZoom(1); }}
-                    className="rounded-md px-3 py-1 ring-1 ring-[var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                    className="rounded-xl px-3 py-1 bg-white shadow-sm hover:shadow-md transition-shadow duration-200 focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                     aria-label="Fit width"
                   >
                     Fit width
                   </button>
                   <button
                     onClick={() => { setFitMode("fixed"); setZoom(1.0); }}
-                    className="rounded-md px-3 py-1 ring-1 ring-[var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                    className="rounded-xl px-3 py-1 bg-white shadow-sm hover:shadow-md transition-shadow duration-200 focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                     aria-label="100 percent"
                   >
                     100%
@@ -542,14 +542,14 @@ export default function EbookDetailPage() {
                   <div className="ml-auto flex gap-2">
                     <button
                       onClick={() => { const s = scrollRef.current; if (s) s.scrollTo({ top: 0, behavior: "smooth" }); }}
-                      className="rounded-md px-3 py-1 ring-1 ring-[var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                      className="rounded-xl px-3 py-1 bg-white shadow-sm hover:shadow-md transition-shadow duration-200 focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                       aria-label="Scroll to top"
                     >
                       Top
                     </button>
                     <button
                       onClick={() => { const s = scrollRef.current; if (s) s.scrollTo({ top: s.scrollHeight, behavior: "smooth" }); }}
-                      className="rounded-md px-3 py-1 ring-1 ring-[var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                      className="rounded-xl px-3 py-1 bg-white shadow-sm hover:shadow-md transition-shadow duration-200 focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                       aria-label="Scroll to bottom"
                     >
                       Bottom
@@ -577,7 +577,7 @@ export default function EbookDetailPage() {
 
       {/* DESCRIPTION */}
       <section className="mt-10">
-        <div className="rounded-2xl bg-white border border-light p-6">
+        <div className="rounded-xl bg-white border border-[color:var(--color-light)]/40 p-6 shadow-sm transition-shadow duration-200 hover:shadow-md">
           <h2 className="text-xl font-semibold">About this e-book</h2>
           <p className="mt-3 text-muted whitespace-pre-line">
             {ebook.description ?? "No description provided."}

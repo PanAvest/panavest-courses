@@ -54,10 +54,10 @@ export default async function KnowledgeIndex() {
           <Link
             key={c.id}
             href={`/knowledge/${c.slug}`}
-            className="group rounded-2xl bg-white border border-light overflow-hidden hover:shadow-sm animate-fade-up"
+            className="group rounded-xl bg-white border border-[color:var(--color-light)]/40 shadow-sm transition-shadow duration-200 hover:shadow-md overflow-hidden animate-fade-up"
             style={{ animationDelay: `${idx * 60}ms` }}
           >
-            <div className="border-b border-light bg-white">
+            <div className="bg-white">
               <Image
                 src={c.img || "/project-management.png"}
                 alt={c.title ?? "Course cover"}

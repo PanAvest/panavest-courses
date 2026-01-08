@@ -4,7 +4,7 @@ export default function PrivacyPolicy() {
   return (
     <main className="bg-[color:var(--color-bg)]">
       <div className="mx-auto max-w-screen-lg px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
-        <div className="rounded-3xl bg-white border border-[color:var(--color-light)] shadow-sm p-6 sm:p-10 lg:p-12 space-y-8">
+        <div className="rounded-xl bg-white border border-[color:var(--color-light)]/40 shadow-sm p-6 sm:p-10 lg:p-12 space-y-8 transition-shadow duration-200 hover:shadow-md">
           <header className="space-y-3 text-center">
             <p className="text-sm uppercase tracking-wide text-[color:var(--color-muted)]">Privacy Policy</p>
             <h1 className="text-3xl sm:text-4xl font-bold text-[color:var(--color-ink)]">KDS Learning Privacy Policy</h1>

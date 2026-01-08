@@ -4,7 +4,7 @@ export default function AboutPage() {
     <main className="w-full max-w-7xl mx-auto px-4 md:px-6 py-12 animate-fade-up">
       {/* Header */}
       <section className="w-full animate-fade-up">
-        <span className="inline-flex items-center gap-2 rounded-full bg-[#b6543715] px-3 py-1 text-xs font-semibold tracking-wide text-[#b65437] ring-1 ring-[#b6543726]">
+        <span className="inline-flex items-center gap-2 rounded-full bg-[#b6543715] px-3 py-1 text-xs font-semibold tracking-wide text-[#b65437] shadow-sm">
           <svg aria-hidden="true" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 2l3 7 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z"/>
           </svg>
@@ -40,7 +40,7 @@ export default function AboutPage() {
       {/* Vision */}
       <section className="mt-10 w-full animate-fade-up">
         <div className="flex items-start gap-3">
-          <span className="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#b6543715] text-[#b65437] ring-1 ring-[#b6543726]">
+          <span className="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#b6543715] text-[#b65437] shadow-sm">
             <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 4c4.7 0 8.7 2.7 10.5 7-1.8 4.3-5.8 7-10.5 7S3.3 15.3 1.5 11C3.3 6.7 7.3 4 12 4zm0 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
             </svg>
@@ -59,7 +59,7 @@ export default function AboutPage() {
       <section className="mt-10 w-full grid gap-8 lg:grid-cols-2">
         <div className="animate-fade-up" style={{ animationDelay: "40ms" }}>
           <div className="flex items-start gap-3">
-            <span className="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#b6543715] text-[#b65437] ring-1 ring-[#b6543726]">
+            <span className="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#b6543715] text-[#b65437] shadow-sm">
               <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 3a9 9 0 100 18 9 9 0 000-18zm1 5v4h4v2h-6V8h2z"/>
               </svg>
@@ -76,7 +76,7 @@ export default function AboutPage() {
 
         <div className="animate-fade-up" style={{ animationDelay: "80ms" }}>
           <div className="flex items-start gap-3">
-            <span className="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#b6543715] text-[#b65437] ring-1 ring-[#b6543726]">
+            <span className="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#b6543715] text-[#b65437] shadow-sm">
               <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M21 7l-9-4-9 4 9 4 9-4zm-9 6l-9-4v8l9 4 9-4v-8l-9 4z"/>
               </svg>
@@ -101,19 +101,19 @@ export default function AboutPage() {
           <h2 className="text-xl md:text-2xl font-bold text-[#b65437]">Guiding Principles</h2>
         </div>
         <ul className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm text-muted-foreground/90">
-          <li className="rounded-xl p-4 ring-1 ring-[#b6543726] bg-white animate-fade-up" style={{ animationDelay: "0ms" }}>
+          <li className="rounded-xl p-4 border border-black/5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md animate-fade-up" style={{ animationDelay: "0ms" }}>
             <strong className="text-[#b65437]">Africa-first relevance:</strong> solutions must reflect African realities.
           </li>
-          <li className="rounded-xl p-4 ring-1 ring-[#b6543726] bg-white animate-fade-up" style={{ animationDelay: "60ms" }}>
+          <li className="rounded-xl p-4 border border-black/5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md animate-fade-up" style={{ animationDelay: "60ms" }}>
             <strong className="text-[#b65437]">Global standards, locally applied:</strong> benchmark internationally, execute contextually.
           </li>
-          <li className="rounded-xl p-4 ring-1 ring-[#b6543726] bg-white animate-fade-up" style={{ animationDelay: "120ms" }}>
+          <li className="rounded-xl p-4 border border-black/5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md animate-fade-up" style={{ animationDelay: "120ms" }}>
             <strong className="text-[#b65437]">Impact over information:</strong> knowledge is validated only when it drives measurable results.
           </li>
-          <li className="rounded-xl p-4 ring-1 ring-[#b6543726] bg-white animate-fade-up" style={{ animationDelay: "180ms" }}>
+          <li className="rounded-xl p-4 border border-black/5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md animate-fade-up" style={{ animationDelay: "180ms" }}>
             <strong className="text-[#b65437]">Ethical stewardship:</strong> integrity is non-negotiable.
           </li>
-          <li className="rounded-xl p-4 ring-1 ring-[#b6543726] bg-white animate-fade-up" style={{ animationDelay: "240ms" }}>
+          <li className="rounded-xl p-4 border border-black/5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md animate-fade-up" style={{ animationDelay: "240ms" }}>
             <strong className="text-[#b65437]">Evidence before rhetoric:</strong> decisions must be grounded in truth.
           </li>
         </ul>
@@ -128,10 +128,10 @@ export default function AboutPage() {
           <h2 className="text-xl md:text-2xl font-bold text-[#b65437]">What We Offer</h2>
         </div>
         <ul className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
-          <li className="group rounded-xl p-4 ring-1 ring-[#b6543726] bg-white animate-fade-up" style={{ animationDelay: "0ms" }}>Africa-contextualised interactive modules</li>
-          <li className="group rounded-xl p-4 ring-1 ring-[#b6543726] bg-white animate-fade-up" style={{ animationDelay: "60ms" }}>Case-based learning built on real organisational challenges</li>
-          <li className="group rounded-xl p-4 ring-1 ring-[#b6543726] bg-white animate-fade-up" style={{ animationDelay: "120ms" }}>Boardroom &amp; executive pathways that convert understanding into outcomes</li>
-          <li className="group rounded-xl p-4 ring-1 ring-[#b6543726] bg-white animate-fade-up" style={{ animationDelay: "180ms" }}>CPPD-aligned assessments that validate competence</li>
+          <li className="group rounded-xl p-4 border border-black/5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md animate-fade-up" style={{ animationDelay: "0ms" }}>Africa-contextualised interactive modules</li>
+          <li className="group rounded-xl p-4 border border-black/5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md animate-fade-up" style={{ animationDelay: "60ms" }}>Case-based learning built on real organisational challenges</li>
+          <li className="group rounded-xl p-4 border border-black/5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md animate-fade-up" style={{ animationDelay: "120ms" }}>Boardroom &amp; executive pathways that convert understanding into outcomes</li>
+          <li className="group rounded-xl p-4 border border-black/5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md animate-fade-up" style={{ animationDelay: "180ms" }}>CPPD-aligned assessments that validate competence</li>
         </ul>
       </section>
 
@@ -160,13 +160,13 @@ export default function AboutPage() {
           <h2 className="text-xl md:text-2xl font-bold text-[#b65437]">Certification &amp; Verification</h2>
         </div>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <div className="rounded-xl p-4 ring-1 ring-[#b6543726] bg-white">
+          <div className="rounded-xl p-4 border border-black/5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
             <h3 className="font-semibold text-[#b65437]">Certificate</h3>
             <p className="mt-1 text-sm text-muted-foreground/90">
               Issued upon achieving the minimum score in the multiple-choice assessments; verifiable and internationally accessible.
             </p>
           </div>
-          <div className="rounded-xl p-4 ring-1 ring-[#b6543726] bg-white">
+          <div className="rounded-xl p-4 border border-black/5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
             <h3 className="font-semibold text-[#b65437]">Digital Credential Verification</h3>
             <p className="mt-1 text-sm text-muted-foreground/90">
               Each certificate is registered and independently verifiable via a unique credential ID.
@@ -178,7 +178,7 @@ export default function AboutPage() {
       {/* Who This Is For */}
       <section className="mt-12 w-full">
         <div className="flex items-start gap-3">
-          <span className="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#b6543715] text-[#b65437] ring-1 ring-[#b6543726]">
+          <span className="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#b6543715] text-[#b65437] shadow-sm">
             <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
               <path d="M7 2h10v2H7V2zM4 6h16v14H4V6zm4 2v10h2V8H8zm6 0v10h2V8h-2z"/>
             </svg>
@@ -235,25 +235,25 @@ export default function AboutPage() {
           <h2 className="text-xl md:text-2xl font-bold text-[#b65437]">FAQ</h2>
         </div>
         <div className="mt-4 grid gap-3 text-sm text-muted-foreground/90">
-          <div className="rounded-xl p-4 ring-1 ring-[#b6543726] bg-white">
+          <div className="rounded-xl p-4 border border-black/5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
             <p><strong className="text-[#b65437]">Do I receive a certificate?</strong> Yes—upon meeting the minimum score.</p>
           </div>
-          <div className="rounded-xl p-4 ring-1 ring-[#b6543726] bg-white">
+          <div className="rounded-xl p-4 border border-black/5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
             <p><strong className="text-[#b65437]">Are credentials verifiable?</strong> Yes—each certificate has a unique, online-verifiable ID.</p>
           </div>
-          <div className="rounded-xl p-4 ring-1 ring-[#b6543726] bg-white">
+          <div className="rounded-xl p-4 border border-black/5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
             <p><strong className="text-[#b65437]">Is this internationally relevant?</strong> Yes—globally aligned and contextually African.</p>
           </div>
-          <div className="rounded-xl p-4 ring-1 ring-[#b6543726] bg-white">
+          <div className="rounded-xl p-4 border border-black/5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
             <p><strong className="text-[#b65437]">How long do courses take?</strong> Days to weeks, depending on your pace.</p>
           </div>
-          <div className="rounded-xl p-4 ring-1 ring-[#b6543726] bg-white">
+          <div className="rounded-xl p-4 border border-black/5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
             <p><strong className="text-[#b65437]">Who can enrol?</strong> Anyone—no prior board experience required.</p>
           </div>
-          <div className="rounded-xl p-4 ring-1 ring-[#b6543726] bg-white">
+          <div className="rounded-xl p-4 border border-black/5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
             <p><strong className="text-[#b65437]">Is this only for Africa?</strong> No—useful globally.</p>
           </div>
-          <div className="rounded-xl p-4 ring-1 ring-[#b6543726] bg-white">
+          <div className="rounded-xl p-4 border border-black/5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
             <p><strong className="text-[#b65437]">Can organisations enrol teams?</strong> Yes—group access and onboarding available.</p>
           </div>
         </div>
@@ -262,7 +262,7 @@ export default function AboutPage() {
       {/* Mobile App Coming Soon (kept) */}
       <section className="mt-12 w-full">
         <div className="flex items-start gap-3">
-          <span className="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#b6543715] text-[#b65437] ring-1 ring-[#b6543726]">
+          <span className="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#b6543715] text-[#b65437] shadow-sm">
             <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
               <path d="M7 2h10a2 2 0 012 2v16a2 2 0 01-2 2H7a2 2 0 01-2-2V4a2 2 0 012-2zm5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/>
             </svg>
@@ -282,7 +282,7 @@ export default function AboutPage() {
         <a
           href="https://panavest.com/"
           target="_blank"
-          className="inline-flex items-center gap-2 rounded-lg border border-[#b6543726] bg-[#b6543710] px-4 py-2 text-sm font-semibold text-[#b65437] hover:bg-[#b654371a] transition"
+          className="inline-flex items-center gap-2 rounded-lg bg-[#b6543710] px-4 py-2 text-sm font-semibold text-[#b65437] shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
         >
           <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
             <path d="M14 3h7v7h-2V6.4l-9.3 9.3-1.4-1.4L17.6 5H14V3zM5 5h5V3H5a2 2 0 00-2 2v14c0 1.1.9 2 2 2h14a2 2 0 002-2v-5h-2v5H5V5z"/>

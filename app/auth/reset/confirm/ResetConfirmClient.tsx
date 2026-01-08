@@ -82,7 +82,7 @@ export default function ResetConfirmClient() {
       <h1 className="text-2xl font-bold">Set a new password</h1>
       <p className="text-muted mt-1">Use the link from your email to update your password.</p>
 
-      <div className="mt-6 rounded-2xl bg-white p-6 ring-1 ring-[var(--color-light)]">
+      <div className="mt-6 rounded-xl bg-white p-6 border border-[color:var(--color-light)]/40 shadow-sm transition-shadow duration-200 hover:shadow-md">
         {stage === "checking" && (
           <div className="text-sm text-[color:var(--color-text-muted)]">Verifying your reset link…</div>
         )}
@@ -107,7 +107,7 @@ export default function ResetConfirmClient() {
                 required
                 minLength={6}
                 autoComplete="new-password"
-                className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 ring-1 ring-[var(--color-light)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-brand)]/40"
+                className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 border border-black/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                 value={password}
                 onChange={(ev) => setPassword(ev.target.value)}
                 placeholder="••••••••"

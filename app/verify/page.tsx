@@ -75,14 +75,14 @@ export default async function VerifyPage({ searchParams }: VerifyPageProps) {
       <h1 className="text-2xl font-bold">Certificate Verification</h1>
 
       {error && (
-        <div className="mt-5 rounded-lg border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-800">
+        <div className="mt-5 rounded-xl border border-red-200/40 bg-red-50 px-5 py-4 text-sm text-red-800 shadow-sm">
           <p className="font-semibold">Could not verify this certificate.</p>
           <p className="mt-1 text-red-700">{error}</p>
           <div className="mt-3 flex flex-wrap items-center gap-3">
             {certId && <span className="rounded bg-white/70 px-2 py-1 text-xs font-mono text-red-700">ID: {certId}</span>}
             <a
               href={contactHref}
-              className="inline-flex items-center rounded-md bg-red-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
+              className="inline-flex items-center rounded-md bg-red-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-red-700 focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
             >
               Contact us for help
             </a>
@@ -91,7 +91,7 @@ export default async function VerifyPage({ searchParams }: VerifyPageProps) {
       )}
 
       {!error && cert && (
-        <div className="mt-6 rounded-lg border border-green-200 bg-white px-5 py-5 shadow-sm">
+        <div className="mt-6 rounded-xl border border-green-200/40 bg-white px-5 py-5 shadow-sm transition-shadow duration-200 hover:shadow-md">
           <div className="flex items-center gap-2 text-sm text-green-700">
             <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-xs font-bold">✓</span>
             <span className="font-semibold">Verified certificate</span>

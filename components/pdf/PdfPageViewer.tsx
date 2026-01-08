@@ -349,7 +349,7 @@ export default function PdfPageViewer({ url, className = "", startPage = 1 }: Pr
   return (
     <div
       ref={fullRef}
-      className={`w-full max-w-full bg-white ${effectiveFullscreen ? "border-0 rounded-none shadow-none" : "rounded-lg border border-[color:var(--color-light)]"} ${fallbackFullscreen ? "fixed inset-0 z-[999]" : ""} ${fullscreenPadding} ${className}`}
+      className={`w-full max-w-full bg-white ${effectiveFullscreen ? "border-0 rounded-none shadow-none" : "rounded-xl border border-[color:var(--color-light)]/40 shadow-sm transition-shadow duration-200 hover:shadow-md"} ${fallbackFullscreen ? "fixed inset-0 z-[999]" : ""} ${fullscreenPadding} ${className}`}
       style={fullscreenInsetStyle}
       tabIndex={0}
       onKeyDown={onKeyDown}
@@ -368,7 +368,7 @@ export default function PdfPageViewer({ url, className = "", startPage = 1 }: Pr
               if (canPrev) setPage((p) => Math.max(1, p - 1));
             }}
             disabled={!canPrev}
-            className={`rounded-md border px-2 py-1 ${canPrev ? "hover:bg-[color:var(--color-light)]/50" : "opacity-50 cursor-not-allowed"}`}
+            className={`rounded-xl bg-white px-2 py-1 shadow-sm transition-shadow duration-200 ${canPrev ? "hover:shadow-md" : "opacity-50 cursor-not-allowed"} focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30`}
             aria-label="Previous PDF page"
           >
             ←
@@ -381,7 +381,7 @@ export default function PdfPageViewer({ url, className = "", startPage = 1 }: Pr
               if (canNext) setPage((p) => p + 1);
             }}
             disabled={!canNext}
-            className={`rounded-md border px-2 py-1 ${canNext ? "hover:bg-[color:var(--color-light)]/50" : "opacity-50 cursor-not-allowed"}`}
+            className={`rounded-xl bg-white px-2 py-1 shadow-sm transition-shadow duration-200 ${canNext ? "hover:shadow-md" : "opacity-50 cursor-not-allowed"} focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30`}
             aria-label="Next PDF page"
           >
             →
@@ -401,7 +401,7 @@ export default function PdfPageViewer({ url, className = "", startPage = 1 }: Pr
         <button
           type="button"
           onClick={toggleFullscreen}
-          className="rounded-md border px-3 py-1 hover:bg-[color:var(--color-light)]/50"
+          className="rounded-xl bg-white px-3 py-1 shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
           aria-label={effectiveFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
         >
           {effectiveFullscreen ? "Exit Fullscreen" : "Fullscreen"}
@@ -465,7 +465,7 @@ export default function PdfPageViewer({ url, className = "", startPage = 1 }: Pr
                 e.stopPropagation();
                 retry();
               }}
-              className="rounded-md border px-3 py-1 text-xs hover:bg-[color:var(--color-light)]/40"
+              className="rounded-xl bg-white px-3 py-1 text-xs shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
             >
               Retry
             </button>

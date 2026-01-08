@@ -681,7 +681,7 @@ export default function DashboardPage() {
         <div className="flex items-center gap-2">
           <Link
             href="/settings"
-            className="rounded-lg border px-3 py-1.5 text-sm bg-white hover:bg-gray-50"
+            className="rounded-xl px-3 py-1.5 text-sm bg-white shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
             title="Profile settings"
           >
             ⚙️ Settings
@@ -690,7 +690,7 @@ export default function DashboardPage() {
             <button
               type="button"
               onClick={() => setIsEditingName(true)}
-              className="rounded-lg border px-3 py-1.5 text-sm"
+              className="rounded-xl px-3 py-1.5 text-sm bg-white shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
               title="Your certificate uses this name"
             >
               {fullName ? "Edit name" : "Add name"}
@@ -698,7 +698,7 @@ export default function DashboardPage() {
           ) : (
             <div className="flex items-center gap-2">
               <input
-                className="rounded-md border px-3 py-1.5 text-sm"
+                className="rounded-xl px-3 py-1.5 text-sm bg-white shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                 placeholder="Your full name"
                 value={nameDraft}
                 onChange={(e) => setNameDraft(e.target.value)}
@@ -712,7 +712,7 @@ export default function DashboardPage() {
                   setIsEditingName(false);
                   setNameDraft(fullName);
                 }}
-                className="rounded-lg border px-3 py-1.5 text-sm"
+                className="rounded-xl px-3 py-1.5 text-sm bg-white shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
               >
                 Cancel
               </button>
@@ -731,7 +731,7 @@ export default function DashboardPage() {
           <section className="mt-8">
             <h2 className="text-xl font-semibold">Purchased E-Books</h2>
             {ebooks.length === 0 ? (
-              <div className="mt-3 rounded-xl border border-light bg-white p-4">
+              <div className="mt-3 rounded-xl border border-[color:var(--color-light)]/40 bg-white p-4 shadow-sm transition-shadow duration-200 hover:shadow-md">
                 <p className="text-muted">No purchased e-books yet.</p>
                 <Link href="/ebooks" className="mt-2 inline-block rounded-lg bg-[color:#0a1156] px-4 py-2 text-white">
                   Browse e-books
@@ -740,7 +740,7 @@ export default function DashboardPage() {
             ) : (
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 {ebooks.map((b) => (
-                  <div key={b.ebook_id} className="rounded-xl border border-light bg-white overflow-hidden">
+                  <div key={b.ebook_id} className="rounded-xl border border-[color:var(--color-light)]/40 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md overflow-hidden">
                     <div className="relative w-full h-40">
                       <Image src={b.cover_url || "/project-management.png"} alt={b.title} fill className="object-cover" sizes="(max-width: 768px) 100vw, 50vw" />
                     </div>
@@ -761,7 +761,7 @@ export default function DashboardPage() {
           <section className="mt-10">
             <h2 className="text-xl font-semibold">Continue learning</h2>
             {enrolled.length === 0 ? (
-              <div className="mt-3 rounded-xl border border-light bg-white p-4">
+              <div className="mt-3 rounded-xl border border-[color:var(--color-light)]/40 bg-white p-4 shadow-sm transition-shadow duration-200 hover:shadow-md">
                 <p className="text-muted">You haven’t enrolled yet.</p>
                 <Link href="/courses" className="mt-2 inline-block rounded-lg bg-[color:#0a1156] px-4 py-2 text-white">
                   Browse knowledge
@@ -770,7 +770,7 @@ export default function DashboardPage() {
             ) : (
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 {enrolled.map((c) => (
-                  <div key={c.course_id} className="rounded-xl border border-light bg-white overflow-hidden">
+                  <div key={c.course_id} className="rounded-xl border border-[color:var(--color-light)]/40 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md overflow-hidden">
                     <div className="relative w-full h-40">
                       <Image src={c.img || "/project-management.png"} alt={c.title} fill className="object-cover" sizes="(max-width: 768px) 100vw, 50vw" />
                     </div>
@@ -808,7 +808,7 @@ export default function DashboardPage() {
                   const verifyUrl = `${origin}/verify?cert_id=${encodeURIComponent(c.id)}`;
 
                   return (
-                    <div key={c.id} className="rounded-xl border border-light bg-white overflow-hidden">
+                    <div key={c.id} className="rounded-xl border border-[color:var(--color-light)]/40 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md overflow-hidden">
                       <div className="relative w-full h-36">
                         <Image src={bg} alt={courseTitle} fill className="object-cover" sizes="(max-width:768px) 100vw, 50vw" />
                       </div>
@@ -830,7 +830,7 @@ export default function DashboardPage() {
                         </div>
 
                         {/* Inline preview */}
-                        <details className="mt-3 rounded-lg border border-dashed p-3 open:shadow-sm">
+                        <details className="mt-3 rounded-xl border border-black/5 p-3 shadow-sm transition-shadow duration-200 open:shadow-md">
                           <summary className="cursor-pointer text-sm font-medium">Preview certificate</summary>
                           <div className="mt-4">
                             <SimpleCertificate
@@ -873,7 +873,7 @@ export default function DashboardPage() {
                 {provisionalCerts.map((pc) => {
                   const kdsCertId = makeKdsCertId(userId, pc.course_id);
                   return (
-                    <div key={`provisional-${pc.course_id}`} className="rounded-xl border border-light bg-white overflow-hidden">
+                    <div key={`provisional-${pc.course_id}`} className="rounded-xl border border-[color:var(--color-light)]/40 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md overflow-hidden">
                       <div className="relative w-full h-36">
                         <Image src={pc.img ?? "/project-management.png"} alt={pc.course_title} fill className="object-cover" sizes="(max-width:768px) 100vw, 50vw" />
                       </div>
@@ -894,7 +894,7 @@ export default function DashboardPage() {
                           {pc.cpd_points != null && <div className="text-muted text-xs">CPD/CPPD: {pc.cpd_points}</div>}
                         </div>
 
-                        <details className="mt-3 rounded-lg border border-dashed p-3 open:shadow-sm">
+                        <details className="mt-3 rounded-xl border border-black/5 p-3 shadow-sm transition-shadow duration-200 open:shadow-md">
                           <summary className="cursor-pointer text-sm font-medium">Preview (print/save)</summary>
                           <div className="mt-4">
                             <SimpleCertificate
@@ -931,7 +931,7 @@ export default function DashboardPage() {
                 {Object.entries(quizByCourse).map(([courseId, rows]) => {
                   const meta = courseMetaMap[courseId];
                   return (
-                    <div key={courseId} className="rounded-xl border border-light bg-white p-4">
+                    <div key={courseId} className="rounded-xl border border-[color:var(--color-light)]/40 bg-white p-4 shadow-sm transition-shadow duration-200 hover:shadow-md">
                       <div className="flex items-center justify-between gap-2">
                         <div className="font-semibold">{meta?.title ?? "Course"}</div>
                         {meta?.slug && (
@@ -943,7 +943,7 @@ export default function DashboardPage() {
 
                       <ul className="mt-3 grid gap-2">
                         {rows.map(({ attempt, chapter }) => (
-                          <li key={`${attempt.course_id}-${attempt.chapter_id}-${attempt.completed_at}`} className="flex flex-wrap items-center justify-between gap-2 rounded-lg ring-1 ring-[var(--color-light)] px-3 py-2">
+                          <li key={`${attempt.course_id}-${attempt.chapter_id}-${attempt.completed_at}`} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[color:var(--color-light)]/40 bg-white px-3 py-2 shadow-sm">
                             <div className="min-w-0">
                               <div className="font-medium line-clamp-1">{chapter.title}</div>
                               <div className="text-xs text-muted">

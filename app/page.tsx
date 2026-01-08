@@ -114,7 +114,7 @@ export default async function HomePage() {
         <div className="relative z-10 mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-20 grid gap-10 lg:grid-cols-[1.08fr_.92fr] items-center text-[color:var(--color-ink)] md:text-white">
           {/* Left copy */}
           <div className="animate-fade-up">
-            <span className="inline-flex items-center gap-2 rounded-full border border-[color:var(--color-light)] bg-white/70 px-3 py-1 text-xs text-[color:var(--color-ink)] md:border-white/30 md:bg-white/10 md:text-white">
+            <span className="inline-flex items-center gap-2 rounded-full bg-white/70 px-3 py-1 text-xs text-[color:var(--color-ink)] shadow-sm md:bg-white/10 md:text-white md:shadow-[0_6px_18px_rgba(0,0,0,0.18)]">
               <span className="h-2 w-2 rounded-full" style={{ background: BRAND.primary }} />
               KDS is powered by <b>PanAvest International &amp; Partners</b>
             </span>
@@ -139,13 +139,13 @@ export default async function HomePage() {
 
             {/* trust pills (SVGs, no emojis) */}
             <div className="mt-8 flex flex-wrap items-center gap-3 text-xs text-[color:var(--color-ink)]/80 md:text-white/80">
-              <span className="inline-flex items-center gap-2 rounded-lg bg-white/70 ring-1 ring-[color:var(--color-light)] px-3 py-1 md:bg-white/10 md:ring-white/25">
+              <span className="inline-flex items-center gap-2 rounded-lg bg-white/70 px-3 py-1 shadow-sm md:bg-white/10 md:shadow-[0_6px_18px_rgba(0,0,0,0.18)]">
                 <IconCheck /> Certified CPD (CPPD)
               </span>
-              <span className="inline-flex items-center gap-2 rounded-lg bg-white/70 ring-1 ring-[color:var(--color-light)] px-3 py-1 md:bg-white/10 md:ring-white/25">
+              <span className="inline-flex items-center gap-2 rounded-lg bg-white/70 px-3 py-1 shadow-sm md:bg-white/10 md:shadow-[0_6px_18px_rgba(0,0,0,0.18)]">
                 <IconBeaker /> Rigorous assessments
               </span>
-              <span className="inline-flex items-center gap-2 rounded-lg bg-white/70 ring-1 ring-[color:var(--color-light)] px-3 py-1 md:bg-white/10 md:ring-white/25">
+              <span className="inline-flex items-center gap-2 rounded-lg bg-white/70 px-3 py-1 shadow-sm md:bg-white/10 md:shadow-[0_6px_18px_rgba(0,0,0,0.18)]">
                 <IconShield /> Verifiable certificates
               </span>
             </div>
@@ -198,7 +198,10 @@ export default async function HomePage() {
               { Icon: IconChart, title: "Career Acceleration", text: "Job-ready, practical skill-building." },
               { Icon: IconBooks, title: "Publications", text: "Unique compendiums credited by NaCCA." },
             ].map((i) => (
-              <div key={i.title} className="rounded-2xl bg-white border border-[color:var(--color-light)] p-5 hover:shadow-sm transition">
+              <div
+                key={i.title}
+                className="rounded-xl bg-white border border-[color:var(--color-light)]/40 p-5 shadow-sm transition-shadow duration-200 hover:shadow-md"
+              >
                 <div className="text-3xl text-ink/80"><i.Icon /></div>
                 <div className="mt-3 font-semibold">{i.title}</div>
                 <p className="mt-1 text-sm text-ink/70">{i.text}</p>
@@ -211,11 +214,11 @@ export default async function HomePage() {
       {/* ===== KDS MOBILE (matches hero + theme) ===== */}
       <section className="py-10 sm:py-14 animate-fade-up">
         <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
-          <div className="rounded-3xl bg-white border border-[color:var(--color-light)] shadow-sm px-6 py-10 sm:px-10 sm:py-12 lg:px-14 lg:py-14 grid gap-10 md:grid-cols-[1.05fr_.95fr] items-center">
+          <div className="rounded-xl bg-white border border-[color:var(--color-light)]/40 shadow-sm px-6 py-10 sm:px-10 sm:py-12 lg:px-14 lg:py-14 grid gap-10 md:grid-cols-[1.05fr_.95fr] items-center transition-shadow duration-200 hover:shadow-md">
             {/* Left copy */}
             <div className="flex flex-col gap-4 text-center md:text-left">
               {/* pill matches hero style */}
-              <span className="inline-flex items-center gap-2 rounded-full border border-[color:var(--color-light)] bg-white/90 px-2.5 py-0.5 text-[11px] sm:text-xs">
+              <span className="inline-flex items-center gap-2 rounded-full bg-white/90 px-2.5 py-0.5 text-[11px] sm:text-xs shadow-sm">
                 <span
                   className="h-2 w-2 rounded-full"
                   style={{ background: BRAND.primary }}
@@ -273,7 +276,7 @@ export default async function HomePage() {
                 </a>
 
                 {/* Play Store badge – coming soon */}
-                <div className="inline-flex items-center gap-3 rounded-2xl border border-[color:var(--color-light)] bg-white px-5 py-3 text-sm font-medium text-[color:var(--color-ink)]/80 opacity-75 cursor-default">
+                <div className="inline-flex items-center gap-3 rounded-xl bg-white px-5 py-3 text-sm font-medium text-[color:var(--color-ink)]/80 opacity-75 cursor-default shadow-sm">
                   <Image
                     src="/playstore-svgrepo-com.svg"
                     alt="Play Store"
@@ -317,7 +320,7 @@ export default async function HomePage() {
               <Link
                 key={c ? c.id : `s-${idx}`}
                 href={c ? `/courses/${c.slug}` : "#"}
-                className="group rounded-2xl bg-white border border-[color:var(--color-light)] hover:shadow-md transition overflow-hidden animate-fade-up"
+                className="group rounded-xl bg-white border border-[color:var(--color-light)]/40 shadow-sm transition-shadow duration-200 hover:shadow-md overflow-hidden animate-fade-up"
                 style={{ animationDelay: `${idx * 60}ms` }}
               >
                 <div className="relative w-full aspect-video bg-[color:var(--color-light)]/40">
@@ -375,7 +378,7 @@ export default async function HomePage() {
               <Link
                 key={b ? b.id : `e-${idx}`}
                 href={b ? `/ebooks/${b.slug}` : "#"}
-                className="group relative rounded-2xl ring-1 ring-[color:var(--color-light)] bg-white overflow-hidden hover:shadow-lg transition animate-fade-up"
+                className="group relative rounded-xl bg-white border border-[color:var(--color-light)]/40 shadow-sm transition-shadow duration-200 hover:shadow-md overflow-hidden animate-fade-up"
                 style={{ animationDelay: `${idx * 60}ms` }}
               >
                 <div className="relative">
@@ -432,7 +435,7 @@ export default async function HomePage() {
             </div>
             <div className="text-xs">
               <span
-                className="rounded-full bg-white ring-1 ring-[color:var(--color-light)] px-3 py-1"
+                className="rounded-full bg-white px-3 py-1 shadow-sm"
                 style={{ borderColor: BRAND.lightRing }}
               >
                 Powered by <b>PanAvest International &amp; Partners</b>
@@ -453,7 +456,7 @@ export default async function HomePage() {
             {reviews.map((r, idx) => (
               <div
                 key={r.name}
-                className="rounded-2xl bg-white border border-[color:var(--color-light)] p-5 hover:shadow-sm transition animate-fade-up"
+                className="rounded-xl bg-white border border-[color:var(--color-light)]/40 p-5 shadow-sm transition-shadow duration-200 hover:shadow-md animate-fade-up"
                 style={{ animationDelay: `${idx * 60}ms` }}
               >
                 <p className="text-sm text-ink/80 leading-relaxed">“{r.quote}”</p>

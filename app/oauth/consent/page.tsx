@@ -114,7 +114,7 @@ function ConsentInner() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-12">
-      <div className="rounded-2xl bg-white p-6 ring-1 ring-[color:var(--color-light)]">
+      <div className="rounded-xl bg-white p-6 border border-[color:var(--color-light)]/40 shadow-sm transition-shadow duration-200 hover:shadow-md">
         <p className="text-xs uppercase tracking-wide text-[color:var(--color-text-muted)]">PanAvest OAuth</p>
         <h1 className="mt-1 text-2xl font-semibold">Allow access?</h1>
         <p className="mt-2 text-sm text-[color:var(--color-text-muted)]">
@@ -128,7 +128,7 @@ function ConsentInner() {
 
         <div className="mt-4 space-y-2 text-sm">
           <p className="font-medium">Requested scopes</p>
-          <div className="rounded-xl border border-[color:var(--color-light)] bg-[color:var(--color-light)]/40 px-3 py-2">
+          <div className="rounded-xl border border-black/5 bg-[color:var(--color-light)]/40 px-3 py-2 shadow-sm">
             {(params.scope || "profile").split(" ").map((scope) => (
               <span
                 key={scope}
@@ -146,7 +146,7 @@ function ConsentInner() {
           <button
             type="button"
             onClick={handleDeny}
-            className="w-full rounded-xl border border-[color:var(--color-light)] px-4 py-2 font-semibold text-[color:var(--color-brand)] hover:bg-[color:var(--color-light)]/60 sm:w-auto"
+            className="w-full rounded-xl bg-white px-4 py-2 font-semibold text-[color:var(--color-brand)] shadow-sm transition-shadow duration-200 hover:shadow-md sm:w-auto focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
           >
             Deny
           </button>

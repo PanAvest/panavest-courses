@@ -142,7 +142,7 @@ export default function CoursePreview() {
     <div className="mx-auto max-w-screen-xl px-4 md:px-6 py-10">
       <div className="grid gap-6 md:grid-cols-[1fr_380px]">
         {/* Left: hero + description */}
-        <div className="rounded-2xl bg-white border border-light overflow-hidden">
+        <div className="rounded-xl bg-white border border-[color:var(--color-light)]/40 shadow-sm transition-shadow duration-200 hover:shadow-md overflow-hidden">
           <Image
             src={course.img || "/project-management.png"}
             alt={course.title}
@@ -167,7 +167,7 @@ export default function CoursePreview() {
         </div>
 
         {/* Right: pricing + actions */}
-        <aside className="rounded-2xl bg-white border border-light p-5 h-max">
+        <aside className="rounded-xl bg-white border border-[color:var(--color-light)]/40 shadow-sm transition-shadow duration-200 hover:shadow-md p-5 h-max">
           <div className="text-lg">
             <span className="font-semibold">
               {currency} {priceLabel}
@@ -176,16 +176,16 @@ export default function CoursePreview() {
           </div>
 
           {bundledEbooks.length > 0 && (
-            <div className="mt-4 rounded-lg bg-[color:var(--color-light)]/30 ring-1 ring-[color:var(--color-light)] p-3">
+            <div className="mt-4 rounded-xl bg-[color:var(--color-light)]/30 border border-black/5 p-3 shadow-sm">
               <div className="text-xs font-semibold text-[#0a1156] uppercase tracking-wide">Includes e-book</div>
               <div className="mt-2 grid gap-2">
                 {bundledEbooks.map((b) => (
                   <Link
                     key={b.ebook_id}
                     href={`/ebooks/${b.slug}`}
-                    className="flex items-center gap-3 rounded-lg bg-white ring-1 ring-[color:var(--color-light)] px-3 py-2 hover:bg-[color:var(--color-light)]/40"
+                    className="flex items-center gap-3 rounded-xl bg-white border border-black/5 px-3 py-2 shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                   >
-                    <div className="h-12 w-10 rounded-md bg-white overflow-hidden ring-1 ring-[color:var(--color-light)]">
+                    <div className="h-12 w-10 rounded-md bg-white overflow-hidden border border-black/5 shadow-sm">
                       {b.cover_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={b.cover_url} alt={b.title} className="h-full w-full object-cover" />
@@ -222,7 +222,7 @@ export default function CoursePreview() {
                     </Link>
                     <Link
                       href={dashboardHref}
-                      className="inline-flex items-center justify-center rounded-lg px-4 py-2 ring-1 ring-[var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                      className="inline-flex items-center justify-center rounded-xl px-4 py-2 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                     >
                       Go to Dashboard
                     </Link>
@@ -240,7 +240,7 @@ export default function CoursePreview() {
                     </Link>
                     <Link
                       href={dashboardHref}
-                      className="inline-flex items-center justify-center rounded-lg px-4 py-2 ring-1 ring-[var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                      className="inline-flex items-center justify-center rounded-xl px-4 py-2 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                     >
                       Go to Dashboard
                     </Link>

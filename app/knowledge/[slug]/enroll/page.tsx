@@ -116,7 +116,7 @@ export default function EnrollPage() {
       <h1 className="text-2xl font-bold">Enroll: {course.title}</h1>
       <p className="mt-2 text-muted">Pay once to unlock this course with your account.</p>
 
-      <div className="mt-6 rounded-2xl bg-white border border-light p-5">
+      <div className="mt-6 rounded-xl bg-white border border-[color:var(--color-light)]/40 p-5 shadow-sm transition-shadow duration-200 hover:shadow-md">
         <div className="text-lg font-semibold">
           Total: {course.currency || "GHS"} {course.price.toFixed(2)}
         </div>

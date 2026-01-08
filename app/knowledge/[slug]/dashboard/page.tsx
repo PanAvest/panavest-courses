@@ -1092,7 +1092,7 @@ export default function CourseDashboard() {
               alt="Slide asset"
               width={1600}
               height={900}
-              className="rounded-lg ring-1 ring-[var(--color-light)] w-full h-auto object-contain"
+              className="rounded-lg border border-black/5 shadow-sm w-full h-auto object-contain"
               priority={false}
             />
           </div>
@@ -1182,7 +1182,7 @@ export default function CourseDashboard() {
   const menuButton = (
     <button
       type="button"
-      className="rounded-lg border px-3 py-1.5 text-xs font-medium shadow-[0_1px_2px_rgba(0,0,0,0.08)]"
+      className="rounded-xl bg-white px-3 py-1.5 text-xs font-medium shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
       onClick={() => setMobileNavOpen((v) => !v)}
       aria-expanded={mobileNavOpen}
       aria-controls="course-sidebar"
@@ -1217,7 +1217,7 @@ export default function CourseDashboard() {
       {includedEbooks.length > 0 && (
         <div className="mb-4 grid gap-3 md:grid-cols-2">
           {includedEbooks.map((eb) => (
-            <div key={eb.ebook_id} className="flex items-center gap-3 rounded-2xl border border-light bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <div key={eb.ebook_id} className="flex items-center gap-3 rounded-xl border border-[color:var(--color-light)]/40 bg-white p-4 shadow-sm transition-shadow duration-200 hover:shadow-md">
               <div className="h-20 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-[color:var(--color-light)]">
                 {eb.cover_url ? (
                   <Image
@@ -1243,7 +1243,7 @@ export default function CourseDashboard() {
                   </Link>
                   <Link
                     href="/dashboard"
-                    className="inline-flex items-center justify-center rounded-lg px-3 py-1.5 text-xs md:text-sm ring-1 ring-[color:var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                    className="inline-flex items-center justify-center rounded-xl px-3 py-1.5 text-xs md:text-sm bg-white shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                   >
                     Library
                   </Link>
@@ -1260,7 +1260,7 @@ export default function CourseDashboard() {
       )}
 
       {/* Pre-test checklist banner */}
-      <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs md:text-sm">
+      <div className="mb-4 rounded-xl border border-amber-200/40 bg-amber-50 p-3 text-xs md:text-sm shadow-sm">
         <div className="font-semibold mb-1">Before starting any test:</div>
         <ul className="list-disc pl-5 grid gap-1">
           <li>Use a stable internet connection (ethernet or strong Wi-Fi). {isOnline ? "✅ Online" : "⚠️ Offline"}</li>
@@ -1276,7 +1276,7 @@ export default function CourseDashboard() {
         <aside
           id="course-sidebar"
           className={[
-            "rounded-2xl bg-white border border-light p-4 h-max lg:sticky lg:top-4",
+            "rounded-xl bg-white border border-[color:var(--color-light)]/40 p-4 h-max lg:sticky lg:top-4 shadow-sm transition-shadow duration-200 hover:shadow-md",
             "md:max-h-[80vh] md:overflow-auto",
             mobileNavOpen ? "block" : "hidden md:block"
           ].join(" ")}
@@ -1286,7 +1286,7 @@ export default function CourseDashboard() {
           <div className="mt-1 text-xs text-muted">{done} / {totalSlidesSafe} slides completed</div>
 
           {isInteractive && (
-            <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50 p-2 text-[11px] text-blue-800">
+            <div className="mt-3 rounded-xl border border-blue-100/40 bg-blue-50 p-2 text-[11px] text-blue-800 shadow-sm">
               Interactive Storyline course. Launch it in the main area, then mark it as completed to unlock the exam.
             </div>
           )}
@@ -1338,7 +1338,7 @@ export default function CourseDashboard() {
         </aside>
 
         {/* Main */}
-        <main className="rounded-2xl bg-white border border-light p-4 pb-24 md:pb-4">
+        <main className="rounded-xl bg-white border border-[color:var(--color-light)]/40 p-4 pb-24 md:pb-4 shadow-sm transition-shadow duration-200 hover:shadow-md">
           {isInteractive ? (
             <div className="grid gap-4">
               <div className="text-base md:text-lg font-semibold">{course?.title}</div>
@@ -1374,7 +1374,7 @@ export default function CourseDashboard() {
                     href={course.interactive_path}
                     target="_blank"
                     rel="noreferrer"
-                    className="rounded-xl px-5 py-2.5 ring-1 ring-[var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                    className="rounded-xl px-5 py-2.5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                   >
                     Open in new tab
                   </a>
@@ -1396,7 +1396,7 @@ export default function CourseDashboard() {
                     type="button"
                     onClick={() => { if (canGoPrev) setActiveSlide(orderedSlides[activeIndex - 1]); }}
                     disabled={!canGoPrev}
-                    className={`rounded-lg border px-3 py-1.5 text-sm ${canGoPrev ? "hover:bg-[color:var(--color-light)]/70" : "opacity-50 cursor-not-allowed"}`}
+                    className={`rounded-xl px-3 py-1.5 text-sm bg-white shadow-sm transition-shadow duration-200 ${canGoPrev ? "hover:shadow-md" : "opacity-50 cursor-not-allowed"} focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30`}
                     aria-label="Previous slide"
                   >
                     Prev
@@ -1408,7 +1408,7 @@ export default function CourseDashboard() {
                       else setNotice("Complete this slide or the chapter quiz first.");
                     }}
                     disabled={!canGoNext}
-                    className={`rounded-lg border px-3 py-1.5 text-sm ${canGoNext ? "hover:bg-[color:var(--color-light)]/70" : "opacity-50 cursor-not-allowed"}`}
+                    className={`rounded-xl px-3 py-1.5 text-sm bg-white shadow-sm transition-shadow duration-200 ${canGoNext ? "hover:shadow-md" : "opacity-50 cursor-not-allowed"} focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30`}
                     aria-label="Next slide"
                   >
                     Next
@@ -1442,7 +1442,7 @@ export default function CourseDashboard() {
                   <button
                     type="button"
                     onClick={() => beginQuiz(activeSlide.chapter_id)}
-                    className="rounded-xl px-5 py-2.5 ring-1 ring-[var(--color-light)] hover:bg-[color:var(--color-light)]/50"
+                    className="rounded-xl px-5 py-2.5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                   >
                     Take Chapter Quiz
                   </button>
@@ -1469,13 +1469,13 @@ export default function CourseDashboard() {
 
       {/* Sticky mobile action bar */}
       {activeSlide && !isInteractive && (
-        <div className="sm:hidden fixed inset-x-0 bottom-0 z-40 bg-white/95 backdrop-blur border-t border-light">
+        <div className="sm:hidden fixed inset-x-0 bottom-0 z-40 bg-white/95 backdrop-blur shadow-[0_-8px_24px_rgba(0,0,0,0.04)]">
           <div className="mx-auto max-w-screen-2xl px-4 py-2 grid grid-cols-3 gap-2">
             <button
               type="button"
               onClick={() => { if (canGoPrev) setActiveSlide(orderedSlides[activeIndex - 1]); }}
               disabled={!canGoPrev}
-              className={`rounded-lg border px-3 py-3 text-sm ${canGoPrev ? "active:scale-[0.98]" : "opacity-50 cursor-not-allowed"}`}
+              className={`rounded-xl px-3 py-3 text-sm bg-white shadow-sm transition-shadow duration-200 ${canGoPrev ? "active:scale-[0.98] hover:shadow-md" : "opacity-50 cursor-not-allowed"} focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30`}
               aria-label="Previous slide"
             >
               Prev
@@ -1495,7 +1495,7 @@ export default function CourseDashboard() {
                 else setNotice("Complete this slide or the chapter quiz first.");
               }}
               disabled={!canGoNext}
-              className={`rounded-lg border px-3 py-3 text-sm ${canGoNext ? "active:scale-[0.98]" : "opacity-50 cursor-not-allowed"}`}
+              className={`rounded-xl px-3 py-3 text-sm bg-white shadow-sm transition-shadow duration-200 ${canGoNext ? "active:scale-[0.98] hover:shadow-md" : "opacity-50 cursor-not-allowed"} focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30`}
               aria-label="Next slide"
             >
               Next
@@ -1508,7 +1508,7 @@ export default function CourseDashboard() {
       {quizOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => setQuizOpen(false)} />
-          <div className="relative z-10 w-full max-w-2xl rounded-2xl bg-white border border-light p-5 max-h-[90vh] overflow-auto">
+          <div className="relative z-10 w-full max-w-2xl rounded-xl bg-white border border-[color:var(--color-light)]/40 p-5 max-h-[90vh] overflow-auto shadow-sm transition-shadow duration-200 hover:shadow-md">
             <div className="flex items-center justify-between gap-3">
               <div className="text-lg font-semibold">Chapter Quiz</div>
               <div className="text-sm font-medium">
@@ -1521,7 +1521,7 @@ export default function CourseDashboard() {
 
             <div className="mt-4 grid gap-4">
               {quizItems.map((q, idx) => (
-                <div key={q.id} className="rounded-lg p-3 ring-1 ring-[var(--color-light)]">
+                <div key={q.id} className="rounded-xl p-3 bg-white border border-[color:var(--color-light)]/40 shadow-sm">
                   <div className="font-medium text-sm">{idx + 1}. {q.question}</div>
                   <div className="mt-2 grid gap-2">
                     {q.options.map((opt, i) => {
@@ -1548,7 +1548,7 @@ export default function CourseDashboard() {
               <button
                 type="button"
                 onClick={() => setQuizOpen(false)}
-                className="rounded-lg px-4 py-2 ring-1 ring-[var(--color-light)]"
+                className="rounded-xl px-4 py-2 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
               >
                 Close
               </button>
@@ -1568,7 +1568,7 @@ export default function CourseDashboard() {
       {startConfirmOpen && finalExam && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50" onClick={() => setStartConfirmOpen(false)} />
-          <div className="relative z-10 w-full max-w-xl rounded-2xl bg-white border border-light p-5 max-h-[88vh] overflow-auto">
+          <div className="relative z-10 w-full max-w-xl rounded-xl bg-white border border-[color:var(--color-light)]/40 p-5 max-h-[88vh] overflow-auto shadow-sm transition-shadow duration-200 hover:shadow-md">
             <div className="text-lg font-semibold">Before you start the Final Exam</div>
             <div className="mt-3 text-xs md:text-sm">
               <ul className="list-disc pl-5 grid gap-1">
@@ -1597,7 +1597,7 @@ export default function CourseDashboard() {
               <button
                 type="button"
                 onClick={() => setStartConfirmOpen(false)}
-                className="rounded-lg px-4 py-2 ring-1 ring-[var(--color-light)]"
+                className="rounded-xl px-4 py-2 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
               >
                 Cancel
               </button>
@@ -1618,7 +1618,7 @@ export default function CourseDashboard() {
       {finalExamOpen && finalExam && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 select-none">
           <div className="absolute inset-0 bg-black/50" />
-          <div className="relative z-10 w-full max-w-3xl rounded-2xl bg-white border border-light p-5 max-h-[92vh] overflow-auto">
+          <div className="relative z-10 w-full max-w-3xl rounded-xl bg-white border border-[color:var(--color-light)]/40 p-5 max-h-[92vh] overflow-auto shadow-sm transition-shadow duration-200 hover:shadow-md">
             <div className="flex items-center justify-between gap-3">
               <div className="text-lg font-semibold">{finalExam.title || "Final Exam"}</div>
               <div className="text-sm font-medium">
@@ -1629,7 +1629,7 @@ export default function CourseDashboard() {
               </div>
             </div>
 
-            <div className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2">
+            <div className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200/40 rounded-md p-2 shadow-sm">
               <ul className="list-disc pl-5 grid gap-1">
                 <li>Timer cannot be paused.</li>
                 <li>Do not close or switch this tab. Doing so will auto-end the exam.</li>
@@ -1639,17 +1639,17 @@ export default function CourseDashboard() {
             </div>
 
             {!isOnline && (
-              <div className="mt-3 text-xs text-red-700 bg-red-50 border border-red-200 rounded-md p-2">
+              <div className="mt-3 text-xs text-red-700 bg-red-50 border border-red-200/40 rounded-md p-2 shadow-sm">
                 You are offline. Stay online to ensure your answers are saved.
               </div>
             )}
 
             <div className="mt-4 grid gap-4">
               {activeExamQuestions.length === 0 ? (
-                <div className="rounded-lg p-3 ring-1 ring-[var(--color-light)] text-sm text-muted">Preparing questions…</div>
+                <div className="rounded-xl p-3 bg-white border border-[color:var(--color-light)]/40 text-sm text-muted shadow-sm">Preparing questions…</div>
               ) : (
                 activeExamQuestions.map((q, idx) => (
-                  <div key={q.id} className="rounded-lg p-3 ring-1 ring-[var(--color-light)]">
+                  <div key={q.id} className="rounded-xl p-3 bg-white border border-[color:var(--color-light)]/40 shadow-sm">
                     <div className="font-medium text-sm">{idx + 1}. {q.prompt}</div>
                     <div className="mt-2 grid gap-2">
                       {q.options.map((opt, i) => {
@@ -1690,11 +1690,11 @@ export default function CourseDashboard() {
       {resultOpen && finalResult && finalExam && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50" onClick={() => setResultOpen(false)} />
-          <div className="relative z-10 w-full max-w-2xl rounded-2xl bg-white border border-light p-5 max-h-[92vh] overflow-auto">
+          <div className="relative z-10 w-full max-w-2xl rounded-xl bg-white border border-[color:var(--color-light)]/40 p-5 max-h-[92vh] overflow-auto shadow-sm transition-shadow duration-200 hover:shadow-md">
             <div className="text-lg font-semibold">Results</div>
 
             <div className="mt-3 grid gap-2 text-sm">
-              <div className="rounded-lg p-3 ring-1 ring-[var(--color-light)]">
+              <div className="rounded-xl p-3 bg-white border border-[color:var(--color-light)]/40 shadow-sm">
                 <div className="font-medium">Final Exam</div>
                 <div className="mt-1">
                   Score: <b>{finalResult.correct}/{finalResult.total}</b> ({finalResult.scorePct}%)
@@ -1705,7 +1705,7 @@ export default function CourseDashboard() {
                 </div>
               </div>
 
-              <div className="rounded-lg p-3 ring-1 ring-[var(--color-light)]">
+              <div className="rounded-xl p-3 bg-white border border-[color:var(--color-light)]/40 shadow-sm">
                 <div className="font-medium mb-2">Chapter Quiz Scores</div>
                 {chapterScores.length === 0 ? (
                   <div className="text-xs text-muted">No chapter quiz submissions found.</div>
@@ -1722,7 +1722,7 @@ export default function CourseDashboard() {
                       </thead>
                       <tbody>
                         {chapterScores.map((r) => (
-                          <tr key={r.chapterId} className="border-t">
+                          <tr key={r.chapterId} className="border-t border-black/5">
                             <td className="py-1 pr-2">{r.chapterTitle}</td>
                             <td className="py-1 pr-2">{r.scorePct ?? "—"}%</td>
                             <td className="py-1 pr-2">
@@ -1740,12 +1740,12 @@ export default function CourseDashboard() {
 
             {finalResult.passed && (
               <div
-                className={`mt-4 rounded-lg p-3 text-sm ${
+                className={`mt-4 rounded-xl p-3 text-sm shadow-sm ${
                   certificateNotice?.type === "error"
-                    ? "bg-red-50 border border-red-200 text-red-800"
+                    ? "bg-red-50 text-red-800"
                     : certificateNotice?.type === "success"
-                      ? "bg-green-50 border border-green-200 text-green-800"
-                      : "bg-blue-50 border border-blue-200 text-blue-900"
+                      ? "bg-green-50 text-green-800"
+                      : "bg-blue-50 text-blue-900"
                 }`}
               >
                 {certificateNotice?.message ?? "Visit your Dashboard to download your certificate."}
@@ -1759,7 +1759,7 @@ export default function CourseDashboard() {
               <button
                 type="button"
                 onClick={() => setResultOpen(false)}
-                className="rounded-lg px-4 py-2 ring-1 ring-[var(--color-light)]"
+                className="rounded-xl px-4 py-2 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
               >
                 Close
               </button>
