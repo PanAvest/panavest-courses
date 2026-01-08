@@ -19,7 +19,7 @@ function SocialLink({
       aria-label={label}
       target="_blank"
       rel="noreferrer"
-      className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-sm hover:shadow-md transition-shadow duration-200 focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+      className="inline-flex h-9 w-9 items-center justify-center rounded-full ring-1 ring-[var(--color-light)] hover:bg-[color:var(--color-light)]/40 transition"
     >
       {children}
     </a>
@@ -60,7 +60,7 @@ async function ProgramsList() {
 
 export default async function Footer() {
   return (
-    <footer className="w-full bg-[color:var(--color-bg)] shadow-[0_-8px_24px_rgba(0,0,0,0.04)]">
+    <footer className="w-full bg-[color:var(--color-bg)] border-t border-light">
       {/* Full width, modest side padding */}
       <div className="w-full px-4 md:px-6 py-10">
         <div className="grid gap-10 md:grid-cols-4">

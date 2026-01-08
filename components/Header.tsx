@@ -26,7 +26,7 @@ function SocialLink({
       title={label}
       target="_blank"
       rel="noopener noreferrer"
-      className={`inline-flex items-center justify-center rounded-md p-1.5 bg-white shadow-sm hover:shadow-md transition-shadow duration-200 text-ink/80 hover:text-ink focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 ${className}`}
+      className={`inline-flex items-center justify-center rounded-md p-1.5 ring-1 ring-[var(--color-light)] hover:bg-[color:var(--color-light)]/30 text-ink/80 hover:text-ink transition ${className}`}
     >
       {children}
     </a>
@@ -154,7 +154,7 @@ export default function Header() {
                 type="button"
                 onClick={handleSignOut}
                 disabled={signingOut}
-                className="text-sm rounded-xl px-4 py-2 bg-white shadow-sm hover:shadow-md transition-shadow duration-200 disabled:opacity-60 focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+                className="text-sm rounded-lg px-4 py-2 ring-1 ring-[var(--color-light)] bg-white hover:bg-[color:var(--color-light)]/30 disabled:opacity-60"
                 aria-label="Sign out"
               >
                 {signingOut ? "Signing out…" : "Sign Out"}
@@ -172,7 +172,7 @@ export default function Header() {
 
         {/* Mobile hamburger */}
         <button
-          className="sm:hidden inline-flex items-center justify-center rounded-md p-2 bg-white shadow-sm hover:shadow-md transition-shadow duration-200 focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+          className="sm:hidden inline-flex items-center justify-center rounded-md p-2 ring-1 ring-black/10 hover:bg-black/[0.04]"
           aria-label="Open menu"
           aria-expanded={open}
           onClick={() => setOpen(v => !v)}
@@ -185,7 +185,7 @@ export default function Header() {
 
       {/* Mobile menu */}
       {open && (
-        <div className="sm:hidden bg-[color:var(--color-bg)] shadow-[0_-8px_24px_rgba(0,0,0,0.04)]">
+        <div className="sm:hidden border-t border-light bg-[color:var(--color-bg)]">
           <div className="px-4 py-3 flex flex-col gap-3">
             <Link href="/knowledge" onClick={() => setOpen(false)} className="text-ink">Knowledge</Link>
             <Link href="/about" onClick={() => setOpen(false)} className="text-ink">About</Link>
@@ -244,7 +244,7 @@ export default function Header() {
                     await handleSignOut();
                   }}
                   disabled={signingOut}
-                  className="rounded-xl px-4 py-2 bg-white text-ink font-medium text-center shadow-sm hover:shadow-md transition-shadow duration-200 disabled:opacity-60 focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+                  className="rounded-lg px-4 py-2 ring-1 ring-[var(--color-light)] bg-white text-ink font-medium text-center disabled:opacity-60"
                   aria-label="Sign out"
                 >
                   {signingOut ? "Signing out…" : "Sign Out"}
