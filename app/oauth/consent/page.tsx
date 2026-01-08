@@ -128,7 +128,7 @@ function ConsentInner() {
 
         <div className="mt-4 space-y-2 text-sm">
           <p className="font-medium">Requested scopes</p>
-          <div className="rounded-xl border border-black/5 bg-[color:var(--color-light)]/40 px-3 py-2 shadow-sm">
+          <div className="rounded-xl border border-[color:var(--color-light)]/40 bg-[color:var(--color-light)]/40 px-3 py-2 shadow-sm">
             {(params.scope || "profile").split(" ").map((scope) => (
               <span
                 key={scope}

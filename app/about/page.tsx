@@ -101,19 +101,19 @@ export default function AboutPage() {
           <h2 className="text-xl md:text-2xl font-bold text-[#b65437]">Guiding Principles</h2>
         </div>
         <ul className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm text-muted-foreground/90">
-          <li className="rounded-xl p-4 border border-black/5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md animate-fade-up" style={{ animationDelay: "0ms" }}>
+          <li className="rounded-xl p-4 border border-[color:var(--color-light)]/40 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md animate-fade-up" style={{ animationDelay: "0ms" }}>
             <strong className="text-[#b65437]">Africa-first relevance:</strong> solutions must reflect African realities.
           </li>
-          <li className="rounded-xl p-4 border border-black/5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md animate-fade-up" style={{ animationDelay: "60ms" }}>
+          <li className="rounded-xl p-4 border border-[color:var(--color-light)]/40 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md animate-fade-up" style={{ animationDelay: "60ms" }}>
             <strong className="text-[#b65437]">Global standards, locally applied:</strong> benchmark internationally, execute contextually.
           </li>
-          <li className="rounded-xl p-4 border border-black/5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md animate-fade-up" style={{ animationDelay: "120ms" }}>
+          <li className="rounded-xl p-4 border border-[color:var(--color-light)]/40 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md animate-fade-up" style={{ animationDelay: "120ms" }}>
             <strong className="text-[#b65437]">Impact over information:</strong> knowledge is validated only when it drives measurable results.
           </li>
-          <li className="rounded-xl p-4 border border-black/5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md animate-fade-up" style={{ animationDelay: "180ms" }}>
+          <li className="rounded-xl p-4 border border-[color:var(--color-light)]/40 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md animate-fade-up" style={{ animationDelay: "180ms" }}>
             <strong className="text-[#b65437]">Ethical stewardship:</strong> integrity is non-negotiable.
           </li>
-          <li className="rounded-xl p-4 border border-black/5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md animate-fade-up" style={{ animationDelay: "240ms" }}>
+          <li className="rounded-xl p-4 border border-[color:var(--color-light)]/40 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md animate-fade-up" style={{ animationDelay: "240ms" }}>
             <strong className="text-[#b65437]">Evidence before rhetoric:</strong> decisions must be grounded in truth.
           </li>
         </ul>
@@ -128,10 +128,10 @@ export default function AboutPage() {
           <h2 className="text-xl md:text-2xl font-bold text-[#b65437]">What We Offer</h2>
         </div>
         <ul className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
-          <li className="group rounded-xl p-4 border border-black/5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md animate-fade-up" style={{ animationDelay: "0ms" }}>Africa-contextualised interactive modules</li>
-          <li className="group rounded-xl p-4 border border-black/5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md animate-fade-up" style={{ animationDelay: "60ms" }}>Case-based learning built on real organisational challenges</li>
-          <li className="group rounded-xl p-4 border border-black/5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md animate-fade-up" style={{ animationDelay: "120ms" }}>Boardroom &amp; executive pathways that convert understanding into outcomes</li>
-          <li className="group rounded-xl p-4 border border-black/5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md animate-fade-up" style={{ animationDelay: "180ms" }}>CPPD-aligned assessments that validate competence</li>
+          <li className="group rounded-xl p-4 border border-[color:var(--color-light)]/40 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md animate-fade-up" style={{ animationDelay: "0ms" }}>Africa-contextualised interactive modules</li>
+          <li className="group rounded-xl p-4 border border-[color:var(--color-light)]/40 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md animate-fade-up" style={{ animationDelay: "60ms" }}>Case-based learning built on real organisational challenges</li>
+          <li className="group rounded-xl p-4 border border-[color:var(--color-light)]/40 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md animate-fade-up" style={{ animationDelay: "120ms" }}>Boardroom &amp; executive pathways that convert understanding into outcomes</li>
+          <li className="group rounded-xl p-4 border border-[color:var(--color-light)]/40 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md animate-fade-up" style={{ animationDelay: "180ms" }}>CPPD-aligned assessments that validate competence</li>
         </ul>
       </section>
 
@@ -160,13 +160,13 @@ export default function AboutPage() {
           <h2 className="text-xl md:text-2xl font-bold text-[#b65437]">Certification &amp; Verification</h2>
         </div>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <div className="rounded-xl p-4 border border-black/5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
+          <div className="rounded-xl p-4 border border-[color:var(--color-light)]/40 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
             <h3 className="font-semibold text-[#b65437]">Certificate</h3>
             <p className="mt-1 text-sm text-muted-foreground/90">
               Issued upon achieving the minimum score in the multiple-choice assessments; verifiable and internationally accessible.
             </p>
           </div>
-          <div className="rounded-xl p-4 border border-black/5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
+          <div className="rounded-xl p-4 border border-[color:var(--color-light)]/40 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
             <h3 className="font-semibold text-[#b65437]">Digital Credential Verification</h3>
             <p className="mt-1 text-sm text-muted-foreground/90">
               Each certificate is registered and independently verifiable via a unique credential ID.
@@ -235,25 +235,25 @@ export default function AboutPage() {
           <h2 className="text-xl md:text-2xl font-bold text-[#b65437]">FAQ</h2>
         </div>
         <div className="mt-4 grid gap-3 text-sm text-muted-foreground/90">
-          <div className="rounded-xl p-4 border border-black/5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
+          <div className="rounded-xl p-4 border border-[color:var(--color-light)]/40 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
             <p><strong className="text-[#b65437]">Do I receive a certificate?</strong> Yes—upon meeting the minimum score.</p>
           </div>
-          <div className="rounded-xl p-4 border border-black/5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
+          <div className="rounded-xl p-4 border border-[color:var(--color-light)]/40 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
             <p><strong className="text-[#b65437]">Are credentials verifiable?</strong> Yes—each certificate has a unique, online-verifiable ID.</p>
           </div>
-          <div className="rounded-xl p-4 border border-black/5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
+          <div className="rounded-xl p-4 border border-[color:var(--color-light)]/40 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
             <p><strong className="text-[#b65437]">Is this internationally relevant?</strong> Yes—globally aligned and contextually African.</p>
           </div>
-          <div className="rounded-xl p-4 border border-black/5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
+          <div className="rounded-xl p-4 border border-[color:var(--color-light)]/40 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
             <p><strong className="text-[#b65437]">How long do courses take?</strong> Days to weeks, depending on your pace.</p>
           </div>
-          <div className="rounded-xl p-4 border border-black/5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
+          <div className="rounded-xl p-4 border border-[color:var(--color-light)]/40 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
             <p><strong className="text-[#b65437]">Who can enrol?</strong> Anyone—no prior board experience required.</p>
           </div>
-          <div className="rounded-xl p-4 border border-black/5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
+          <div className="rounded-xl p-4 border border-[color:var(--color-light)]/40 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
             <p><strong className="text-[#b65437]">Is this only for Africa?</strong> No—useful globally.</p>
           </div>
-          <div className="rounded-xl p-4 border border-black/5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
+          <div className="rounded-xl p-4 border border-[color:var(--color-light)]/40 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
             <p><strong className="text-[#b65437]">Can organisations enrol teams?</strong> Yes—group access and onboarding available.</p>
           </div>
         </div>

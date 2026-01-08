@@ -129,7 +129,7 @@ export default function CompleteProfilePage() {
               type="email"
               value={email}
               readOnly
-              className="mt-1 w-full cursor-not-allowed rounded-xl bg-[color:var(--color-light)]/60 px-3 py-2 border border-black/5 text-[color:var(--color-text-muted)]"
+              className="mt-1 w-full cursor-not-allowed rounded-xl bg-[color:var(--color-light)]/60 px-3 py-2 border border-[color:var(--color-light)]/40 text-[color:var(--color-text-muted)]"
             />
           </label>
 
@@ -138,7 +138,7 @@ export default function CompleteProfilePage() {
             <input
               type="text"
               autoComplete="name"
-              className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 border border-black/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+              className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 border border-[color:var(--color-light)]/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
               value={fullName}
               onChange={(ev) => setFullName(ev.target.value)}
               placeholder="Ama Mensah"
@@ -149,13 +149,13 @@ export default function CompleteProfilePage() {
             <span className="text-sm">Date of birth</span>
             <input
               type="date"
-              className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 border border-black/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+              className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 border border-[color:var(--color-light)]/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
               value={dob}
               onChange={(ev) => setDob(ev.target.value)}
             />
           </label>
 
-          <fieldset className="mt-1 rounded-xl border border-black/5 bg-[color:var(--color-light)]/40 px-3 py-3 shadow-sm">
+          <fieldset className="mt-1 rounded-xl border border-[color:var(--color-light)]/40 bg-[color:var(--color-light)]/40 px-3 py-3 shadow-sm">
             <legend className="px-1 text-sm font-medium">Highest educational qualification</legend>
             <div className="mt-2 grid gap-2">
               {educationOptions.map((option) => (
@@ -179,7 +179,7 @@ export default function CompleteProfilePage() {
             <select
               name="country"
               autoComplete="country-name"
-              className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 border border-black/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+              className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 border border-[color:var(--color-light)]/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
               value={country}
               onChange={(ev) => setCountry(ev.target.value)}
             >

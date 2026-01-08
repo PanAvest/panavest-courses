@@ -1092,7 +1092,7 @@ export default function CourseDashboard() {
               alt="Slide asset"
               width={1600}
               height={900}
-              className="rounded-lg border border-black/5 shadow-sm w-full h-auto object-contain"
+              className="rounded-lg border border-[color:var(--color-light)]/40 shadow-sm w-full h-auto object-contain"
               priority={false}
             />
           </div>
@@ -1722,7 +1722,7 @@ export default function CourseDashboard() {
                       </thead>
                       <tbody>
                         {chapterScores.map((r) => (
-                          <tr key={r.chapterId} className="border-t border-black/5">
+                          <tr key={r.chapterId} className="border-t border-[color:var(--color-light)]/40">
                             <td className="py-1 pr-2">{r.chapterTitle}</td>
                             <td className="py-1 pr-2">{r.scorePct ?? "—"}%</td>
                             <td className="py-1 pr-2">

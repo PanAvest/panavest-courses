@@ -6,8 +6,6 @@ import {
   createServerActionClient,
   createServerComponentClient,
 } from "@supabase/auth-helpers-nextjs";
-import type { SupabaseClient } from "@supabase/supabase-js";
-
 import type { Database } from "@/lib/types";
 
 /**

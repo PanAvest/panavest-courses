@@ -106,10 +106,10 @@ export default function Header() {
           <Link href="/ebooks" className="text-sm text-muted hover:text-ink">E-Books</Link>
           <Link
             href="/ai"
-            className="text-sm rounded-full px-4 py-2 bg-[color:var(--color-soft)] text-ink font-medium hover:bg-[color:var(--color-light)] inline-flex items-center gap-2"
+            className="ai-glitter text-sm rounded-lg px-4 py-2 bg-brand text-white font-medium hover:opacity-90 inline-flex items-center gap-2 overflow-hidden focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
           >
             PanAvest AI
-            <span className="text-[10px] uppercase tracking-wide bg-[color:var(--color-accent-gold)]/30 text-ink px-2 py-0.5 rounded-full">
+            <span className="text-[10px] uppercase tracking-wide bg-white/20 text-white px-2 py-0.5 rounded-full">
               Beta
             </span>
           </Link>
@@ -193,10 +193,10 @@ export default function Header() {
             <Link
               href="/ai"
               onClick={() => setOpen(false)}
-              className="rounded-full px-4 py-2 bg-[color:var(--color-soft)] text-ink font-medium text-center inline-flex items-center justify-center gap-2"
+              className="ai-glitter rounded-lg px-4 py-2 bg-brand text-white font-medium text-center inline-flex items-center justify-center gap-2 overflow-hidden focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
             >
               PanAvest AI
-              <span className="text-[10px] uppercase tracking-wide bg-[color:var(--color-accent-gold)]/30 text-ink px-2 py-0.5 rounded-full">
+              <span className="text-[10px] uppercase tracking-wide bg-white/20 text-white px-2 py-0.5 rounded-full">
                 Beta
               </span>
             </Link>

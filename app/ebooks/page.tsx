@@ -47,7 +47,7 @@ export default function EbooksPage() {
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
-              className="rounded-xl bg-white border border-[color:var(--color-light)]/40 p-4 shadow-sm transition-shadow duration-200 hover:shadow-md animate-pulse h-[240px]"
+              className="rounded-xl bg-white p-4 shadow-sm transition-shadow duration-200 hover:shadow-md animate-pulse h-[240px]"
             />
           ))}
         </div>
@@ -59,7 +59,7 @@ export default function EbooksPage() {
             <Link
               key={b.id}
               href={`/ebooks/${encodeURIComponent(b.slug)}`}
-              className="group rounded-xl bg-white border border-[color:var(--color-light)]/40 shadow-sm transition-shadow duration-200 hover:shadow-md overflow-hidden flex flex-col animate-fade-up"
+              className="group rounded-xl bg-white shadow-sm transition-shadow duration-200 hover:shadow-md overflow-hidden flex flex-col animate-fade-up"
               style={{ animationDelay: `${idx * 60}ms` }}
             >
               <div className="bg-white">

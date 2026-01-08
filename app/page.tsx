@@ -200,7 +200,7 @@ export default async function HomePage() {
             ].map((i) => (
               <div
                 key={i.title}
-                className="rounded-xl bg-white border border-[color:var(--color-light)]/40 p-5 shadow-sm transition-shadow duration-200 hover:shadow-md"
+                className="rounded-xl bg-white p-5 shadow-sm transition-shadow duration-200 hover:shadow-md"
               >
                 <div className="text-3xl text-ink/80"><i.Icon /></div>
                 <div className="mt-3 font-semibold">{i.title}</div>
@@ -214,7 +214,7 @@ export default async function HomePage() {
       {/* ===== KDS MOBILE (matches hero + theme) ===== */}
       <section className="py-10 sm:py-14 animate-fade-up">
         <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
-          <div className="rounded-xl bg-white border border-[color:var(--color-light)]/40 shadow-sm px-6 py-10 sm:px-10 sm:py-12 lg:px-14 lg:py-14 grid gap-10 md:grid-cols-[1.05fr_.95fr] items-center transition-shadow duration-200 hover:shadow-md">
+          <div className="rounded-xl bg-white shadow-sm px-6 py-10 sm:px-10 sm:py-12 lg:px-14 lg:py-14 grid gap-10 md:grid-cols-[1.05fr_.95fr] items-center transition-shadow duration-200 hover:shadow-md">
             {/* Left copy */}
             <div className="flex flex-col gap-4 text-center md:text-left">
               {/* pill matches hero style */}
@@ -320,7 +320,7 @@ export default async function HomePage() {
               <Link
                 key={c ? c.id : `s-${idx}`}
                 href={c ? `/courses/${c.slug}` : "#"}
-                className="group rounded-xl bg-white border border-[color:var(--color-light)]/40 shadow-sm transition-shadow duration-200 hover:shadow-md overflow-hidden animate-fade-up"
+                className="group rounded-xl bg-white shadow-sm transition-shadow duration-200 hover:shadow-md overflow-hidden animate-fade-up"
                 style={{ animationDelay: `${idx * 60}ms` }}
               >
                 <div className="relative w-full aspect-video bg-[color:var(--color-light)]/40">
@@ -378,7 +378,7 @@ export default async function HomePage() {
               <Link
                 key={b ? b.id : `e-${idx}`}
                 href={b ? `/ebooks/${b.slug}` : "#"}
-                className="group relative rounded-xl bg-white border border-[color:var(--color-light)]/40 shadow-sm transition-shadow duration-200 hover:shadow-md overflow-hidden animate-fade-up"
+                className="group relative rounded-xl bg-white shadow-sm transition-shadow duration-200 hover:shadow-md overflow-hidden animate-fade-up"
                 style={{ animationDelay: `${idx * 60}ms` }}
               >
                 <div className="relative">
@@ -456,7 +456,7 @@ export default async function HomePage() {
             {reviews.map((r, idx) => (
               <div
                 key={r.name}
-                className="rounded-xl bg-white border border-[color:var(--color-light)]/40 p-5 shadow-sm transition-shadow duration-200 hover:shadow-md animate-fade-up"
+                className="rounded-xl bg-white p-5 shadow-sm transition-shadow duration-200 hover:shadow-md animate-fade-up"
                 style={{ animationDelay: `${idx * 60}ms` }}
               >
                 <p className="text-sm text-ink/80 leading-relaxed">“{r.quote}”</p>

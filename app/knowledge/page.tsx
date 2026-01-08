@@ -54,7 +54,7 @@ export default async function KnowledgeIndex() {
           <Link
             key={c.id}
             href={`/knowledge/${c.slug}`}
-            className="group rounded-xl bg-white border border-[color:var(--color-light)]/40 shadow-sm transition-shadow duration-200 hover:shadow-md overflow-hidden animate-fade-up"
+            className="group rounded-xl bg-white shadow-sm transition-shadow duration-200 hover:shadow-md overflow-hidden animate-fade-up"
             style={{ animationDelay: `${idx * 60}ms` }}
           >
             <div className="bg-white">

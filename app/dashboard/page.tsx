@@ -830,7 +830,7 @@ export default function DashboardPage() {
                         </div>
 
                         {/* Inline preview */}
-                        <details className="mt-3 rounded-xl border border-black/5 p-3 shadow-sm transition-shadow duration-200 open:shadow-md">
+                        <details className="mt-3 rounded-xl border border-[color:var(--color-light)]/40 p-3 shadow-sm transition-shadow duration-200 open:shadow-md">
                           <summary className="cursor-pointer text-sm font-medium">Preview certificate</summary>
                           <div className="mt-4">
                             <SimpleCertificate
@@ -894,7 +894,7 @@ export default function DashboardPage() {
                           {pc.cpd_points != null && <div className="text-muted text-xs">CPD/CPPD: {pc.cpd_points}</div>}
                         </div>
 
-                        <details className="mt-3 rounded-xl border border-black/5 p-3 shadow-sm transition-shadow duration-200 open:shadow-md">
+                        <details className="mt-3 rounded-xl border border-[color:var(--color-light)]/40 p-3 shadow-sm transition-shadow duration-200 open:shadow-md">
                           <summary className="cursor-pointer text-sm font-medium">Preview (print/save)</summary>
                           <div className="mt-4">
                             <SimpleCertificate

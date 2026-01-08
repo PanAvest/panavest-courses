@@ -46,7 +46,7 @@ export default function ResetRequestClient() {
             type="email"
             required
             autoComplete="email"
-            className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 border border-black/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+            className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 border border-[color:var(--color-light)]/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
             value={email}
             onChange={(ev) => setEmail(ev.target.value)}
             placeholder="you@example.com"

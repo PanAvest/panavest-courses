@@ -176,16 +176,16 @@ export default function CoursePreview() {
           </div>
 
           {bundledEbooks.length > 0 && (
-            <div className="mt-4 rounded-xl bg-[color:var(--color-light)]/30 border border-black/5 p-3 shadow-sm">
+            <div className="mt-4 rounded-xl bg-[color:var(--color-light)]/30 border border-[color:var(--color-light)]/40 p-3 shadow-sm">
               <div className="text-xs font-semibold text-[#0a1156] uppercase tracking-wide">Includes e-book</div>
               <div className="mt-2 grid gap-2">
                 {bundledEbooks.map((b) => (
                   <Link
                     key={b.ebook_id}
                     href={`/ebooks/${b.slug}`}
-                    className="flex items-center gap-3 rounded-xl bg-white border border-black/5 px-3 py-2 shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+                    className="flex items-center gap-3 rounded-xl bg-white border border-[color:var(--color-light)]/40 px-3 py-2 shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                   >
-                    <div className="h-12 w-10 rounded-md bg-white overflow-hidden border border-black/5 shadow-sm">
+                    <div className="h-12 w-10 rounded-md bg-white overflow-hidden border border-[color:var(--color-light)]/40 shadow-sm">
                       {b.cover_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={b.cover_url} alt={b.title} className="h-full w-full object-cover" />

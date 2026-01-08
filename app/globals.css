@@ -42,6 +42,48 @@ body {
 }
 .animate-float { animation: float 3s ease-in-out infinite; }
 
+@keyframes ai-glitter {
+  0% { opacity: 0.35; transform: translateY(0); }
+  50% { opacity: 0.6; transform: translateY(-2px); }
+  100% { opacity: 0.35; transform: translateY(0); }
+}
+
+@keyframes ai-shimmer {
+  0% { transform: translateX(-120%); opacity: 0; }
+  35% { opacity: 0.35; }
+  70% { opacity: 0.15; }
+  100% { transform: translateX(120%); opacity: 0; }
+}
+
+.ai-glitter {
+  position: relative;
+  isolation: isolate;
+  box-shadow: 0 6px 16px rgba(182, 84, 55, 0.25);
+}
+
+.ai-glitter::before {
+  content: "";
+  position: absolute;
+  inset: -40%;
+  background:
+    radial-gradient(120px 80px at 15% 10%, rgba(255, 255, 255, 0.35), transparent 60%),
+    radial-gradient(100px 60px at 85% 90%, rgba(245, 183, 80, 0.35), transparent 60%);
+  opacity: 0.6;
+  filter: blur(6px);
+  animation: ai-glitter 3.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.ai-glitter::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.45) 50%, transparent 100%);
+  mix-blend-mode: screen;
+  animation: ai-shimmer 4s ease-in-out infinite;
+  pointer-events: none;
+}
+
 /* ─────────── Partners marquee (reference-style) ─────────── */
 @keyframes partners-slide {
   from { transform: translateX(0); }

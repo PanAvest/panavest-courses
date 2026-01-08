@@ -217,7 +217,7 @@ export default function AuthForm({ mode }: { mode: Mode }) {
                 <input
                   type="text"
                   autoComplete="name"
-                  className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 border border-black/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+                  className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 border border-[color:var(--color-light)]/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                   value={fullName}
                   onChange={(ev) => setFullName(ev.target.value)}
                   placeholder="Ama Mensah"
@@ -230,7 +230,7 @@ export default function AuthForm({ mode }: { mode: Mode }) {
                 <span className="text-sm">Date of birth</span>
                 <input
                   type="date"
-                  className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 border border-black/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+                  className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 border border-[color:var(--color-light)]/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                   value={dob}
                   onChange={(ev) => setDob(ev.target.value)}
                 />
@@ -238,7 +238,7 @@ export default function AuthForm({ mode }: { mode: Mode }) {
             )}
 
             {step === 2 && (
-              <fieldset className="mt-1 rounded-xl border border-black/5 bg-[color:var(--color-light)]/40 px-3 py-3 shadow-sm">
+              <fieldset className="mt-1 rounded-xl border border-[color:var(--color-light)]/40 bg-[color:var(--color-light)]/40 px-3 py-3 shadow-sm">
                 <legend className="px-1 text-sm font-medium">Highest educational qualification</legend>
                 <div className="mt-2 grid gap-2">
                   {educationOptions.map((option) => (
@@ -267,7 +267,7 @@ export default function AuthForm({ mode }: { mode: Mode }) {
                 <select
                   name="country"
                   autoComplete="country-name"
-                  className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 border border-black/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+                  className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 border border-[color:var(--color-light)]/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                   value={country}
                   onChange={(ev) => setCountry(ev.target.value)}
                 >
@@ -288,7 +288,7 @@ export default function AuthForm({ mode }: { mode: Mode }) {
                   <input
                     type="email"
                     autoComplete="email"
-                    className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 border border-black/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+                    className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 border border-[color:var(--color-light)]/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                     value={email}
                     onChange={(ev) => setEmail(ev.target.value)}
                     placeholder="you@example.com"
@@ -297,7 +297,7 @@ export default function AuthForm({ mode }: { mode: Mode }) {
 
                 <label className="block">
                   <span className="text-sm">Password</span>
-                  <div className="mt-1 flex w-full items-center gap-2 rounded-xl bg-[color:var(--color-light)]/40 border border-black/5 shadow-sm focus-within:ring-2 focus-within:ring-[color:var(--color-brand)]/30">
+                  <div className="mt-1 flex w-full items-center gap-2 rounded-xl bg-[color:var(--color-light)]/40 border border-[color:var(--color-light)]/40 shadow-sm focus-within:ring-2 focus-within:ring-[color:var(--color-brand)]/30">
                     <input
                       type={showPassword ? "text" : "password"}
                       autoComplete="new-password"
@@ -319,7 +319,7 @@ export default function AuthForm({ mode }: { mode: Mode }) {
 
                 <label className="block">
                   <span className="text-sm">Confirm password</span>
-                  <div className="mt-1 flex w-full items-center gap-2 rounded-xl bg-[color:var(--color-light)]/40 border border-black/5 shadow-sm focus-within:ring-2 focus-within:ring-[color:var(--color-brand)]/30">
+                  <div className="mt-1 flex w-full items-center gap-2 rounded-xl bg-[color:var(--color-light)]/40 border border-[color:var(--color-light)]/40 shadow-sm focus-within:ring-2 focus-within:ring-[color:var(--color-brand)]/30">
                     <input
                       type={showConfirm ? "text" : "password"}
                       autoComplete="new-password"
@@ -351,7 +351,7 @@ export default function AuthForm({ mode }: { mode: Mode }) {
                 type="email"
                 autoComplete="email"
                 required
-                className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 border border-black/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+                className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 border border-[color:var(--color-light)]/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                 value={email}
                 onChange={(ev) => setEmail(ev.target.value)}
                 placeholder="you@example.com"
@@ -360,7 +360,7 @@ export default function AuthForm({ mode }: { mode: Mode }) {
 
             <label className="block">
               <span className="text-sm">Password</span>
-              <div className="mt-1 flex w-full items-center gap-2 rounded-xl bg-[color:var(--color-light)]/40 border border-black/5 shadow-sm focus-within:ring-2 focus-within:ring-[color:var(--color-brand)]/30">
+              <div className="mt-1 flex w-full items-center gap-2 rounded-xl bg-[color:var(--color-light)]/40 border border-[color:var(--color-light)]/40 shadow-sm focus-within:ring-2 focus-within:ring-[color:var(--color-brand)]/30">
                 <input
                   type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
