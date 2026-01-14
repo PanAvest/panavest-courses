@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type Ebook = {
   id: string;
@@ -19,6 +19,23 @@ type Ebook = {
 export default function EbooksPage() {
   const [items, setItems] = useState<Ebook[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const normalizedQuery = query.trim().toLowerCase();
+
+  const visibleItems = useMemo(() => {
+    if (!items) return null;
+    if (!normalizedQuery) return items;
+    return items.filter((ebook) => {
+      const haystack = [
+        ebook.title ?? "",
+        ebook.description ?? "",
+        ebook.slug ?? "",
+      ]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(normalizedQuery);
+    });
+  }, [items, normalizedQuery]);
 
   useEffect(() => {
     (async () => {
@@ -40,6 +57,41 @@ export default function EbooksPage() {
         Browse our growing library. Preview PDFs are available; purchases add the title to your dashboard.
       </p>
 
+      <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="w-full md:max-w-md">
+          <label htmlFor="ebook-search" className="sr-only">
+            Search e-books
+          </label>
+          <div className="relative">
+            <input
+              id="ebook-search"
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search titles, topics, or keywords"
+              className="w-full rounded-lg bg-white px-4 py-2.5 pr-16 text-sm ring-1 ring-[color:var(--color-light)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-accent-red)]"
+              autoComplete="off"
+            />
+            {query.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted hover:text-ink"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+        {items && (
+          <div className="text-sm text-muted">
+            {normalizedQuery
+              ? `Showing ${visibleItems?.length ?? 0} of ${items.length}`
+              : `${items.length} books`}
+          </div>
+        )}
+      </div>
+
       {err && <div className="mt-6 text-red-600 text-sm">Error: {err}</div>}
 
       {!items && !err && (
@@ -53,9 +105,9 @@ export default function EbooksPage() {
         </div>
       )}
 
-      {items && (
+      {items && visibleItems && (
         <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((b, idx) => (
+          {visibleItems.map((b, idx) => (
             <Link
               key={b.id}
               href={`/ebooks/${encodeURIComponent(b.slug)}`}
@@ -90,8 +142,10 @@ export default function EbooksPage() {
               </div>
             </Link>
           ))}
-          {items.length === 0 && (
-            <div className="text-sm text-muted mt-6">No books yet.</div>
+          {visibleItems.length === 0 && (
+            <div className="text-sm text-muted mt-6">
+              {normalizedQuery ? `No results for "${query}".` : "No books yet."}
+            </div>
           )}
         </div>
       )}

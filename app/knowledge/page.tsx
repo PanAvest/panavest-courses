@@ -4,10 +4,9 @@ export const revalidate = 600;
 
 import type { Metadata } from "next";
 import { buildCanonical, defaultOgImage, siteName } from "../seo-config";
-import Link from "next/link";
-import Image from "next/image";
 
 import { getPublicCoursesCatalog } from "@/app/lib/public-data";
+import KnowledgeCatalogClient from "./KnowledgeCatalogClient";
 
 export const metadata: Metadata = {
   title: "Knowledge Programs – PanAvest KDS CPPD Learning",
@@ -49,36 +48,7 @@ export default async function KnowledgeIndex() {
       <h1 className="text-3xl font-bold">Knowledge</h1>
       <p className="text-muted mt-1">Browse PanAvest knowledge programs.</p>
 
-      <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {(items ?? []).map((c, idx) => (
-          <Link
-            key={c.id}
-            href={`/knowledge/${c.slug}`}
-            className="group rounded-xl bg-white shadow-sm transition-shadow duration-200 hover:shadow-md overflow-hidden animate-fade-up"
-            style={{ animationDelay: `${idx * 60}ms` }}
-          >
-            <div className="bg-white">
-              <Image
-                src={c.img || "/project-management.png"}
-                alt={c.title ?? "Course cover"}
-                width={1200}
-                height={900}
-                className="w-full h-auto"
-                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-              />
-            </div>
-            <div className="px-5 py-4">
-              <h3 className="font-semibold text-lg">{c.title}</h3>
-              <div className="mt-1 text-sm text-muted line-clamp-2">{c.description}</div>
-              <div className="mt-3 text-sm">
-                <span className="font-semibold">GH₵{Number(c.price ?? 0).toFixed(2)}</span>
-                <span className="ml-2 text-muted">· {c.cpd_points ?? 0} CPPD</span>
-              </div>
-            </div>
-          </Link>
-        ))}
-        {(items ?? []).length === 0 && <div className="text-muted">No items.</div>}
-      </div>
+      <KnowledgeCatalogClient items={items ?? []} />
     </div>
   );
 }
