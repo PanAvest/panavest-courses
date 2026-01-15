@@ -472,7 +472,7 @@ export default function DashboardPage() {
   }, [quiz, chaptersById]);
 
   const makeKdsCertId = (u: string, courseId?: string) => `KDS-${u.slice(0, 8).toUpperCase()}${courseId ? "-" + courseId.slice(0, 6).toUpperCase() : ""}`;
-  const origin = typeof window !== "undefined" && window.location ? window.location.origin : "https://kdslearning.com";
+  const verifyOrigin = "https://www.panavestkds.com";
 
   const downloadCertPdf = async (
     certId: string,
@@ -805,7 +805,7 @@ export default function DashboardPage() {
                   const bg = c.courses?.img ?? "/project-management.png";
                   const cpd = (c.courses?.cpd_points ?? null) as number | null;
                   const kdsCertId = makeKdsCertId(userId, c.course_id);
-                  const verifyUrl = `${origin}/verify?cert_id=${encodeURIComponent(c.id)}`;
+                  const verifyUrl = `${verifyOrigin}/verify?cert_id=${encodeURIComponent(c.id)}`;
 
                   return (
                     <div key={c.id} className="rounded-xl border border-[color:var(--color-light)]/40 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md overflow-hidden">
