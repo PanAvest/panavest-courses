@@ -1,6 +1,6 @@
 # SCM AI (EIS Smart Search)
 
-SCM AI is a smart Global Supply Chain Management dictionary, a groundbreaking resource designed to empower professionals, students, and businesses across the continent. The platform uses AI to simplify supply chain management with clear definitions, practical examples, and case studies tailored to the region's unique business environment.
+A next-generation Global (Supply Chain Management) dictionary designed for professionals, students, and businesses across Africa. (Powered by AI), it transforms complex supply-chain concepts into clear definitions, practical insights, and region-relevant case studies.
 
 ## Local Development
 
