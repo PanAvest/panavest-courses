@@ -11,6 +11,11 @@ type Entry = {
   examples?: string
 }
 
+type PapaParse = {
+  parse: (csv: string, config: any) => { data: any[] }
+  unparse: (data: any) => string
+}
+
 const ADMIN_USER = 'panavest-admin'
 const ADMIN_PASS = 'panavest-2024'
 
@@ -107,7 +112,7 @@ function AdminApp() {
   const [dirty, setDirty] = useState(false)
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState('Ready')
-  const papaRef = useRef<any>(null)
+  const papaRef = useRef<PapaParse | null>(null)
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -115,7 +120,7 @@ function AdminApp() {
     return entries.filter((e) => e.term.toLowerCase().includes(q))
   }, [entries, query])
 
-  const loadPapa = () =>
+  const loadPapa = (): Promise<PapaParse> =>
     new Promise((resolve, reject) => {
       if (papaRef.current) return resolve(papaRef.current)
       const existing = (window as any).Papa
@@ -262,7 +267,7 @@ function AdminApp() {
       <div className="login-wrap">
         <style>{STYLES}</style>
         <form className="login-card" onSubmit={handleLogin}>
-          <div className="login-title">PanAvest Admin</div>
+          <div className="login-title">SCM AI Admin</div>
           <div className="login-sub">Secure access to manage terms and definitions.</div>
           <div className="form-row">
             <label className="label">Username</label>
@@ -292,7 +297,7 @@ function AdminApp() {
       <style>{STYLES}</style>
       <header className="admin-header">
         <div className="brand">
-          <span>PanAvest</span> Admin
+          <span>SCM AI</span> Admin
         </div>
         <div className="header-actions">
           <button className="btn btn-secondary" onClick={loadCsv} disabled={loading}>

@@ -15,12 +15,13 @@ const isBadPollinations = (text: string) => {
   )
 }
 
-const callPollinationsChat = async (prompt: string, useKey: boolean) => {
+const callPollinationsChat = async (prompt: string) => {
+  if (!API_KEY) throw new Error('Missing POLLINATIONS_API_KEY')
   const response = await fetch(`${BASE_URL}/v1/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      ...(useKey && API_KEY ? { Authorization: `Bearer ${API_KEY}` } : {}),
+      Authorization: `Bearer ${API_KEY}`,
     },
     body: JSON.stringify({
       model: MODEL,
@@ -59,12 +60,13 @@ const callPollinationsChat = async (prompt: string, useKey: boolean) => {
   return finalText
 }
 
-const callPollinationsText = async (prompt: string, useKey: boolean) => {
+const callPollinationsText = async (prompt: string) => {
+  if (!API_KEY) throw new Error('Missing POLLINATIONS_API_KEY')
   const query = new URLSearchParams({
     model: MODEL,
     temperature: '0.3',
   })
-  if (useKey && API_KEY) query.set('key', API_KEY)
+  query.set('key', API_KEY)
   const url = `${BASE_URL}/text/${encodeURIComponent(prompt)}?${query.toString()}`
   const response = await fetch(url, { method: 'GET' })
   const textBody = await response.text()
@@ -91,32 +93,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    if (!API_KEY) {
+      res.status(500).json({ error: 'Missing POLLINATIONS_API_KEY. Use a secret key from enter.pollinations.ai.' })
+      return
+    }
+
     let text = ''
-    if (API_KEY) {
-      try {
-        text = await callPollinationsChat(String(prompt), true)
-      } catch {
-        text = await callPollinationsText(String(prompt), true)
-      }
-    } else {
-      try {
-        text = await callPollinationsChat(String(prompt), false)
-      } catch {
-        text = await callPollinationsText(String(prompt), false)
-      }
+    try {
+      text = await callPollinationsChat(String(prompt))
+    } catch {
+      text = await callPollinationsText(String(prompt))
     }
     res.status(200).json({ text })
   } catch (error: any) {
-    try {
-      let text = ''
-      try {
-        text = await callPollinationsChat(String(prompt), false)
-      } catch {
-        text = await callPollinationsText(String(prompt), false)
-      }
-      res.status(200).json({ text })
-    } catch (fallbackError: any) {
-      res.status(500).json({ error: fallbackError?.message || error?.message || 'PanAvest AI request failed' })
-    }
+    res.status(500).json({ error: error?.message || 'SCM AI request failed' })
   }
 }

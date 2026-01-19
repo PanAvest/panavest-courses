@@ -7,6 +7,8 @@ export default defineConfig(({ mode }) => {
   const apiKey = env.POLLINATIONS_API_KEY
   const baseUrl = env.POLLINATIONS_BASE_URL || 'https://gen.pollinations.ai'
   const model = env.POLLINATIONS_MODEL || 'openai'
+  const cseKey = env.GOOGLE_CSE_API_KEY
+  const cseCx = env.GOOGLE_CSE_CX
 
   return {
     plugins: [
@@ -38,6 +40,14 @@ export default defineConfig(({ mode }) => {
                   res.end(JSON.stringify({ error: 'Missing prompt' }))
                   return
                 }
+                if (!apiKey) {
+                  res.statusCode = 500
+                  res.setHeader('Content-Type', 'application/json')
+                  res.end(
+                    JSON.stringify({ error: 'Missing POLLINATIONS_API_KEY. Use a secret key from enter.pollinations.ai.' })
+                  )
+                  return
+                }
 
                 const isBadPollinations = (text: string) => {
                   const s = (text || '').toLowerCase()
@@ -50,12 +60,12 @@ export default defineConfig(({ mode }) => {
                   )
                 }
 
-                const callPollinationsChat = async (useKey: boolean) => {
+                const callPollinationsChat = async () => {
                   const response = await fetch(`${baseUrl}/v1/chat/completions`, {
                     method: 'POST',
                     headers: {
                       'Content-Type': 'application/json',
-                      ...(useKey && apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+                      Authorization: `Bearer ${apiKey}`,
                     },
                     body: JSON.stringify({
                       model,
@@ -94,12 +104,12 @@ export default defineConfig(({ mode }) => {
                 return finalText
               }
 
-              const callPollinationsText = async (useKey: boolean) => {
+              const callPollinationsText = async () => {
                 const query = new URLSearchParams({
                   model,
                   temperature: '0.3',
                 })
-                if (useKey && apiKey) query.set('key', apiKey)
+                query.set('key', apiKey)
                 const url = `${baseUrl}/text/${encodeURIComponent(prompt)}?${query.toString()}`
                 const response = await fetch(url, { method: 'GET' })
                 const textBody = await response.text()
@@ -115,25 +125,9 @@ export default defineConfig(({ mode }) => {
 
               let text = ''
               try {
-                if (apiKey) {
-                  try {
-                    text = await callPollinationsChat(true)
-                  } catch {
-                    text = await callPollinationsText(true)
-                  }
-                } else {
-                  try {
-                    text = await callPollinationsChat(false)
-                  } catch {
-                    text = await callPollinationsText(false)
-                  }
-                }
-              } catch (err) {
-                try {
-                  text = await callPollinationsChat(false)
-                } catch {
-                  text = await callPollinationsText(false)
-                }
+                text = await callPollinationsChat()
+              } catch {
+                text = await callPollinationsText()
               }
 
                 res.statusCode = 200
@@ -142,9 +136,85 @@ export default defineConfig(({ mode }) => {
               } catch (err: any) {
                 res.statusCode = 500
                 res.setHeader('Content-Type', 'application/json')
-                res.end(JSON.stringify({ error: err?.message || 'PanAvest AI request failed' }))
+                res.end(JSON.stringify({ error: err?.message || 'SCM AI request failed' }))
               }
             })
+          })
+
+          server.middlewares.use('/api/image', (req, res) => {
+            if (req.method !== 'GET') {
+              res.statusCode = 405
+              res.setHeader('Content-Type', 'application/json')
+              res.end(JSON.stringify({ error: 'Method not allowed' }))
+              return
+            }
+
+            const url = new URL(req.url || '', 'http://localhost')
+            const q = url.searchParams.get('q')?.trim() || ''
+            if (!q) {
+              res.statusCode = 400
+              res.setHeader('Content-Type', 'application/json')
+              res.end(JSON.stringify({ error: 'Missing query' }))
+              return
+            }
+
+            if (!cseKey || !cseCx) {
+              res.statusCode = 500
+              res.setHeader('Content-Type', 'application/json')
+              res.end(JSON.stringify({ error: 'Missing Google CSE configuration' }))
+              return
+            }
+
+            const params = new URLSearchParams({
+              key: cseKey,
+              cx: cseCx,
+              q,
+              searchType: 'image',
+              num: '1',
+              safe: 'active',
+            })
+            const apiUrl = `https://www.googleapis.com/customsearch/v1?${params.toString()}`
+
+            fetch(apiUrl)
+              .then(async (response) => {
+                const body = await response.text()
+                if (!response.ok) {
+                  res.statusCode = response.status
+                  res.setHeader('Content-Type', 'application/json')
+                  res.end(JSON.stringify({ error: body.slice(0, 500) }))
+                  return
+                }
+
+                let data: any
+                try {
+                  data = JSON.parse(body)
+                } catch {
+                  res.statusCode = 502
+                  res.setHeader('Content-Type', 'application/json')
+                  res.end(JSON.stringify({ error: 'Invalid response from Google' }))
+                  return
+                }
+
+                const item = data?.items?.[0]
+                const link = typeof item?.link === 'string' ? item.link : ''
+                const thumbnail = typeof item?.image?.thumbnailLink === 'string' ? item.image.thumbnailLink : ''
+
+                if (!link && !thumbnail) {
+                  res.statusCode = 404
+                  res.setHeader('Content-Type', 'application/json')
+                  res.end(JSON.stringify({ error: 'No image results' }))
+                  return
+                }
+
+                res.statusCode = 200
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ url: link || thumbnail, thumbnail }))
+              })
+              .catch((err: any) => {
+                res.statusCode = 500
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ error: err?.message || 'Failed to fetch image' }))
+              })
           })
         },
       },

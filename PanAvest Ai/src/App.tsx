@@ -120,6 +120,7 @@ body { margin: 0; font-family: "Google Sans", "Segoe UI", Roboto, Helvetica, Ari
 .mini-read-btn { background: none; border: none; color: #14ae5c; font-size: 11px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 4px; }
 .mini-read-btn:hover { background: #f0fdf4; }
 .context-img { width: 100%; height: 220px; object-fit: cover; border-radius: 8px; margin-top: 12px; border: 1px solid var(--border); background: #f0f0f0; }
+.context-img.placeholder { display: flex; align-items: center; justify-content: center; color: #7a7a7a; font-size: 12px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase; }
 
 .regen-btn {
   width: 100%; margin-top: 12px; padding: 8px; background: var(--surface); border: 1px solid var(--border);
@@ -171,6 +172,7 @@ body { margin: 0; font-family: "Google Sans", "Segoe UI", Roboto, Helvetica, Ari
 .welcome-screen { text-align: center; padding-top: 60px; opacity: 0; animation: fade-in 0.6s forwards; }
 .w-title { font-size: 36px; font-weight: 600; margin-bottom: 10px; color: var(--text-main); }
 .w-sub { color: var(--text-sub); margin-bottom: 30px; font-size: 16px; }
+.highlight { color: var(--primary); font-weight: 700; }
 
 /* Utilities */
 @keyframes slide-up { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
@@ -348,15 +350,36 @@ function useTTS() {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([])
   const synth = useRef(window.speechSynthesis)
 
+  const pickBestVoice = (list: SpeechSynthesisVoice[]) => {
+    const english = list.filter((v) => v.lang.toLowerCase().startsWith('en'))
+    const pool = english.length ? english : list
+    const patterns = [
+      /google us english/i,
+      /google uk english female/i,
+      /google uk english/i,
+      /microsoft (aria|jenny|guy|sara|zira|david)/i,
+      /natural/i,
+      /neural/i,
+      /samantha/i,
+      /alex/i,
+      /karen/i,
+      /moira/i,
+      /google/i,
+    ]
+    for (const pattern of patterns) {
+      const match = pool.find((v) => pattern.test(v.name))
+      if (match) return match
+    }
+    return pool[0]
+  }
+
   useEffect(() => {
     const load = () => {
       const v = synth.current.getVoices().sort((a, b) => a.name.localeCompare(b.name))
       setVoices(v)
-      if (!selectedVoiceURI) {
-        const best =
-          v.find((x) => x.name.toLowerCase().includes('moira') && x.lang.toLowerCase() === 'en-ie') ||
-          v.find((x) => (x.name.includes('Google') || x.name.includes('Natural')) && x.lang.startsWith('en')) ||
-          v.find((x) => x.lang.startsWith('en'))
+      const hasSelected = v.some((voice) => voice.voiceURI === selectedVoiceURI)
+      if (!selectedVoiceURI || !hasSelected) {
+        const best = pickBestVoice(v)
         if (best) setSelectedVoiceURI(best.voiceURI)
       }
     }
@@ -377,10 +400,14 @@ function useTTS() {
 
     const u = new SpeechSynthesisUtterance(text)
     const voice = voices.find((v) => v.voiceURI === selectedVoiceURI)
-    if (voice) u.voice = voice
+    if (voice) {
+      u.voice = voice
+      u.lang = voice.lang
+    }
 
-    u.rate = 1.0
+    u.rate = 0.95
     u.pitch = 1.0
+    u.volume = 1.0
     u.onend = () => setSpeakingId(null)
     synth.current.speak(u)
   }
@@ -388,7 +415,7 @@ function useTTS() {
   return { speak, speakingId, voices, selectedVoiceURI, setSelectedVoiceURI }
 }
 
-// 3. AI GENERATOR (PanAvest AI)
+// 3. AI GENERATOR (SCM AI)
 function useAI() {
   const [status] = useState<'loading' | 'ready' | 'error'>('ready')
   const transformersRef = useRef<any>(null)
@@ -426,12 +453,12 @@ function useAI() {
 
     if (!response.ok) {
       const errText = await response.text()
-      throw new Error(JSON.stringify({ status: response.status, body: errText || 'PanAvest AI error' }))
+      throw new Error(JSON.stringify({ status: response.status, body: errText || 'SCM AI error' }))
     }
 
     const data = await response.json()
     const text = data?.text || ''
-    if (!text) throw new Error('PanAvest AI returned empty response')
+    if (!text) throw new Error('SCM AI returned empty response')
     return text
   }
 
@@ -445,6 +472,10 @@ function useAI() {
       text.includes('quota') ||
       text.includes('rate limit') ||
       text.includes('payment required') ||
+      text.includes('unauthorized') ||
+      text.includes('authenticate') ||
+      text.includes('authentication') ||
+      text.includes('"status":401') ||
       text.includes('important notice') ||
       text.includes('legacy text api') ||
       text.includes('being deprecated') ||
@@ -458,7 +489,7 @@ function useAI() {
     if (transformersReadyRef.current) return transformersReadyRef.current
 
     transformersReadyRef.current = import(
-      'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.14.2/dist/transformers.min.js'
+      /* @vite-ignore */ 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.14.2/dist/transformers.min.js'
     )
       .then((mod: any) => {
         const lib = mod?.pipeline ? mod : mod?.default
@@ -495,7 +526,7 @@ function useAI() {
       const text = await pollinationsGenerate(anchor, isRegen)
       return formatToHtml(text, anchor)
     } catch (e) {
-      console.error('PanAvest AI error', e)
+      console.error('SCM AI error', e)
 
       if (shouldFallback(String(e))) {
         try {
@@ -507,7 +538,7 @@ function useAI() {
       }
     }
 
-    return `<i>Could not reach PanAvest AI services. Here is a summary:</i><br/><br/><b>Concept:</b> ${anchor.term} is a concept in ${anchor.tags || 'supply chain'} regarding ${anchor.definition}.<br/><br/><b>Real-World Example:</b> This often appears when companies manage sourcing, inventory, logistics, or supplier performance related to the term.`
+    return `<i>Could not reach SCM AI services. Here is a summary:</i><br/><br/><b>Concept:</b> ${anchor.term} is a concept in ${anchor.tags || 'supply chain'} regarding ${anchor.definition}.<br/><br/><b>Real-World Example:</b> This often appears when companies manage sourcing, inventory, logistics, or supplier performance related to the term.`
   }
 
   return { status, generate }
@@ -554,7 +585,7 @@ const SettingsDialog = ({
           <label className="modal-label">Text-to-Speech</label>
           <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#333' }}>
             <input type="checkbox" checked={autoReadAi} onChange={(e) => setAutoReadAi(e.target.checked)} />
-            Auto-read PanAvest AI insights
+            Auto-read SCM AI insights
           </label>
         </div>
         <div className="modal-actions">
@@ -577,7 +608,8 @@ const ThinkingIndicator = () => {
   useEffect(() => {
     let i = 0
     const interval = setInterval(() => {
-      setThought(thoughts[i % thoughts.length])
+      const nextThought = thoughts[i % thoughts.length] ?? 'Thinking...'
+      setThought(nextThought)
       i += 1
     }, 1200)
     return () => clearInterval(interval)
@@ -587,7 +619,7 @@ const ThinkingIndicator = () => {
     <div className="thinking-box">
       <div className="thinking-header">
         <div className="pulse-dot"></div>
-        PanAvest AI is Thinking...
+        SCM AI is thinking...
       </div>
       <div className="thought-process">
         <span className="fade-text">» {thought}</span>
@@ -612,6 +644,11 @@ const SmartCard = ({
   const [expanded, setExpanded] = useState<'details' | 'ai' | null>(null)
   const [aiText, setAiText] = useState('')
   const [loadingAi, setLoadingAi] = useState(false)
+  const [imageUrl, setImageUrl] = useState('')
+  const [imageAltUrl, setImageAltUrl] = useState('')
+  const [imageLoading, setImageLoading] = useState(false)
+  const [imageError, setImageError] = useState(false)
+  const [imageErrorMessage, setImageErrorMessage] = useState('')
 
   const fetchAi = async (regen = false) => {
     setLoadingAi(true)
@@ -620,11 +657,57 @@ const SmartCard = ({
       const next = txt || ''
       setAiText(next)
     } catch (e) {
-      console.error('PanAvest AI generate error', e)
+      console.error('SCM AI generate error', e)
       setAiText(fallbackExplanation(entry))
     } finally {
       setLoadingAi(false)
     }
+  }
+
+  const fetchImage = async () => {
+    if (imageLoading || imageUrl) return
+    const query = entry.term?.trim()
+    if (!query) return
+
+    setImageLoading(true)
+    setImageError(false)
+    setImageErrorMessage('')
+    try {
+      const res = await fetch(`/api/image?q=${encodeURIComponent(query)}`)
+      const bodyText = await res.text()
+      let data: any = {}
+      if (bodyText) {
+        try {
+          data = JSON.parse(bodyText)
+        } catch {
+          data = {}
+        }
+      }
+      if (!res.ok) {
+        const serverError = typeof data?.error === 'string' ? data.error : bodyText
+        throw new Error(serverError || `Image lookup failed (${res.status})`)
+      }
+      const next = typeof data?.url === 'string' ? data.url : ''
+      const thumb = typeof data?.thumbnail === 'string' ? data.thumbnail : ''
+      if (!next && !thumb) throw new Error('No image found')
+      setImageUrl(next || thumb)
+      setImageAltUrl(thumb)
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e)
+      console.error('SCM AI image error', e)
+      setImageErrorMessage(message)
+      setImageError(true)
+    } finally {
+      setImageLoading(false)
+    }
+  }
+
+  const handleImageError = () => {
+    if (imageAltUrl && imageUrl !== imageAltUrl) {
+      setImageUrl(imageAltUrl)
+      return
+    }
+    setImageError(true)
   }
 
   const handleAi = async () => {
@@ -634,6 +717,7 @@ const SmartCard = ({
     }
     setExpanded('ai')
     if (!aiText) fetchAi()
+    fetchImage()
   }
 
   const handleCopy = () => {
@@ -676,7 +760,7 @@ const SmartCard = ({
           <svg className="action-icon" viewBox="0 0 24 24" fill="currentColor">
             <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2zm0-4H7V7h10v2z" />
           </svg>
-          {ai.status === 'loading' ? 'Loading PanAvest AI...' : 'Explain with PanAvest AI'}
+          {ai.status === 'loading' ? 'Loading SCM AI...' : 'Explain with SCM AI'}
         </button>
 
         <button
@@ -726,7 +810,7 @@ const SmartCard = ({
       {expanded === 'ai' && (
         <div className="details-panel ai-box">
           <div className="ai-header">
-            <div className="ai-badge">✨ PanAvest AI</div>
+            <div className="ai-badge">✨ SCM AI</div>
             {aiText && !loadingAi && (
               <button
                 className="mini-read-btn"
@@ -740,12 +824,24 @@ const SmartCard = ({
             )}
           </div>
 
-          <img
-            src={`https://loremflickr.com/600/300/${encodeURIComponent(entry.tags?.split(',')[0] || entry.term || 'business')},logistics/all?lock=${entry.term.length}`}
-            className="context-img"
-            alt={entry.term}
-            onError={(e) => (e.currentTarget.style.display = 'none')}
-          />
+          {imageUrl && !imageError ? (
+            <img
+              src={imageUrl}
+              className="context-img"
+              alt={entry.term}
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              onError={handleImageError}
+            />
+          ) : (
+            <div className="context-img placeholder">
+              {imageLoading
+                ? 'Loading image...'
+                : imageErrorMessage.toLowerCase().includes('google cse')
+                ? 'Image unavailable (set Google CSE keys)'
+                : 'Image unavailable'}
+            </div>
+          )}
 
           {loadingAi ? (
             <ThinkingIndicator />
@@ -911,7 +1007,7 @@ export default function App() {
 
         <div className={`header ${messages.length > 0 ? 'scrolled' : ''}`}>
           <div className="brand">
-            <span>PanAvest</span> AI
+            <span>SCM</span> AI
           </div>
 
           <div className="header-controls">
@@ -928,7 +1024,10 @@ export default function App() {
             type="file"
             ref={fileInputRef}
             hidden
-            onChange={(e) => e.target.files && handleFile(e.target.files[0])}
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) handleFile(file)
+            }}
             accept=".csv"
           />
         </div>
@@ -937,8 +1036,13 @@ export default function App() {
           {messages.length === 0 ? (
             <div className="welcome-screen width-constraint">
               <div style={{ fontSize: '48px', marginBottom: '16px' }}>✨</div>
-              <h1 className="w-title">How can I help?</h1>
-              <p className="w-sub">Search for definitions, acronyms, or concepts.</p>
+              <h1 className="w-title">SCM AI</h1>
+              <p className="w-sub">
+                A next-generation Global <span className="highlight">(Supply Chain Management)</span> dictionary designed for
+                professionals, students, and businesses across Africa. <span className="highlight">(Powered by AI)</span>, it
+                transforms complex supply-chain concepts into clear definitions, practical insights, and region-relevant case
+                studies.
+              </p>
               {status === 'empty' && (
                 <div style={{ color: '#d93025', fontWeight: 500 }}>Please drag & drop scmpedia_full.csv here</div>
               )}
@@ -947,7 +1051,7 @@ export default function App() {
             <div className="width-constraint">
               {messages.map((m) => (
                 <div key={m.id} className={`message-row ${m.role}`}>
-                  {m.role === 'bot' && <div className="avatar bot">PA</div>}
+                  {m.role === 'bot' && <div className="avatar bot">SCM</div>}
                   <div className="bubble">
                     {m.content && <div style={{ padding: m.role === 'bot' ? '12px 0' : undefined }}>{m.content}</div>}
                     {m.entry && <SmartCard entry={m.entry} allData={data} tts={tts} ai={ai} autoReadAi={autoReadAi} />}
@@ -979,7 +1083,7 @@ export default function App() {
             <div className="input-wrapper">
               <input
                 className="chat-input"
-                placeholder={status === 'ready' ? 'Ask about a concept...' : 'Load database to start...'}
+                placeholder={status === 'ready' ? 'Search a supply chain term...' : 'Load database to start...'}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -992,7 +1096,7 @@ export default function App() {
               </button>
             </div>
             <div style={{ textAlign: 'center', fontSize: '11px', color: '#999', marginTop: '12px' }}>
-              Powered by PanAvest International & Partners • Prof. Douglas Boateng
+              Powered by SCM AI • Prof. Douglas Boateng
             </div>
           </div>
         </div>

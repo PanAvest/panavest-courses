@@ -1,6 +1,6 @@
-# PanAvest AI (EIS Smart Search)
+# SCM AI (EIS Smart Search)
 
-Supply-chain glossary search with AI explanations and a CSV-backed dataset.
+SCM AI is a smart Global Supply Chain Management dictionary, a groundbreaking resource designed to empower professionals, students, and businesses across the continent. The platform uses AI to simplify supply chain management with clear definitions, practical examples, and case studies tailored to the region's unique business environment.
 
 ## Local Development
 
@@ -17,6 +17,8 @@ Create `.env.local` with:
 POLLINATIONS_API_KEY=your_key_here
 POLLINATIONS_BASE_URL=https://gen.pollinations.ai
 POLLINATIONS_MODEL=openai
+GOOGLE_CSE_API_KEY=your_key_here
+GOOGLE_CSE_CX=your_search_engine_id
 ```
 
 On Vercel, add the same variables in Project Settings → Environment Variables.
