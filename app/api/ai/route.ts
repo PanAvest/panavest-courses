@@ -133,7 +133,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ text }, { status: 200 });
     } catch (fallbackError: unknown) {
       return NextResponse.json(
-        { error: getErrorMessage(fallbackError) || getErrorMessage(error) || "PanAvest AI request failed" },
+        { error: getErrorMessage(fallbackError) || getErrorMessage(error) || "SCM AI request failed" },
         { status: 500 }
       );
     }

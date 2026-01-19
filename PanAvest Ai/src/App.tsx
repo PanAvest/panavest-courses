@@ -1007,7 +1007,7 @@ export default function App() {
 
         <div className={`header ${messages.length > 0 ? 'scrolled' : ''}`}>
           <div className="brand">
-            <span>SCM AI</span>
+            <span>SCM</span> AI
           </div>
 
           <div className="header-controls">
@@ -1069,7 +1069,7 @@ export default function App() {
               <div className="predictive-list">
                 {suggestions.map((s, i) => (
                   <div
-                    key={s.term}
+                    key={`${s.term}-${i}`}
                     className={`predictive-item ${i === selectedSug ? 'selected' : ''}`}
                     onClick={() => handleSubmit(s.term)}
                   >

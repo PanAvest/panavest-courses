@@ -293,12 +293,12 @@ function useAI() {
 
     if (!response.ok) {
       const errText = await response.text();
-      throw new Error(JSON.stringify({ status: response.status, body: errText || "PanAvest AI error" }));
+      throw new Error(JSON.stringify({ status: response.status, body: errText || "SCM AI error" }));
     }
 
     const data = await response.json();
     const text = data?.text || "";
-    if (!text) throw new Error("PanAvest AI returned empty response");
+    if (!text) throw new Error("SCM AI returned empty response");
     return text;
   };
 
@@ -382,7 +382,7 @@ function useAI() {
       const text = await pollinationsGenerate(anchor, isRegen);
       return formatToHtml(text, anchor);
     } catch (e) {
-      console.error("PanAvest AI error", e);
+      console.error("SCM AI error", e);
 
       if (shouldFallback(String(e))) {
         try {
@@ -394,7 +394,7 @@ function useAI() {
       }
     }
 
-    return `<i>Could not reach PanAvest AI services. Here is a summary:</i><br/><br/><b>Concept:</b> ${
+    return `<i>Could not reach SCM AI services. Here is a summary:</i><br/><br/><b>Concept:</b> ${
       anchor.term
     } is a concept in ${anchor.tags || "supply chain"} regarding ${
       anchor.definition
@@ -445,7 +445,7 @@ const SettingsDialog = ({
           <label className={styles.modalLabel}>Text-to-Speech</label>
           <label className={styles.modalLabel} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <input type="checkbox" checked={autoReadAi} onChange={(e) => setAutoReadAi(e.target.checked)} />
-            Auto-read PanAvest AI insights
+            Auto-read SCM AI insights
           </label>
         </div>
         <div className={styles.modalActions}>
@@ -478,7 +478,7 @@ const ThinkingIndicator = () => {
     <div className={styles.thinkingBox}>
       <div className={styles.thinkingHeader}>
         <div className={styles.pulseDot}></div>
-        PanAvest AI is Thinking...
+        SCM AI is Thinking...
       </div>
       <div className={styles.thoughtProcess}>
         <span className={styles.fadeText}>» {thought}</span>
@@ -512,7 +512,7 @@ const SmartCard = ({
         tts.speak(`ai-${entry.term}`, next.replace(/<[^>]*>/g, ""));
       }
     } catch (e) {
-      console.error("PanAvest AI generate error", e);
+      console.error("SCM AI generate error", e);
       setAiText(fallbackExplanation(entry));
     } finally {
       setLoadingAi(false);
@@ -573,7 +573,7 @@ const SmartCard = ({
           <svg className={styles.actionIcon} viewBox="0 0 24 24" fill="currentColor">
             <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2zm0-4H7V7h10v2z" />
           </svg>
-          {ai.status === "loading" ? "Loading PanAvest AI..." : "Explain with PanAvest AI"}
+          {ai.status === "loading" ? "Loading SCM AI..." : "Explain with SCM AI"}
         </button>
 
         <button
@@ -623,7 +623,7 @@ const SmartCard = ({
       {expanded === "ai" && (
         <div className={`${styles.detailsPanel} ${styles.aiBox}`}>
           <div className={styles.aiBoxHeader}>
-            <div className={styles.aiBadge}>✨ PanAvest AI</div>
+            <div className={styles.aiBadge}>✨ SCM AI</div>
             {aiText && !loadingAi && (
               <button
                 className={styles.miniReadBtn}
@@ -697,6 +697,8 @@ export default function PanAvestAIPage() {
   const [showBeta, setShowBeta] = useState(true);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLElement | null>(null);
+  const footerRafRef = useRef<number | null>(null);
 
   const stopWords = useMemo(
     () => /^(what is|what's|define|explain|describe|meaning of|tell me about|search for|look up|do you know)\s+/i,
@@ -708,6 +710,43 @@ export default function PanAvestAIPage() {
     return () => window.clearTimeout(t);
   }, []);
 
+  useEffect(() => {
+    const root = rootRef.current;
+    const footer = document.querySelector("footer");
+    if (!root || !footer) return;
+
+    const update = () => {
+      const rect = footer.getBoundingClientRect();
+      const overlap = Math.max(0, window.innerHeight - rect.top);
+      root.style.setProperty("--ai-footer-offset", `${overlap}px`);
+    };
+
+    const onScroll = () => {
+      if (footerRafRef.current !== null) return;
+      footerRafRef.current = window.requestAnimationFrame(() => {
+        footerRafRef.current = null;
+        update();
+      });
+    };
+
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+
+    const resizeObserver = typeof ResizeObserver !== "undefined" ? new ResizeObserver(onScroll) : null;
+    resizeObserver?.observe(footer);
+
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      resizeObserver?.disconnect();
+      if (footerRafRef.current !== null) {
+        window.cancelAnimationFrame(footerRafRef.current);
+        footerRafRef.current = null;
+      }
+      root.style.removeProperty("--ai-footer-offset");
+    };
+  }, []);
 
   useEffect(() => {
     if (!input.trim() || !fuseRef.current) {
@@ -790,18 +829,18 @@ export default function PanAvestAIPage() {
   };
 
   return (
-    <section className={styles.aiRoot}>
+    <section ref={rootRef} className={styles.aiRoot}>
       {showBeta && (
-        <div className={styles.betaOverlay} role="dialog" aria-modal="true" aria-label="PanAvest AI beta">
+        <div className={styles.betaOverlay} role="dialog" aria-modal="true" aria-label="SCM AI beta">
           <div className={styles.betaCard}>
             <div className={styles.betaBadge}>Beta</div>
-            <h1 className={styles.betaTitle}>PanAvest AI</h1>
+            <h1 className={styles.betaTitle}>SCM AI</h1>
             <p className={styles.betaCopy}>
               You are entering the beta preview of our intelligent search and glossary experience. Feedback helps us
               improve.
             </p>
             <button className={styles.betaButton} onClick={() => setShowBeta(false)}>
-              Enter PanAvest AI
+              Enter SCM AI
             </button>
           </div>
         </div>
@@ -818,7 +857,7 @@ export default function PanAvestAIPage() {
 
         <div className={`${styles.aiHeader} ${messages.length > 0 ? styles.aiHeaderScrolled : ""}`}>
           <div className={styles.brand}>
-            <span>PanAvest</span> AI
+            <span>SCM</span> AI
           </div>
 
           <div className={styles.headerControls}>
@@ -839,8 +878,14 @@ export default function PanAvestAIPage() {
           {messages.length === 0 ? (
             <div className={`${styles.welcomeScreen} ${styles.widthConstraint}`}>
               <div style={{ fontSize: "48px", marginBottom: "16px" }}>✨</div>
-              <h1 className={styles.wTitle}>How can I help?</h1>
-              <p className={styles.wSub}>Search for definitions, acronyms, or concepts.</p>
+              <h1 className={styles.wTitle}>SCM AI</h1>
+              <p className={styles.wSub}>
+                SCM AI is a next-generation Global{" "}
+                <span className={styles.highlight}>(Supply Chain Management)</span> dictionary designed for
+                professionals, students, and businesses across Africa.{" "}
+                <span className={styles.highlight}>(Powered by AI)</span>, it transforms complex supply-chain concepts into
+                clear definitions, practical insights, and region-relevant case studies.
+              </p>
               {status === "empty" && (
                 <div className={styles.wHint}>Database is unavailable. Please contact support.</div>
               )}
@@ -852,7 +897,7 @@ export default function PanAvestAIPage() {
                   key={m.id}
                   className={`${styles.messageRow} ${m.role === "user" ? styles.messageRowUser : styles.messageRowBot}`}
                 >
-                  {m.role === "bot" && <div className={`${styles.avatar} ${styles.avatarBot}`}>PA</div>}
+                  {m.role === "bot" && <div className={`${styles.avatar} ${styles.avatarBot}`}>SCM</div>}
                   <div className={styles.bubble}>
                     {m.content && (
                       <div className={m.role === "bot" ? styles.botContent : styles.userBubble}>{m.content}</div>

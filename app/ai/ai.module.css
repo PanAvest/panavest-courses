@@ -12,6 +12,7 @@
   --ai-shadow: 0 6px 18px rgba(44, 37, 34, 0.08);
   --ai-input-offset: 150px;
   --ai-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --ai-footer-offset: 0px;
   background: var(--ai-bg);
   color: var(--ai-text-main);
   min-height: 100dvh;
@@ -483,7 +484,7 @@
 
 .inputArea {
   position: fixed;
-  bottom: 0;
+  bottom: var(--ai-footer-offset);
   left: 0;
   right: 0;
   background: linear-gradient(to top, var(--ai-bg) 85%, transparent);
@@ -621,6 +622,11 @@
   color: var(--ai-text-sub);
   margin-bottom: 30px;
   font-size: 16px;
+}
+
+.highlight {
+  color: #f97316;
+  font-weight: 700;
 }
 
 .wHint {

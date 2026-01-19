@@ -501,7 +501,7 @@ function AiGlossaryAdmin() {
     <div className="mt-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-lg font-semibold">PanAvest AI Glossary</h2>
+          <h2 className="text-lg font-semibold">SCM AI Glossary</h2>
           <p className="text-sm text-slate-500">
             Manage glossary terms and export a new CSV for deployment.
           </p>
@@ -3209,7 +3209,7 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* ───────────── PanAvest AI Glossary ───────────── */}
+      {/* ───────────── SCM AI Glossary ───────────── */}
       {tab === "ai" && <AiGlossaryAdmin />}
 
       {/* ───────────── Deploy ───────────── */}
