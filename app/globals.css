@@ -9,17 +9,11 @@
   --color-text-muted: #6d7d6f;  /* muted copy */
   --color-light: #f3e9e0;       /* card border / header divider */
   --color-soft: #d0c5be;        /* soft beige alt */
-}
 
-@theme inline {
-  --color-bg: var(--color-bg);
   --color-brand: var(--color-accent-red);
   --color-gold: var(--color-accent-gold);
   --color-ink: var(--color-text-dark);
   --color-muted: var(--color-text-muted);
-  --color-light: var(--color-light);
-  --color-soft: var(--color-soft);
-
   --radius-xl: 1rem;
 }
 
