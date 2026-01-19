@@ -1007,7 +1007,7 @@ export default function App() {
 
         <div className={`header ${messages.length > 0 ? 'scrolled' : ''}`}>
           <div className="brand">
-            <span>SCM</span> AI
+            <span>SCM AI</span>
           </div>
 
           <div className="header-controls">
