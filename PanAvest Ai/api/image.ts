@@ -63,7 +63,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     res.setHeader('Cache-Control', 's-maxage=86400, stale-while-revalidate=86400')
-    res.status(200).json({ url: link || thumbnail, thumbnail })
+    res.status(200).json({ url: thumbnail || link, thumbnail, link })
   } catch (error: any) {
     res.status(500).json({ error: error?.message || 'Failed to fetch image' })
   }

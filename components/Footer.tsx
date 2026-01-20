@@ -60,7 +60,7 @@ async function ProgramsList() {
 
 export default async function Footer() {
   return (
-    <footer className="w-full bg-[color:var(--color-bg)] border-t border-light">
+    <footer className="w-full bg-[color:var(--color-bg)]">
       {/* Full width, modest side padding */}
       <div className="w-full px-4 md:px-6 py-10">
         <div className="grid gap-10 md:grid-cols-4">

@@ -106,10 +106,10 @@ export default function Header() {
           <Link href="/ebooks" className="text-sm text-muted hover:text-ink">E-Books</Link>
           <Link
             href="/ai"
-            className="ai-glitter text-sm rounded-lg px-4 py-2 bg-brand text-white font-medium hover:opacity-90 inline-flex items-center gap-2 overflow-hidden focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+            className="ai-glitter text-sm rounded-lg px-4 py-2 bg-[color:var(--color-brand)] text-white font-medium hover:opacity-90 inline-flex items-center gap-2 overflow-hidden whitespace-nowrap shrink-0 focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
           >
             SCM AI
-            <span className="text-[10px] uppercase tracking-wide bg-white/20 text-white px-2 py-0.5 rounded-full">
+            <span className="text-[10px] uppercase tracking-wide bg-white/20 text-white px-2 py-0.5 rounded-full leading-none">
               Beta
             </span>
           </Link>
@@ -193,10 +193,10 @@ export default function Header() {
             <Link
               href="/ai"
               onClick={() => setOpen(false)}
-              className="ai-glitter rounded-lg px-4 py-2 bg-brand text-white font-medium text-center inline-flex items-center justify-center gap-2 overflow-hidden focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+              className="ai-glitter rounded-lg px-4 py-2 bg-[color:var(--color-brand)] text-white font-medium text-center inline-flex items-center justify-center gap-2 overflow-hidden whitespace-nowrap shrink-0 focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
             >
               SCM AI
-              <span className="text-[10px] uppercase tracking-wide bg-white/20 text-white px-2 py-0.5 rounded-full">
+              <span className="text-[10px] uppercase tracking-wide bg-white/20 text-white px-2 py-0.5 rounded-full leading-none">
                 Beta
               </span>
             </Link>

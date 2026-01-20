@@ -690,8 +690,8 @@ const SmartCard = ({
       const next = typeof data?.url === 'string' ? data.url : ''
       const thumb = typeof data?.thumbnail === 'string' ? data.thumbnail : ''
       if (!next && !thumb) throw new Error('No image found')
-      setImageUrl(next || thumb)
-      setImageAltUrl(thumb)
+      setImageUrl(thumb || next)
+      setImageAltUrl(next || thumb)
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
       console.error('SCM AI image error', e)
@@ -1069,7 +1069,7 @@ export default function App() {
               <div className="predictive-list">
                 {suggestions.map((s, i) => (
                   <div
-                    key={`${s.term}-${i}`}
+                    key={s.term}
                     className={`predictive-item ${i === selectedSug ? 'selected' : ''}`}
                     onClick={() => handleSubmit(s.term)}
                   >
