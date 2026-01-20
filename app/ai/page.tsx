@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import styles from "./ai.module.css";
 
@@ -16,12 +16,36 @@ type Entry = {
   [key: string]: unknown;
 };
 
+type MessageRole = "user" | "assistant";
+
+type MessageSections = {
+  concept: string;
+  example: string;
+  caseStudy: string;
+};
+
+type MessageImage = {
+  url?: string;
+  altUrl?: string;
+  loading?: boolean;
+  error?: string;
+};
+
+type MessageMeta = {
+  term?: string;
+  sections?: Partial<MessageSections>;
+  image?: MessageImage;
+  actions?: string[];
+  entry?: Entry;
+  mode?: "db" | "ai";
+};
+
 type Message = {
   id: string;
-  role: "user" | "bot";
-  content?: string;
-  entry?: Entry;
-  related?: Entry[];
+  role: MessageRole;
+  content: string;
+  meta?: MessageMeta;
+  status?: "idle" | "streaming" | "done" | "error";
   timestamp?: number;
 };
 
@@ -58,6 +82,22 @@ type TransformersLib = {
   pipeline: (task: string, model: string) => Promise<TransformersPipeline>;
 };
 
+type TransformersModule = {
+  default?: TransformersLib;
+  pipeline?: TransformersLib["pipeline"];
+};
+
+type ImageApiResponse = {
+  url?: string;
+  thumbnail?: string;
+  link?: string;
+  error?: string;
+};
+
+const USE_TRANSFORMERS = process.env.NEXT_PUBLIC_USE_TRANSFORMERS === "true";
+
+const DEFAULT_ACTIONS = ["read", "explain", "details", "copy", "regen", "images"] as const;
+
 type WindowWithGlobals = Window & {
   Fuse?: FuseConstructor;
   Papa?: PapaParse;
@@ -73,11 +113,6 @@ type TTS = {
   setSelectedVoiceURI: (value: string) => void;
 };
 
-type AIClient = {
-  status: "loading" | "ready" | "error";
-  generate: (e: Entry, regen?: boolean) => Promise<string>;
-};
-
 const uuid = () => Math.random().toString(36).substring(2, 9);
 
 const escapeHtml = (input: string) =>
@@ -88,13 +123,175 @@ const escapeHtml = (input: string) =>
     .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
-const fallbackExplanation = (anchor: Entry) => {
-  const concept = escapeHtml(anchor.definition || `${anchor.term} is a supply chain concept.`);
-  const exampleText =
-    anchor.examples ||
-    `In practice, ${anchor.term} could involve ${anchor.definition?.replace(/\.$/, "") || "real-world operations"}.`;
-  const example = escapeHtml(exampleText);
-  return `<b>Concept:</b> ${concept}<br/><br/><b>Real-World Example:</b> ${example}`;
+const stripHtml = (input: string) => input.replace(/<[^>]*>/g, "");
+
+const stripMarkdown = (input: string) =>
+  input
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\[(.*?)\]\((.*?)\)/g, "$1")
+    .replace(/^\s*[-*+]\s+/gm, "")
+    .replace(/^\s*>\s+/gm, "")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/[*_~]/g, "")
+    .replace(/\n{2,}/g, "\n")
+    .trim();
+
+const buildCaseStudy = (entry: Entry) => {
+  const sector = entry.tags?.split(",")[0]?.trim();
+  const industry = sector ? sector.toLowerCase() : "manufacturing";
+  return `In West Africa, a ${industry} company applied ${entry.term} to reduce delays, stabilize sourcing, and improve service levels across regional distribution hubs.`;
+};
+
+const buildFallbackSections = (entry: Entry): MessageSections => {
+  const concept = entry.definition || `${entry.term} is a supply chain concept.`;
+  const example =
+    entry.examples ||
+    `A practical example is when a company uses ${entry.term} to improve planning and execution across suppliers and logistics partners.`;
+  return {
+    concept,
+    example,
+    caseStudy: buildCaseStudy(entry),
+  };
+};
+
+const buildFallbackMarkdown = (entry: Entry) => {
+  const sections = buildFallbackSections(entry);
+  return `### Concept\n${sections.concept}\n\n### Real-World Example\n${sections.example}\n\n### Region-Tailored Case Study\n${sections.caseStudy}`;
+};
+
+const normalizeMarkdown = (raw: string, entry: Entry) => {
+  const base = stripHtml(raw || "").trim();
+  if (!base) return buildFallbackMarkdown(entry);
+
+  let text = base;
+  const fallback = buildFallbackSections(entry);
+
+  if (!/#+\s*Concept/i.test(text)) {
+    text = `### Concept\n${text}`;
+  }
+
+  if (!/#+\s*Real[- ]World Example/i.test(text)) {
+    text += `\n\n### Real-World Example\n${fallback.example}`;
+  }
+
+  if (!/#+\s*Region[- ]Tailored Case Study/i.test(text)) {
+    text += `\n\n### Region-Tailored Case Study\n${fallback.caseStudy}`;
+  }
+
+  return text.trim();
+};
+
+const parseSections = (content: string, entry: Entry): MessageSections => {
+  const fallback = buildFallbackSections(entry);
+  if (!content) return fallback;
+
+  const normalized = content.replace(/\r/g, "");
+  const sections: Partial<MessageSections> = {};
+
+  const headingRegex =
+    /(?:^|\n)#{2,}\s*(Concept|Real[- ]World Example|Real World Example|Example|Region[- ]Tailored Case Study|Case Study)\s*\n([\s\S]*?)(?=\n#{2,}\s*|$)/gi;
+  let match: RegExpExecArray | null = null;
+
+  while ((match = headingRegex.exec(normalized)) !== null) {
+    const label = match[1]?.toLowerCase() || "";
+    const body = (match[2] || "").trim();
+    if (!body) continue;
+    if (label.includes("concept")) sections.concept = body;
+    if (label.includes("case")) sections.caseStudy = body;
+    if (label.includes("example")) sections.example = body;
+  }
+
+  if (!sections.concept || !sections.example || !sections.caseStudy) {
+    const labelRegex =
+      /(?:^|\n)\s*(Concept|Real[- ]World Example|Real World Example|Example|Region[- ]Tailored Case Study|Case Study)\s*:\s*([\s\S]*?)(?=\n\s*(Concept|Real[- ]World Example|Real World Example|Example|Region[- ]Tailored Case Study|Case Study)\s*:|$)/gi;
+    while ((match = labelRegex.exec(normalized)) !== null) {
+      const label = match[1]?.toLowerCase() || "";
+      const body = (match[2] || "").trim();
+      if (!body) continue;
+      if (!sections.concept && label.includes("concept")) sections.concept = body;
+      if (!sections.caseStudy && label.includes("case")) sections.caseStudy = body;
+      if (!sections.example && label.includes("example")) sections.example = body;
+    }
+  }
+
+  return {
+    concept: sections.concept || fallback.concept,
+    example: sections.example || fallback.example,
+    caseStudy: sections.caseStudy || fallback.caseStudy,
+  };
+};
+
+const markdownToHtml = (input: string) => {
+  if (!input) return "";
+  let text = escapeHtml(input);
+  const listBlocks: string[] = [];
+
+  text = text.replace(/(?:^|\n)(- .+(?:\n- .+)*)/g, (match) => {
+    const items = match
+      .trim()
+      .split("\n")
+      .map((line) => line.replace(/^- /, "").trim())
+      .filter(Boolean);
+    if (!items.length) return match;
+    const html = `<ul>${items.map((item) => `<li>${item}</li>`).join("")}</ul>`;
+    const token = `@@LIST${listBlocks.length}@@`;
+    listBlocks.push(html);
+    return `\n${token}`;
+  });
+
+  text = text.replace(/^### (.*)$/gm, "<h3>$1</h3>");
+  text = text.replace(/^## (.*)$/gm, "<h2>$1</h2>");
+  text = text.replace(/^# (.*)$/gm, "<h1>$1</h1>");
+  text = text.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  text = text.replace(/\*(?!\*)([^*]+)\*/g, "<em>$1</em>");
+  text = text.replace(/`([^`]+)`/g, "<code>$1</code>");
+  text = text.replace(/\n/g, "<br/>");
+
+  listBlocks.forEach((html, idx) => {
+    text = text.replace(`@@LIST${idx}@@`, html);
+  });
+
+  return text;
+};
+
+const buildSpeechText = (entry: Entry, sections: MessageSections) => {
+  const parts = [entry.term];
+  if (sections.concept) parts.push(`Concept. ${stripMarkdown(sections.concept)}`);
+  if (sections.example) parts.push(`Real-world example. ${stripMarkdown(sections.example)}`);
+  if (sections.caseStudy) parts.push(`Region-tailored case study. ${stripMarkdown(sections.caseStudy)}`);
+  return parts.join(" ").trim();
+};
+
+const buildDefinitionSpeech = (entry: Entry) => {
+  const definition = stripMarkdown(entry.definition || "").trim();
+  if (!definition) return entry.term;
+  return `${entry.term}. Definition. ${definition}`;
+};
+
+const buildCopyText = (entry: Entry, sections: MessageSections) => {
+  return [
+    entry.term,
+    "",
+    "Concept:",
+    stripMarkdown(sections.concept),
+    "",
+    "Real-World Example:",
+    stripMarkdown(sections.example),
+    "",
+    "Region-Tailored Case Study:",
+    stripMarkdown(sections.caseStudy),
+  ].join("\n");
+};
+
+const buildDefinitionCopy = (entry: Entry) => {
+  const definition = stripMarkdown(entry.definition || "").trim();
+  return [entry.term, "", "Definition:", definition].join("\n");
+};
+
+const MarkdownBlock = ({ text, className }: { text: string; className?: string }) => {
+  const html = useMemo(() => markdownToHtml(text), [text]);
+  return <div className={className} dangerouslySetInnerHTML={{ __html: html }} />;
 };
 
 const loadScript = <T,>(src: string, globalName: keyof WindowWithGlobals) =>
@@ -259,31 +456,12 @@ function useAI() {
   const transformersRef = useRef<TransformersLib | null>(null);
   const transformersReadyRef = useRef<Promise<TransformersLib> | null>(null);
 
-  const formatToHtml = (raw: string, anchor: Entry) => {
-    let text = raw.trim();
-    if (!text) return fallbackExplanation(anchor);
-    const hasHtml = /<\/?[a-z][\s\S]*>/i.test(text);
-    if (!hasHtml) {
-      text = escapeHtml(text).replace(/\r?\n+/g, "\n");
-    }
-    text = text.replace(/Concept:/i, "<b>Concept:</b>").replace(/Real-World Example:/i, "<b>Real-World Example:</b>");
-    if (!text.includes("<b>Concept:</b>")) text = `<b>Concept:</b> ${text}`;
-    if (!text.includes("<b>Real-World Example:</b>")) {
-      text += `<br/><br/><b>Real-World Example:</b> ${escapeHtml(
-        anchor.examples || "A practical example can be observed in day-to-day supply chain operations."
-      )}`;
-    } else {
-      text = text.replace(/\n/g, "<br/>");
-    }
-    return text;
-  };
-
   const pollinationsGenerate = async (anchor: Entry, isRegen?: boolean) => {
     const instruction = isRegen
       ? "Re-explain this concept simply for a beginner. Use a fresh analogy."
-      : "Explain this concept simply to a professional. Provide a clear definition and a real-world supply chain example.";
+      : "Explain this concept simply to a professional. Provide a clear definition, a real-world example, and a region-tailored case study.";
 
-    const prompt = `You are a Supply Chain Tutor.\nTerm: "${anchor.term}"\nDefinition: "${anchor.definition}"\nTags: "${anchor.tags || ""}"\n\nTask: ${instruction}\n\nOutput Format:\nReturn strictly HTML with <b> tags. No markdown.\n1. <b>Concept:</b> (Explanation)\n2. <b>Real-World Example:</b> (Example)`;
+    const prompt = `You are a Supply Chain Tutor.\nTerm: "${anchor.term}"\nDefinition: "${anchor.definition}"\nTags: "${anchor.tags || ""}"\n\nTask: ${instruction}\n\nOutput Format (Markdown):\n### Concept\n(Explanation)\n\n### Real-World Example\n(Example)\n\n### Region-Tailored Case Study\n(Case study focused on Africa or emerging markets)`;
 
     const response = await fetch("/api/ai", {
       method: "POST",
@@ -291,12 +469,11 @@ function useAI() {
       body: JSON.stringify({ prompt }),
     });
 
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(JSON.stringify({ status: response.status, body: errText || "SCM AI error" }));
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data?.error) {
+      const errText = typeof data?.error === "string" ? data.error : "SCM AI error";
+      throw new Error(JSON.stringify({ status: response.status, body: errText }));
     }
-
-    const data = await response.json();
     const text = data?.text || "";
     if (!text) throw new Error("SCM AI returned empty response");
     return text;
@@ -312,6 +489,10 @@ function useAI() {
       text.includes("quota") ||
       text.includes("rate limit") ||
       text.includes("payment required") ||
+      text.includes("unauthorized") ||
+      text.includes("authenticate") ||
+      text.includes("authentication") ||
+      text.includes('"status":401') ||
       text.includes("important notice") ||
       text.includes("legacy text api") ||
       text.includes("being deprecated") ||
@@ -320,41 +501,42 @@ function useAI() {
     );
   };
 
+  const resolveTransformersLib = (mod: unknown) => {
+    const resolved = mod as TransformersModule;
+    if (resolved?.pipeline) return resolved as TransformersLib;
+    if (resolved?.default?.pipeline) return resolved.default;
+    return null;
+  };
+
   const loadTransformers = () => {
     if (transformersRef.current) return Promise.resolve(transformersRef.current);
     if (transformersReadyRef.current) return transformersReadyRef.current;
 
-    transformersReadyRef.current = new Promise<TransformersLib>((resolve, reject) => {
-      if (typeof window === "undefined") {
-        reject(new Error("Transformers.js unavailable"));
-        return;
-      }
+    if (typeof window === "undefined") {
+      return Promise.reject(new Error("Transformers.js unavailable"));
+    }
 
-      const existing = (window as WindowWithGlobals).transformers || (window as WindowWithGlobals).Transformers;
-      if (existing?.pipeline) {
-        transformersRef.current = existing;
-        resolve(existing);
-        return;
-      }
+    const existing = (window as WindowWithGlobals).transformers || (window as WindowWithGlobals).Transformers;
+    if (existing?.pipeline) {
+      transformersRef.current = existing;
+      return Promise.resolve(existing);
+    }
 
-      const script = document.createElement("script");
-      script.src = "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.14.2/dist/transformers.min.js";
-      script.async = true;
-      script.onload = () => {
-        const lib = (window as WindowWithGlobals).transformers || (window as WindowWithGlobals).Transformers;
+    const moduleUrl: string =
+      "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.14.2/dist/transformers.min.js";
+    transformersReadyRef.current = import(/* webpackIgnore: true */ moduleUrl)
+      .then((mod: unknown) => {
+        const lib = resolveTransformersLib(mod);
         if (!lib?.pipeline) {
-          reject(new Error("Transformers.js failed to load"));
-          return;
+          throw new Error("Transformers.js failed to load");
         }
         transformersRef.current = lib;
-        resolve(lib);
-      };
-      script.onerror = () => reject(new Error("Transformers.js failed to load"));
-      document.head.appendChild(script);
-    }).catch((err) => {
-      transformersReadyRef.current = null;
-      throw err;
-    });
+        return lib;
+      })
+      .catch((err) => {
+        transformersReadyRef.current = null;
+        throw err;
+      });
 
     return transformersReadyRef.current;
   };
@@ -362,7 +544,7 @@ function useAI() {
   const transformersGenerate = async (anchor: Entry, isRegen?: boolean) => {
     const instruction = isRegen
       ? "Explain simply for a beginner with a fresh analogy."
-      : "Explain simply to a professional with a clear definition and a real-world supply chain example.";
+      : "Explain simply to a professional with a clear definition, real-world example, and a region-tailored case study.";
     const prompt = `Explain the supply chain term: ${anchor.term}. ${instruction} Definition: ${anchor.definition}. Tags: ${
       anchor.tags || ""
     }.`;
@@ -371,7 +553,7 @@ function useAI() {
     if (!lib?.pipeline) throw new Error("Transformers.js unavailable");
 
     const generator = await lib.pipeline("text2text-generation", "Xenova/flan-t5-small");
-    const out = await generator(prompt, { max_new_tokens: 160 });
+    const out = await generator(prompt, { max_new_tokens: 200 });
     const text = out?.[0]?.generated_text || "";
     if (!text) throw new Error("Transformers.js returned empty response");
     return text;
@@ -380,25 +562,23 @@ function useAI() {
   const generate = async (anchor: Entry, isRegen?: boolean) => {
     try {
       const text = await pollinationsGenerate(anchor, isRegen);
-      return formatToHtml(text, anchor);
+      return normalizeMarkdown(text, anchor);
     } catch (e) {
-      console.error("SCM AI error", e);
-
-      if (shouldFallback(String(e))) {
+      const shouldUseFallback = shouldFallback(String(e));
+      if (!shouldUseFallback) {
+        console.error("SCM AI error", e);
+      }
+      if (shouldUseFallback && USE_TRANSFORMERS) {
         try {
           const fallback = await transformersGenerate(anchor, isRegen);
-          return formatToHtml(fallback, anchor);
+          return normalizeMarkdown(fallback, anchor);
         } catch (fallbackErr) {
           console.error("Transformers.js fallback error", fallbackErr);
         }
       }
     }
 
-    return `<i>Could not reach SCM AI services. Here is a summary:</i><br/><br/><b>Concept:</b> ${
-      anchor.term
-    } is a concept in ${anchor.tags || "supply chain"} regarding ${
-      anchor.definition
-    }.<br/><br/><b>Real-World Example:</b> This often appears when companies manage sourcing, inventory, logistics, or supplier performance related to the term.`;
+    return buildFallbackMarkdown(anchor);
   };
 
   return { status, generate };
@@ -438,7 +618,7 @@ const SettingsDialog = ({
               ))}
           </select>
           <div className={styles.apiHint}>
-            Tip: &quot;Google US English&quot; or &quot;Microsoft Natural&quot; sound most human-like.
+            Tip: &apos;Google US English&apos; or &apos;Microsoft Natural&apos; sound most human-like.
           </div>
         </div>
         <div className={styles.modalRow}>
@@ -450,6 +630,18 @@ const SettingsDialog = ({
         </div>
         <div className={styles.modalActions}>
           <button className={`${styles.modalBtn} ${styles.modalBtnPrimary}`} onClick={onClose}>
+            <svg
+              className={styles.buttonIcon}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="M5 13l4 4L19 7" />
+            </svg>
             Done
           </button>
         </div>
@@ -478,7 +670,7 @@ const ThinkingIndicator = () => {
     <div className={styles.thinkingBox}>
       <div className={styles.thinkingHeader}>
         <div className={styles.pulseDot}></div>
-        SCM AI is Thinking...
+        SCM AI is thinking...
       </div>
       <div className={styles.thoughtProcess}>
         <span className={styles.fadeText}>» {thought}</span>
@@ -487,114 +679,286 @@ const ThinkingIndicator = () => {
   );
 };
 
-const SmartCard = ({
+const AssistantCard = ({
+  message,
   entry,
   tts,
-  ai,
   autoReadAi,
+  onExplain,
+  onRegenerate,
+  onStop,
 }: {
+  message: Message;
   entry: Entry;
   tts: TTS;
-  ai: AIClient;
   autoReadAi: boolean;
+  onExplain: (entry: Entry, messageId: string) => void;
+  onRegenerate: (entry: Entry, messageId: string) => void;
+  onStop: (messageId: string) => void;
 }) => {
-  const [expanded, setExpanded] = useState<"details" | "ai" | null>(null);
-  const [aiText, setAiText] = useState("");
-  const [loadingAi, setLoadingAi] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
+  const mode = message.meta?.mode ?? "ai";
+  const isAiMode = mode === "ai";
+  const definitionText = entry.definition?.trim() || "Definition unavailable.";
+  const sections = useMemo(() => parseSections(message.content, entry), [message.content, entry]);
+  const image = message.meta?.image;
+  const [imgUrl, setImgUrl] = useState(image?.url || "");
+  const [imgAltUrl, setImgAltUrl] = useState(image?.altUrl || "");
+  const [imgFailed, setImgFailed] = useState(false);
+  const prevStatusRef = useRef(message.status);
 
-  const fetchAi = async (regen = false) => {
-    setLoadingAi(true);
-    try {
-      const txt = await ai.generate(entry, regen);
-      const next = txt || "";
-      setAiText(next);
-      if (autoReadAi && next) {
-        tts.speak(`ai-${entry.term}`, next.replace(/<[^>]*>/g, ""));
-      }
-    } catch (e) {
-      console.error("SCM AI generate error", e);
-      setAiText(fallbackExplanation(entry));
-    } finally {
-      setLoadingAi(false);
-    }
-  };
+  useEffect(() => {
+    setImgUrl(image?.url || "");
+    setImgAltUrl(image?.altUrl || "");
+    setImgFailed(false);
+  }, [image?.url, image?.altUrl]);
 
-  const handleAi = async () => {
-    if (expanded === "ai") {
-      setExpanded(null);
-      return;
+  useEffect(() => {
+    const prev = prevStatusRef.current;
+    if (autoReadAi && isAiMode && message.status === "done" && prev !== "done") {
+      const speech = buildSpeechText(entry, sections);
+      if (speech) tts.speak(message.id, speech);
     }
-    setExpanded("ai");
-    if (!aiText) fetchAi();
+    prevStatusRef.current = message.status;
+  }, [autoReadAi, entry, isAiMode, message.id, message.status, sections, tts]);
+
+  const isSpeaking = tts.speakingId === message.id;
+
+  const handleRead = () => {
+    const speech = isAiMode ? buildSpeechText(entry, sections) : buildDefinitionSpeech(entry);
+    if (speech) tts.speak(message.id, speech);
   };
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(`${entry.term}: ${entry.definition}`);
+    const text = isAiMode ? buildCopyText(entry, sections) : buildDefinitionCopy(entry);
+    navigator.clipboard.writeText(text);
   };
 
-  const isSpeakingDef = tts.speakingId === `def-${entry.term}`;
-  const isSpeakingAi = tts.speakingId === `ai-${entry.term}`;
+  const handleImageError = () => {
+    if (imgAltUrl && imgUrl !== imgAltUrl) {
+      setImgUrl(imgAltUrl);
+      return;
+    }
+    setImgFailed(true);
+  };
+
+  const showThinking = isAiMode && message.status === "streaming" && !message.content;
+  const showTyping = isAiMode && message.status === "streaming" && message.content;
+  const canRead = isAiMode ? Boolean(message.content) : Boolean(definitionText);
 
   return (
     <div className={styles.smartCard}>
       <div className={styles.termHeader}>
-        <h2 className={styles.termTitle}>{entry.term}</h2>
-        {entry.pos && <span className={styles.termPos}>{entry.pos}</span>}
-        {entry.pronunciation && <span className={styles.termPron}>/{entry.pronunciation}/</span>}
+        <div className={styles.termStack}>
+          <h2 className={styles.termTitle}>{entry.term}</h2>
+          <div className={styles.termMeta}>
+            {entry.pos && <span className={styles.termPos}>{entry.pos}</span>}
+            {entry.pronunciation && <span className={styles.termPron}>/{entry.pronunciation}/</span>}
+            {entry.tags && <span className={styles.termTag}>{entry.tags}</span>}
+          </div>
+        </div>
+        <div className={styles.termBadge}>SCM AI</div>
       </div>
-      <div className={styles.termDef}>{entry.definition}</div>
+
+      {imgUrl && !imgFailed ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={imgUrl}
+          className={styles.contextImg}
+          alt={entry.term}
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          onError={handleImageError}
+        />
+      ) : (
+        <div className={`${styles.contextImg} ${styles.contextImgPlaceholder}`}>
+          {image?.loading
+            ? "Loading image..."
+            : image?.error && image.error.toLowerCase().includes("google cse")
+            ? "Image unavailable (set Google CSE keys)"
+            : "Image unavailable"}
+        </div>
+      )}
+
+      {showThinking ? (
+        <ThinkingIndicator />
+      ) : isAiMode ? (
+        <div className={styles.sectionStack}>
+          <div className={styles.sectionBlock}>
+            <div className={styles.sectionTitle}>Concept</div>
+            <MarkdownBlock text={sections.concept} className={styles.markdown} />
+          </div>
+          <div className={styles.sectionBlock}>
+            <div className={styles.sectionTitle}>Real-World Example</div>
+            <MarkdownBlock text={sections.example} className={styles.markdown} />
+          </div>
+          <div className={styles.sectionBlock}>
+            <div className={styles.sectionTitle}>Region-Tailored Case Study</div>
+            <MarkdownBlock text={sections.caseStudy} className={styles.markdown} />
+          </div>
+        </div>
+      ) : (
+        <div className={styles.sectionStack}>
+          <div className={styles.sectionBlock}>
+            <div className={styles.sectionTitle}>Definition</div>
+            <MarkdownBlock text={definitionText} className={styles.markdown} />
+          </div>
+        </div>
+      )}
+
+      {showTyping ? <div className={styles.typingIndicator}>SCM AI is typing...</div> : null}
 
       <div className={styles.actionBar}>
-        <button
-          className={`${styles.actionBtn} ${isSpeakingDef ? styles.actionBtnActive : ""}`}
-          onClick={() => tts.speak(`def-${entry.term}`, `${entry.term}. ${entry.definition}`)}
-        >
-          <svg className={styles.actionIcon} viewBox="0 0 24 24" fill="currentColor">
-            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
-          </svg>
-          {isSpeakingDef ? "Reading" : "Read"}
-          {isSpeakingDef && (
-            <div className={styles.voiceMeter} aria-hidden>
-              {[1, 2, 3].map((i) => (
-                <div
-                  key={i}
-                  className={styles.voiceBar}
-                  style={{ height: "100%", animationDuration: `${0.4 + i * 0.1}s` }}
-                />
-              ))}
-            </div>
-          )}
-        </button>
+        {!isAiMode && (
+          <button
+            className={styles.actionBtn}
+            onClick={() => onExplain(entry, message.id)}
+            disabled={message.status === "streaming"}
+          >
+            <svg
+              className={styles.buttonIcon}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="M12 3l2.2 4.7L19 9l-4.8 1.3L12 15l-2.2-4.7L5 9l4.8-1.3L12 3z" />
+              <path d="M5 15l.9 2 2.1.9-2.1.9-.9 2-.9-2-2.1-.9 2.1-.9.9-2z" />
+            </svg>
+            Explain with SCM AI
+          </button>
+        )}
 
         <button
-          className={`${styles.actionBtn} ${expanded === "ai" ? styles.actionBtnActive : ""}`}
-          onClick={handleAi}
+          className={`${styles.actionBtn} ${isSpeaking ? styles.actionBtnActive : ""}`}
+          onClick={handleRead}
+          disabled={!canRead}
         >
-          <svg className={styles.actionIcon} viewBox="0 0 24 24" fill="currentColor">
-            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2zm0-4H7V7h10v2z" />
+          <svg
+            className={styles.buttonIcon}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <path d="M4 10v4h3l4 4V6l-4 4H4z" />
+            <path d="M16 9a3 3 0 0 1 0 6" />
+            <path d="M18.5 6.5a6 6 0 0 1 0 11" />
           </svg>
-          {ai.status === "loading" ? "Loading SCM AI..." : "Explain with SCM AI"}
+          {isSpeaking ? "Reading" : "Read"}
         </button>
 
-        <button
-          className={`${styles.actionBtn} ${expanded === "details" ? styles.actionBtnActive : ""}`}
-          onClick={() => setExpanded(expanded === "details" ? null : "details")}
-        >
-          <svg className={styles.actionIcon} viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+        <button className={styles.actionBtn} onClick={() => setShowDetails((prev) => !prev)}>
+          <svg
+            className={styles.buttonIcon}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 10v6" />
+            <path d="M12 7h.01" />
           </svg>
           Details
         </button>
 
-        <button className={styles.actionBtn} onClick={handleCopy}>
-          <svg className={styles.actionIcon} viewBox="0 0 24 24" fill="currentColor">
-            <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
+        <button className={styles.actionBtn} onClick={handleCopy} disabled={!canRead}>
+          <svg
+            className={styles.buttonIcon}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <rect x="9" y="9" width="11" height="11" rx="2" />
+            <rect x="4" y="4" width="11" height="11" rx="2" />
           </svg>
           Copy
         </button>
+
+        {isAiMode && (
+          <>
+            <button
+              className={styles.actionBtn}
+              onClick={() => onRegenerate(entry, message.id)}
+              disabled={message.status === "streaming"}
+            >
+              <svg
+                className={styles.buttonIcon}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M4 11a8 8 0 0 1 13-5l2 2" />
+                <path d="M19 4v4h-4" />
+                <path d="M20 13a8 8 0 0 1-13 5l-2-2" />
+                <path d="M5 20v-4h4" />
+              </svg>
+              Try Different Explanation
+            </button>
+
+            <a
+              href={`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(`${entry.term} supply chain`)}`}
+              target="_blank"
+              rel="noreferrer"
+              className={styles.actionBtn}
+            >
+              <svg
+                className={styles.buttonIcon}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <rect x="3" y="5" width="18" height="14" rx="2" />
+                <circle cx="8" cy="10" r="2" />
+                <path d="M21 17l-6-6-4 4-3-3-5 5" />
+              </svg>
+              View Google Images
+            </a>
+          </>
+        )}
+
+        {isAiMode && message.status === "streaming" && (
+          <button className={styles.actionBtn} onClick={() => onStop(message.id)}>
+            <svg
+              className={styles.buttonIcon}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <rect x="7" y="7" width="10" height="10" rx="1" />
+            </svg>
+            Stop generating
+          </button>
+        )}
       </div>
 
-      {expanded === "details" && (
+      {showDetails && (
         <div className={styles.detailsPanel}>
           {entry.synonyms && (
             <div className={styles.detailRow}>
@@ -619,67 +983,6 @@ const SmartCard = ({
           )}
         </div>
       )}
-
-      {expanded === "ai" && (
-        <div className={`${styles.detailsPanel} ${styles.aiBox}`}>
-          <div className={styles.aiBoxHeader}>
-            <div className={styles.aiBadge}>✨ SCM AI</div>
-            {aiText && !loadingAi && (
-              <button
-                className={styles.miniReadBtn}
-                onClick={() => tts.speak(`ai-${entry.term}`, aiText.replace(/<[^>]*>/g, ""))}
-              >
-                {isSpeakingAi ? "Stop Reading" : "Read Insight"}
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                  <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
-                </svg>
-              </button>
-            )}
-          </div>
-
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={`https://loremflickr.com/600/300/${encodeURIComponent(
-              entry.tags?.split(",")[0] || entry.term || "business"
-            )},logistics/all?lock=${entry.term.length}`}
-            className={styles.contextImg}
-            alt={entry.term}
-            onError={(e) => (e.currentTarget.style.display = "none")}
-          />
-
-          {loadingAi ? (
-            <ThinkingIndicator />
-          ) : (
-            <>
-              <div
-                style={{ whiteSpace: "pre-wrap", marginTop: "12px" }}
-                dangerouslySetInnerHTML={{ __html: aiText.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") }}
-              />
-
-              <a
-                href={`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(`${entry.term} supply chain`)}`}
-                target="_blank"
-                rel="noreferrer"
-                className={styles.googleLinkBtn}
-              >
-                View Google Images
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                  <polyline points="15 3 21 3 21 9"></polyline>
-                  <line x1="10" y1="14" x2="21" y2="3"></line>
-                </svg>
-              </a>
-
-              <button className={styles.regenBtn} onClick={() => fetchAi(true)}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
-                </svg>
-                Try Different Explanation
-              </button>
-            </>
-          )}
-        </div>
-      )}
     </div>
   );
 };
@@ -695,10 +998,14 @@ export default function PanAvestAIPage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [autoReadAi, setAutoReadAi] = useState(false);
   const [showBeta, setShowBeta] = useState(true);
+  const [showJump, setShowJump] = useState(false);
 
-  const chatEndRef = useRef<HTMLDivElement>(null);
-  const rootRef = useRef<HTMLElement | null>(null);
-  const footerRafRef = useRef<number | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const composingRef = useRef(false);
+  const streamTimersRef = useRef<Record<string, number>>({});
+  const isNearBottomRef = useRef(true);
+
+  const deferredInput = useDeferredValue(input);
 
   const stopWords = useMemo(
     () => /^(what is|what's|define|explain|describe|meaning of|tell me about|search for|look up|do you know)\s+/i,
@@ -710,54 +1017,181 @@ export default function PanAvestAIPage() {
     return () => window.clearTimeout(t);
   }, []);
 
-  useEffect(() => {
-    const root = rootRef.current;
-    const footer = document.querySelector("footer");
-    if (!root || !footer) return;
+  const updateMessage = useCallback((id: string, updater: (m: Message) => Message) => {
+    setMessages((prev) => prev.map((m) => (m.id === id ? updater(m) : m)));
+  }, []);
 
-    const update = () => {
-      const rect = footer.getBoundingClientRect();
-      const overlap = Math.max(0, window.innerHeight - rect.top);
-      root.style.setProperty("--ai-footer-offset", `${overlap}px`);
-    };
-
-    const onScroll = () => {
-      if (footerRafRef.current !== null) return;
-      footerRafRef.current = window.requestAnimationFrame(() => {
-        footerRafRef.current = null;
-        update();
-      });
-    };
-
-    update();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
-
-    const resizeObserver = typeof ResizeObserver !== "undefined" ? new ResizeObserver(onScroll) : null;
-    resizeObserver?.observe(footer);
-
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-      resizeObserver?.disconnect();
-      if (footerRafRef.current !== null) {
-        window.cancelAnimationFrame(footerRafRef.current);
-        footerRafRef.current = null;
+  const stopStream = useCallback(
+    (id: string, markDone = true) => {
+      const timer = streamTimersRef.current[id];
+      if (timer) {
+        window.clearInterval(timer);
+        delete streamTimersRef.current[id];
       }
-      root.style.removeProperty("--ai-footer-offset");
+      if (markDone) {
+        updateMessage(id, (m) => ({ ...m, status: "done" }));
+      }
+    },
+    [updateMessage]
+  );
+
+  useEffect(() => {
+    return () => {
+      Object.values(streamTimersRef.current).forEach((timer) => window.clearInterval(timer));
+      streamTimersRef.current = {};
     };
   }, []);
 
+  const streamMessage = useCallback(
+    (id: string, fullText: string) => {
+      stopStream(id, false);
+      if (!fullText.trim()) {
+        updateMessage(id, (m) => ({ ...m, content: "", status: "done" }));
+        return;
+      }
+
+      const chars = Array.from(fullText);
+      let index = 0;
+      const step = () => {
+        index = Math.min(chars.length, index + 6);
+        const chunk = chars.slice(0, index).join("");
+        updateMessage(id, (m) => ({ ...m, content: chunk, status: index >= chars.length ? "done" : "streaming" }));
+        if (index >= chars.length) {
+          stopStream(id, false);
+        }
+      };
+
+      step();
+      streamTimersRef.current[id] = window.setInterval(step, 24);
+    },
+    [stopStream, updateMessage]
+  );
+
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "auto") => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior });
+  }, []);
+
+  const updateScrollState = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const nearBottom = distance < 140;
+    isNearBottomRef.current = nearBottom;
+    setShowJump(!nearBottom && el.scrollHeight > el.clientHeight + 20);
+  }, []);
+
   useEffect(() => {
-    if (!input.trim() || !fuseRef.current) {
+    updateScrollState();
+  }, [messages, updateScrollState]);
+
+  useEffect(() => {
+    if (!isNearBottomRef.current) return;
+    scrollToBottom("auto");
+  }, [messages, scrollToBottom]);
+
+  useEffect(() => {
+    const query = deferredInput.trim();
+    if (!query || status !== "ready" || !fuseRef.current) {
       setSuggestions([]);
       return;
     }
-    const hits = fuseRef.current.search(input).slice(0, 5).map((h) => h.item);
+    const hits = fuseRef.current.search(query).slice(0, 5).map((h) => h.item);
     setSuggestions(hits);
-  }, [input, fuseRef]);
+  }, [deferredInput, status, fuseRef]);
+
+  const loadImageForMessage = useCallback(
+    async (entry: Entry, messageId: string) => {
+      updateMessage(messageId, (m) => ({
+        ...m,
+        meta: {
+          ...m.meta,
+          image: {
+            ...(m.meta?.image || {}),
+            loading: true,
+            error: "",
+          },
+        },
+      }));
+
+      try {
+        const res = await fetch(`/api/image?q=${encodeURIComponent(entry.term)}`);
+        const bodyText = await res.text();
+        let data: ImageApiResponse = {};
+        if (bodyText) {
+          try {
+            data = JSON.parse(bodyText) as ImageApiResponse;
+          } catch {
+            data = {};
+          }
+        }
+        if (!res.ok || data?.error) {
+          const serverError = typeof data?.error === "string" ? data.error : bodyText;
+          throw new Error(serverError || `Image lookup failed (${res.status})`);
+        }
+        const full = typeof data?.link === "string" ? data.link : typeof data?.url === "string" ? data.url : "";
+        const thumb = typeof data?.thumbnail === "string" ? data.thumbnail : "";
+        if (!full && !thumb) throw new Error("No image found");
+        updateMessage(messageId, (m) => ({
+          ...m,
+          meta: {
+            ...m.meta,
+            image: {
+              url: full || thumb,
+              altUrl: thumb && thumb !== full ? thumb : "",
+              loading: false,
+              error: "",
+            },
+          },
+        }));
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        const fallbackQuery = entry.tags?.split(",")[0] || entry.term || "business";
+        const fallbackUrl = `https://loremflickr.com/600/300/${encodeURIComponent(
+          fallbackQuery
+        )},logistics/all?lock=${entry.term.length}`;
+        updateMessage(messageId, (m) => ({
+          ...m,
+          meta: {
+            ...m.meta,
+            image: {
+              url: fallbackUrl,
+              altUrl: "",
+              loading: false,
+              error: message,
+            },
+          },
+        }));
+      }
+    },
+    [updateMessage]
+  );
+
+  const generateAssistant = useCallback(
+    async (entry: Entry, messageId: string, regen?: boolean) => {
+      updateMessage(messageId, (m) => ({
+        ...m,
+        status: "streaming",
+        content: "",
+        meta: {
+          ...m.meta,
+          term: entry.term,
+          entry,
+          actions: [...DEFAULT_ACTIONS],
+          mode: "ai",
+        },
+      }));
+
+      const text = await ai.generate(entry, regen);
+      streamMessage(messageId, text);
+    },
+    [ai, streamMessage, updateMessage]
+  );
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    const nativeComposing = (e.nativeEvent as { isComposing?: boolean }).isComposing;
+    if (composingRef.current || nativeComposing) return;
     if (e.key === "ArrowDown") {
       e.preventDefault();
       setSelectedSug((prev) => Math.min(prev + 1, suggestions.length - 1));
@@ -774,62 +1208,88 @@ export default function PanAvestAIPage() {
     }
   };
 
-  const handleSubmit = (text: string) => {
-    if (!text.trim()) return;
-    const originalQuery = text.trim();
-    setInput("");
-    setSuggestions([]);
-    setSelectedSug(-1);
+  const handleSubmit = useCallback(
+    (text: string) => {
+      if (!text.trim()) return;
+      const originalQuery = text.trim();
+      setInput("");
+      setSuggestions([]);
+      setSelectedSug(-1);
 
-    setMessages((prev) => [...prev, { id: uuid(), role: "user", content: originalQuery, timestamp: Date.now() }]);
+      const userMessage: Message = {
+        id: uuid(),
+        role: "user",
+        content: originalQuery,
+        timestamp: Date.now(),
+      };
 
-    if (status !== "ready") {
-      setTimeout(
-        () =>
-          setMessages((p) => [
-            ...p,
-            { id: uuid(), role: "bot", content: "Database is still loading. Please try again in a moment." },
-          ]),
-        200
-      );
-      return;
-    }
+      if (status !== "ready") {
+        const assistantMessage: Message = {
+          id: uuid(),
+          role: "assistant",
+          content: "Database is still loading. Please try again in a moment.",
+          status: "done",
+          timestamp: Date.now(),
+        };
+        setMessages((prev) => [...prev, userMessage, assistantMessage]);
+        return;
+      }
 
-    const cleanQuery = originalQuery.replace(stopWords, "").replace(/[?]/g, "").trim();
+      const cleanQuery = originalQuery.replace(stopWords, "").replace(/[?]/g, "").trim();
 
-    let match = data.find((d) => d.term.toLowerCase() === cleanQuery.toLowerCase());
+      let match = data.find((d) => d.term.toLowerCase() === cleanQuery.toLowerCase());
 
-    if (!match && fuseRef.current) {
-      const res = fuseRef.current.search(cleanQuery);
-      if (res.length > 0) match = res[0].item;
-    }
-
-    if (!match && cleanQuery !== originalQuery && fuseRef.current) {
-      const exactOrig = data.find((d) => d.term.toLowerCase() === originalQuery.toLowerCase());
-      if (exactOrig) {
-        match = exactOrig;
-      } else {
-        const res = fuseRef.current.search(originalQuery);
+      if (!match && fuseRef.current) {
+        const res = fuseRef.current.search(cleanQuery);
         if (res.length > 0) match = res[0].item;
       }
-    }
 
-    if (match) {
-      setMessages((p) => [...p, { id: uuid(), role: "bot", entry: match, timestamp: Date.now() }]);
-    } else {
-      setTimeout(
-        () =>
-          setMessages((p) => [
-            ...p,
-            { id: uuid(), role: "bot", content: `I couldn't find a match for "${cleanQuery}". Try a different term.` },
-          ]),
-        300
-      );
-    }
-  };
+      if (!match && cleanQuery !== originalQuery && fuseRef.current) {
+        const exactOrig = data.find((d) => d.term.toLowerCase() === originalQuery.toLowerCase());
+        if (exactOrig) {
+          match = exactOrig;
+        } else {
+          const res = fuseRef.current.search(originalQuery);
+          if (res.length > 0) match = res[0].item;
+        }
+      }
+
+      if (!match) {
+        const assistantMessage: Message = {
+          id: uuid(),
+          role: "assistant",
+          content: `I couldn't find a match for "${cleanQuery}". Try a different term.`,
+          status: "done",
+          timestamp: Date.now(),
+        };
+        setMessages((prev) => [...prev, userMessage, assistantMessage]);
+        return;
+      }
+
+      const assistantId = uuid();
+      const assistantMessage: Message = {
+        id: assistantId,
+        role: "assistant",
+        content: "",
+        status: "done",
+        meta: {
+          term: match.term,
+          entry: match,
+          actions: [...DEFAULT_ACTIONS],
+          image: { loading: true },
+          mode: "db",
+        },
+        timestamp: Date.now(),
+      };
+
+      setMessages((prev) => [...prev, userMessage, assistantMessage]);
+      loadImageForMessage(match, assistantId);
+    },
+    [data, fuseRef, loadImageForMessage, status, stopWords]
+  );
 
   return (
-    <section ref={rootRef} className={styles.aiRoot}>
+    <section className={styles.aiRoot}>
       {showBeta && (
         <div className={styles.betaOverlay} role="dialog" aria-modal="true" aria-label="SCM AI beta">
           <div className={styles.betaCard}>
@@ -840,6 +1300,19 @@ export default function PanAvestAIPage() {
               improve.
             </p>
             <button className={styles.betaButton} onClick={() => setShowBeta(false)}>
+              <svg
+                className={styles.buttonIcon}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M5 12h14" />
+                <path d="M13 6l6 6-6 6" />
+              </svg>
               Enter SCM AI
             </button>
           </div>
@@ -862,7 +1335,24 @@ export default function PanAvestAIPage() {
 
           <div className={styles.headerControls}>
             <button className={styles.settingsBtn} onClick={() => setSettingsOpen(true)}>
-              <span aria-hidden>⚙️</span> Settings
+              <svg
+                className={styles.buttonIcon}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M4 6h10" />
+                <path d="M4 12h16" />
+                <path d="M4 18h10" />
+                <circle cx="18" cy="6" r="2" />
+                <circle cx="12" cy="12" r="2" />
+                <circle cx="18" cy="18" r="2" />
+              </svg>
+              Settings
             </button>
 
             <div className={styles.dbStatus} aria-live="polite">
@@ -874,79 +1364,129 @@ export default function PanAvestAIPage() {
           </div>
         </div>
 
-        <div className={styles.chatWindow}>
-          {messages.length === 0 ? (
-            <div className={`${styles.welcomeScreen} ${styles.widthConstraint}`}>
-              <div style={{ fontSize: "48px", marginBottom: "16px" }}>✨</div>
-              <h1 className={styles.wTitle}>SCM AI</h1>
-              <p className={styles.wSub}>
-                SCM AI is a next-generation Global{" "}
-                <span className={styles.highlight}>(Supply Chain Management)</span> dictionary designed for
-                professionals, students, and businesses across Africa.{" "}
-                <span className={styles.highlight}>(Powered by AI)</span>, it transforms complex supply-chain concepts into
-                clear definitions, practical insights, and region-relevant case studies.
-              </p>
-              {status === "empty" && (
-                <div className={styles.wHint}>Database is unavailable. Please contact support.</div>
+        <div className={styles.chatShell}>
+          <div className={styles.chatScroll} ref={scrollRef} onScroll={updateScrollState}>
+            <div className={styles.widthConstraint}>
+              {messages.length === 0 ? (
+                <div className={styles.welcomeScreen}>
+                  <div style={{ fontSize: "48px", marginBottom: "16px" }}>✨</div>
+                  <h1 className={styles.wTitle}>SCM AI</h1>
+                  <p className={styles.wSub}>
+                    SCM AI is a next-generation Global <span className={styles.highlight}>(Supply Chain Management)</span>, a
+                    dictionary designed for professionals, students, and businesses across Africa. <span className={styles.highlight}>(Powered by AI)</span>, it transforms complex supply-chain concepts into
+                    clear definitions, practical insights, and region-relevant case studies.
+                  </p>
+                  {status === "empty" && (
+                    <div className={styles.wHint}>Database is unavailable. Please contact support.</div>
+                  )}
+                </div>
+              ) : (
+                <div className={styles.messageList}>
+                  {messages.map((m) => (
+                    <div
+                      key={m.id}
+                      className={`${styles.messageRow} ${
+                        m.role === "user" ? styles.messageRowUser : styles.messageRowAssistant
+                      }`}
+                    >
+                      {m.role === "assistant" && <div className={`${styles.avatar} ${styles.avatarBot}`}>SCM</div>}
+                      <div className={styles.bubble}>
+                        {m.role === "user" ? (
+                          <div className={styles.userBubble}>{m.content}</div>
+                        ) : m.meta?.entry ? (
+                          <AssistantCard
+                            message={m}
+                            entry={m.meta.entry}
+                            tts={tts}
+                            autoReadAi={autoReadAi}
+                            onExplain={(entry, messageId) => generateAssistant(entry, messageId, false)}
+                            onRegenerate={(entry, messageId) => generateAssistant(entry, messageId, true)}
+                            onStop={(id) => stopStream(id)}
+                          />
+                        ) : (
+                          <div className={styles.botContent}>{m.content}</div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
-          ) : (
+          </div>
+
+          <div className={styles.composerWrap}>
             <div className={styles.widthConstraint}>
-              {messages.map((m) => (
-                <div
-                  key={m.id}
-                  className={`${styles.messageRow} ${m.role === "user" ? styles.messageRowUser : styles.messageRowBot}`}
-                >
-                  {m.role === "bot" && <div className={`${styles.avatar} ${styles.avatarBot}`}>SCM</div>}
-                  <div className={styles.bubble}>
-                    {m.content && (
-                      <div className={m.role === "bot" ? styles.botContent : styles.userBubble}>{m.content}</div>
-                    )}
-                    {m.entry && <SmartCard entry={m.entry} tts={tts} ai={ai} autoReadAi={autoReadAi} />}
-                  </div>
-                </div>
-              ))}
-              <div ref={chatEndRef} />
-            </div>
-          )}
-        </div>
-
-        <div className={styles.inputArea}>
-          <div className={styles.inputContainer}>
-            {suggestions.length > 0 && (
-              <div className={styles.predictiveList}>
-                {suggestions.map((s, i) => (
-                  <div
-                    key={s.term}
-                    className={`${styles.predictiveItem} ${i === selectedSug ? styles.predictiveItemSelected : ""}`}
-                    onClick={() => handleSubmit(s.term)}
+              {showJump && (
+                <button className={styles.jumpButton} onClick={() => scrollToBottom("smooth")}>
+                  <svg
+                    className={styles.buttonIcon}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden
                   >
-                    <span className={styles.pTerm}>{s.term}</span>
-                    <span className={styles.pDef}>{s.definition}</span>
-                  </div>
-                ))}
-              </div>
-            )}
+                    <path d="M12 4v14" />
+                    <path d="M6 12l6 6 6-6" />
+                  </svg>
+                  Jump to bottom
+                </button>
+              )}
 
-            <div className={styles.inputWrapper}>
-              <input
-                className={styles.chatInput}
-                placeholder={status === "ready" ? "Ask about a concept..." : "Load database to start..."}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                disabled={status !== "ready"}
-              />
-              <button
-                className={`${styles.sendBtn} ${input.trim() ? styles.sendBtnActive : ""}`}
-                onClick={() => handleSubmit(input)}
-              >
-                <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-                  <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
-                </svg>
-              </button>
+              <div className={styles.inputContainer}>
+                {suggestions.length > 0 && (
+                  <div className={styles.predictiveList}>
+                    {suggestions.map((s, i) => (
+                      <div
+                        key={`${s.term}-${i}`}
+                        className={`${styles.predictiveItem} ${i === selectedSug ? styles.predictiveItemSelected : ""}`}
+                        onClick={() => handleSubmit(s.term)}
+                      >
+                        <span className={styles.pTerm}>{s.term}</span>
+                        <span className={styles.pDef}>{s.definition}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className={styles.inputWrapper}>
+                  <input
+                    className={styles.chatInput}
+                    placeholder={status === "ready" ? "Ask about a concept..." : "Load database to start..."}
+                    value={input}
+                    onChange={(e) => {
+                      setInput(e.target.value);
+                      setSelectedSug(-1);
+                    }}
+                    onCompositionStart={() => {
+                      composingRef.current = true;
+                    }}
+                    onCompositionEnd={() => {
+                      composingRef.current = false;
+                    }}
+                    onKeyDown={handleKeyDown}
+                    disabled={status !== "ready"}
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
+                  />
+                  <button
+                    className={`${styles.sendBtn} ${input.trim() ? styles.sendBtnActive : ""}`}
+                    onClick={() => handleSubmit(input)}
+                    disabled={!input.trim()}
+                  >
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                      <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <div className={styles.footerNote}>Powered by PanAvest International & Partners • Prof. Douglas Boateng</div>
             </div>
-            <div className={styles.footerNote}>Powered by PanAvest International & Partners • Prof. Douglas Boateng</div>
           </div>
         </div>
       </div>

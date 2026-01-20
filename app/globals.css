@@ -2,18 +2,24 @@
 
 /* Your palette */
 :root {
-  --color-bg: #fefdfa;          /* cream page bg */
+  --color-bg-base: #fefdfa;     /* cream page bg */
   --color-accent-red: #b65437;  /* brick red buttons & logo */
   --color-accent-gold: #f5b750; /* bulb */
   --color-text-dark: #2c2522;   /* main text */
   --color-text-muted: #6d7d6f;  /* muted copy */
-  --color-light: #f3e9e0;       /* card border / header divider */
-  --color-soft: #d0c5be;        /* soft beige alt */
+  --color-light-base: #f3e9e0;  /* card border / header divider */
+  --color-soft-base: #d0c5be;   /* soft beige alt */
+}
 
+@theme inline {
+  --color-bg: var(--color-bg-base);
   --color-brand: var(--color-accent-red);
   --color-gold: var(--color-accent-gold);
   --color-ink: var(--color-text-dark);
   --color-muted: var(--color-text-muted);
+  --color-light: var(--color-light-base);
+  --color-soft: var(--color-soft-base);
+
   --radius-xl: 1rem;
 }
 
@@ -78,119 +84,76 @@ body {
   pointer-events: none;
 }
 
-/* ─────────── Partners marquee (reference-style) ─────────── */
-@keyframes partners-slide {
-  from { transform: translateX(0); }
-  to { transform: translateX(-100%); }
+/* ---------- Partners marquee ---------- */
+@keyframes partners-marquee-ltr {
+  from { transform: translateX(-50%); }
+  to   { transform: translateX(0%); }
 }
-.partners-logos {
+
+.partners-marquee {
   position: relative;
   overflow: hidden;
-  white-space: nowrap;
-  padding: 32px 0;
-  line-height: 0;
+  mask-image: linear-gradient(90deg, transparent 0%, #000 12%, #000 88%, transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 12%, #000 88%, transparent 100%);
 }
-.partners-logos::before,
-.partners-logos::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  width: 120px;
-  height: 100%;
-  z-index: 2;
-  pointer-events: none;
-}
-.partners-logos::before {
-  left: 0;
-  background: linear-gradient(to right, var(--color-bg, #fff), transparent);
-}
-.partners-logos::after {
-  right: 0;
-  background: linear-gradient(to left, var(--color-bg, #fff), transparent);
-}
-.partners-logos-slide {
+
+.partners-marquee-track {
   display: inline-flex;
   align-items: center;
-  animation: partners-slide 55s linear infinite;
+  width: max-content;
+  animation: partners-marquee-ltr 55s linear infinite;
   will-change: transform;
 }
-.partners-logos:hover .partners-logos-slide,
-.partners-logos:focus-within .partners-logos-slide {
-  animation-play-state: paused;
+
+.partners-marquee-row {
+  display: inline-flex;
+  align-items: center;
+  width: max-content;
 }
-.partners-logo-item {
+
+.partners-logo-tile {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  vertical-align: middle;
-  line-height: 0;
-}
-.partners-logo-img {
-  filter: grayscale(100%);
-  opacity: 0.6;
-}
-.partners-logo-img:hover,
-.partners-logo-img:focus {
-  filter: grayscale(0%);
-  opacity: 1;
+  min-width: 120px;
 }
 
 @media (max-width: 640px) {
-  .partners-logos {
-    padding: 20px 0;
+  .partners-marquee-row {
+    gap: 3rem;
   }
-  .partners-logos::before,
-  .partners-logos::after {
-    width: 64px;
+  .partners-logo-tile {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+  .partners-logo-tile img {
+    transform: none;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .partners-logos-slide {
-    animation: none !important;
+  .partners-marquee {
+    mask-image: none;
+    -webkit-mask-image: none;
   }
-}
-
-@media (max-width: 768px) {
-  .partners-logos {
-    display: block;
-    padding: 20px 0;
-    overflow: hidden;
-    white-space: nowrap;
-  }
-  .partners-logos::before,
-  .partners-logos::after {
-    display: block;
-  }
-  .partners-logos-slide {
-    display: inline-flex;
-    align-items: center;
-    gap: 120px;
-    padding: 0 72px;
-    flex-wrap: nowrap;
-    animation: partners-slide 45s linear infinite;
-  }
-  .partners-logos-slide:nth-of-type(2) {
-    display: inline-flex;
-  }
-  .partners-logo-item {
-    width: auto !important;
-    padding: 0 !important;
-    justify-content: center;
-    align-items: center;
-    flex: 0 0 auto;
-  }
-  .partners-logo-img {
-    height: 70px !important;
-    width: auto !important;
-    max-width: none;
-    max-height: none;
+  .partners-marquee-track {
+    animation: none;
     transform: none !important;
-    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 3rem;
+  }
+  .partners-marquee-row {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+  .partners-marquee-row[aria-hidden="true"] {
+    display: none;
   }
 }
 
-/* ─────────── Certificate print isolation ─────────── */
+/* ---------- Certificate print isolation ---------- */
 @page {
   size: A4 landscape;
   margin: 0;

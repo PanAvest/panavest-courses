@@ -17,28 +17,34 @@ export function PartnersMarquee({ partners }: Props) {
       <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
         <div className="text-center text-[11px] tracking-[0.25em] text-ink/50">PARTNERS</div>
 
-        <div className="partners-logos mt-6">
-          {[0, 1].map((dup) => (
-            <div key={`slide-${dup}`} className="partners-logos-slide">
-              {partners.map((partner) => (
-                <div
-                  key={`${partner.src}-${dup}`}
-                  className="partners-logo-item inline-flex items-center justify-center px-4 sm:px-7 lg:px-8 w-1/2 sm:w-auto"
-                >
-                  <Image
-                    src={partner.src}
-                    alt={partner.alt}
-                    width={320}
-                    height={160}
-                    loading="lazy"
-                    decoding="async"
-                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
-                    className="partners-logo-img h-24 sm:h-26 md:h-30 w-auto object-contain grayscale opacity-60 transition hover:opacity-100 hover:grayscale-0 focus:opacity-100 focus:grayscale-0 transform scale-[1.8] sm:scale-100 md:scale-100 origin-center"
-                  />
-                </div>
-              ))}
-            </div>
-          ))}
+        <div className="partners-marquee mt-6">
+          <div className="partners-marquee-track">
+            {[0, 1].map((dup) => (
+              <div
+                key={`row-${dup}`}
+                className="partners-marquee-row"
+                aria-hidden={dup === 1}
+              >
+                {partners.map((partner) => (
+                  <div
+                    key={`${partner.src}-${dup}`}
+                    className="partners-logo-tile px-4 sm:px-7 lg:px-8"
+                  >
+                    <Image
+                      src={partner.src}
+                      alt={partner.alt}
+                      width={320}
+                      height={160}
+                      loading="lazy"
+                      decoding="async"
+                      sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+                      className="h-24 sm:h-26 md:h-30 w-auto object-contain grayscale opacity-60 transition hover:opacity-100 hover:grayscale-0 focus:opacity-100 focus:grayscale-0 transform scale-[1.8] sm:scale-100 md:scale-100 origin-center"
+                    />
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </section>
