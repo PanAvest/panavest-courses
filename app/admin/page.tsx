@@ -104,6 +104,26 @@ type Bundle = {
   ebook_title?: string;
   ebook_slug?: string;
 };
+type PurchaseRow = {
+  id: string;
+  kind: "course" | "ebook";
+  item_id: string;
+  item_title: string;
+  user_id: string;
+  user_email?: string | null;
+  amount_minor: number | null;
+  currency: string | null;
+  status: string | null;
+  is_paid: boolean;
+  provider: string | null;
+  reference: string | null;
+  paid_at: string | null;
+  updated_at: string | null;
+  created_at: string | null;
+  effective_at: string | null;
+};
+type PurchaseRange = "all" | "week" | "month" | "quarter" | "year" | "custom";
+type PurchaseStatusFilter = "all" | "paid" | "pending" | "failed";
 type GlossaryEntry = {
   term: string;
   definition: string;
@@ -149,7 +169,60 @@ const readGlossaryField = (row: Record<string, unknown>, key: string): string =>
   if (typeof value === "number") return String(value);
   return "";
 };
-const adminTabs = ["catalog", "content", "prices", "media", "users", "deploy", "ai"] as const;
+const formatMoney = (minor: number | null | undefined, currency?: string | null): string => {
+  if (typeof minor !== "number" || !Number.isFinite(minor)) return "—";
+  const code = (currency || "GHS").toUpperCase();
+  return `${code} ${(minor / 100).toFixed(2)}`;
+};
+const parseIsoDate = (value: string | null | undefined): Date | null => {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+const formatDateTime = (value: string | null | undefined): string => {
+  const d = parseIsoDate(value);
+  return d ? d.toLocaleString() : "—";
+};
+const pickPurchaseTime = (p: PurchaseRow): string | null =>
+  p.effective_at ?? p.paid_at ?? p.updated_at ?? p.created_at ?? null;
+const getRangeBounds = (range: PurchaseRange, start: string, end: string) => {
+  if (range === "all") return { start: null as Date | null, end: null as Date | null };
+  const now = new Date();
+  let startDate: Date | null = null;
+  let endDate: Date | null = null;
+  if (range === "week") {
+    const day = now.getDay();
+    const diff = (day + 6) % 7; // Monday start
+    startDate = new Date(now);
+    startDate.setDate(now.getDate() - diff);
+    startDate.setHours(0, 0, 0, 0);
+    endDate = new Date(now);
+    endDate.setHours(23, 59, 59, 999);
+  } else if (range === "month") {
+    startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    startDate.setHours(0, 0, 0, 0);
+    endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    endDate.setHours(23, 59, 59, 999);
+  } else if (range === "quarter") {
+    const q = Math.floor(now.getMonth() / 3);
+    startDate = new Date(now.getFullYear(), q * 3, 1);
+    startDate.setHours(0, 0, 0, 0);
+    endDate = new Date(now.getFullYear(), q * 3 + 3, 0);
+    endDate.setHours(23, 59, 59, 999);
+  } else if (range === "year") {
+    startDate = new Date(now.getFullYear(), 0, 1);
+    startDate.setHours(0, 0, 0, 0);
+    endDate = new Date(now.getFullYear(), 11, 31);
+    endDate.setHours(23, 59, 59, 999);
+  } else if (range === "custom") {
+    startDate = start ? new Date(`${start}T00:00:00`) : null;
+    endDate = end ? new Date(`${end}T23:59:59`) : null;
+  }
+  if (startDate && Number.isNaN(startDate.getTime())) startDate = null;
+  if (endDate && Number.isNaN(endDate.getTime())) endDate = null;
+  return { start: startDate, end: endDate };
+};
+const adminTabs = ["catalog", "content", "prices", "media", "users", "purchases", "deploy", "ai"] as const;
 type AdminTab = (typeof adminTabs)[number];
 const adminTabLabels: Record<AdminTab, string> = {
   catalog: "Catalog",
@@ -157,6 +230,7 @@ const adminTabLabels: Record<AdminTab, string> = {
   prices: "Prices",
   media: "Media",
   users: "Users",
+  purchases: "Purchases",
   deploy: "Deploy",
   ai: "AI Admin",
 };
@@ -303,6 +377,40 @@ function asEbooks(x: unknown): Ebook[] {
       price_cents: num(r["price_cents"], 0),
       published: Boolean(r["published"] ?? true),
       created_at: isStr(r["created_at"]) ? r["created_at"] : null,
+    };
+  });
+}
+function asPurchaseRows(x: unknown): PurchaseRow[] {
+  if (!Array.isArray(x)) return [];
+  return x.map((row) => {
+    const r = (row && typeof row === "object" ? row : {}) as Record<string, unknown>;
+    const kind = r["kind"] === "ebook" ? "ebook" : "course";
+    const amountRaw = r["amount_minor"];
+    const amountParsed =
+      typeof amountRaw === "number"
+        ? amountRaw
+        : isStr(amountRaw)
+          ? Number(amountRaw)
+          : null;
+    const amount_minor =
+      typeof amountParsed === "number" && Number.isFinite(amountParsed) ? amountParsed : null;
+    return {
+      id: String(r["id"] ?? ""),
+      kind,
+      item_id: String(r["item_id"] ?? ""),
+      item_title: String(r["item_title"] ?? r["item_id"] ?? ""),
+      user_id: String(r["user_id"] ?? ""),
+      user_email: isStr(r["user_email"]) ? r["user_email"] : null,
+      amount_minor,
+      currency: isStr(r["currency"]) ? r["currency"] : null,
+      status: isStr(r["status"]) ? r["status"] : null,
+      is_paid: typeof r["is_paid"] === "boolean" ? r["is_paid"] : Boolean(r["is_paid"]),
+      provider: isStr(r["provider"]) ? r["provider"] : null,
+      reference: isStr(r["reference"]) ? r["reference"] : null,
+      paid_at: isStr(r["paid_at"]) ? r["paid_at"] : null,
+      updated_at: isStr(r["updated_at"]) ? r["updated_at"] : null,
+      created_at: isStr(r["created_at"]) ? r["created_at"] : null,
+      effective_at: isStr(r["effective_at"]) ? r["effective_at"] : null,
     };
   });
 }
@@ -1587,6 +1695,129 @@ export default function AdminPage() {
       alert("Final exam reset. The learner can retake it.");
     }
   }
+
+  /* ── Purchases ── */
+  const [purchases, setPurchases] = useState<PurchaseRow[]>([]);
+  const [purchasesLoading, setPurchasesLoading] = useState(false);
+  const [purchaseQuery, setPurchaseQuery] = useState("");
+  const [purchaseRange, setPurchaseRange] = useState<PurchaseRange>("month");
+  const [purchaseStatus, setPurchaseStatus] = useState<PurchaseStatusFilter>("all");
+  const [purchaseStart, setPurchaseStart] = useState("");
+  const [purchaseEnd, setPurchaseEnd] = useState("");
+
+  const refreshPurchasesAbort = useRef<AbortController | null>(null);
+  const refreshPurchases = useCallback(async () => {
+    refreshPurchasesAbort.current?.abort();
+    const ac = new AbortController();
+    refreshPurchasesAbort.current = ac;
+    setPurchasesLoading(true);
+    try {
+      const r = await fetch("/api/admin/purchases?limit=2000", { cache: "no-store", signal: ac.signal });
+      const d = await r.json();
+      const rows = Array.isArray(d?.purchases) ? d.purchases : Array.isArray(d) ? d : [];
+      setPurchases(asPurchaseRows(rows));
+    } finally {
+      setPurchasesLoading(false);
+    }
+  }, []);
+  useEffect(() => {
+    if (tab === "purchases") void refreshPurchases();
+  }, [tab, refreshPurchases]);
+
+  const purchaseRangeLabel = useMemo(() => {
+    if (purchaseRange === "all") return "All time";
+    if (purchaseRange === "week") return "This week";
+    if (purchaseRange === "month") return "This month";
+    if (purchaseRange === "quarter") return "This quarter";
+    if (purchaseRange === "year") return "This year";
+    if (purchaseRange === "custom") {
+      if (purchaseStart && purchaseEnd) return `${purchaseStart} to ${purchaseEnd}`;
+      if (purchaseStart) return `From ${purchaseStart}`;
+      if (purchaseEnd) return `Up to ${purchaseEnd}`;
+      return "Custom range";
+    }
+    return "";
+  }, [purchaseRange, purchaseStart, purchaseEnd]);
+
+  const filteredPurchases = useMemo(() => {
+    const q = purchaseQuery.trim().toLowerCase();
+    const { start, end } = getRangeBounds(purchaseRange, purchaseStart, purchaseEnd);
+    const rangeActive =
+      purchaseRange !== "all" && (purchaseRange !== "custom" || purchaseStart || purchaseEnd);
+    const rows = purchases.filter((p) => {
+      const status = (p.status ?? "").toLowerCase();
+      const isFailed =
+        status.includes("failed") || status.includes("abandoned") || status.includes("cancel");
+      const isPaid = p.is_paid;
+      const isPending = !isPaid && !isFailed;
+      if (purchaseStatus === "paid" && !isPaid) return false;
+      if (purchaseStatus === "failed" && !isFailed) return false;
+      if (purchaseStatus === "pending" && !isPending) return false;
+
+      if (q) {
+        const hay = [
+          p.item_title,
+          p.item_id,
+          p.user_email,
+          p.user_id,
+          p.reference,
+          p.status,
+          p.kind,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+
+      if (rangeActive) {
+        const ts = pickPurchaseTime(p);
+        const d = parseIsoDate(ts ?? null);
+        if (!d) return false;
+        if (start && d < start) return false;
+        if (end && d > end) return false;
+      }
+      return true;
+    });
+    rows.sort((a, b) => {
+      const da = parseIsoDate(pickPurchaseTime(a));
+      const db = parseIsoDate(pickPurchaseTime(b));
+      const ta = da ? da.getTime() : 0;
+      const tb = db ? db.getTime() : 0;
+      return tb - ta;
+    });
+    return rows;
+  }, [purchases, purchaseQuery, purchaseRange, purchaseStart, purchaseEnd, purchaseStatus]);
+
+  const purchaseTotals = useMemo(() => {
+    const byCurrency: Record<string, number> = {};
+    let paidCount = 0;
+    let pendingCount = 0;
+    let failedCount = 0;
+    filteredPurchases.forEach((p) => {
+      const status = (p.status ?? "").toLowerCase();
+      const isFailed =
+        status.includes("failed") || status.includes("abandoned") || status.includes("cancel");
+      if (p.is_paid) {
+        paidCount += 1;
+        if (typeof p.amount_minor === "number") {
+          const code = (p.currency ?? "GHS").toUpperCase();
+          byCurrency[code] = (byCurrency[code] ?? 0) + p.amount_minor;
+        }
+      } else if (isFailed) {
+        failedCount += 1;
+      } else {
+        pendingCount += 1;
+      }
+    });
+    return {
+      totalCount: filteredPurchases.length,
+      paidCount,
+      pendingCount,
+      failedCount,
+      byCurrency,
+    };
+  }, [filteredPurchases]);
 
   /* ── Quick Prices ── */
   const [priceSearch, setPriceSearch] = useState("");
@@ -3205,6 +3436,193 @@ export default function AdminPage() {
                 </div>
               </div>
             )}
+          </Section>
+        </div>
+      )}
+
+      {/* ───────────── Purchases ───────────── */}
+      {tab === "purchases" && (
+        <div className="mt-6 grid gap-6">
+          <Section
+            title="Purchases"
+            right={
+              <button
+                onClick={refreshPurchases}
+                className="px-3 py-1.5 rounded-lg border border-[color:var(--color-light)]/40 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 text-sm"
+              >
+                {purchasesLoading ? "Refreshing…" : "Refresh"}
+              </button>
+            }
+          >
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="grid gap-1">
+                <span className="text-xs text-slate-500">Search</span>
+                <input
+                  placeholder="Search user, item, reference…"
+                  value={purchaseQuery}
+                  onChange={(e) => setPurchaseQuery((e.target as HTMLInputElement).value)}
+                  className="h-9 rounded-lg bg-white px-3 border border-[color:var(--color-light)]/40 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 w-64"
+                />
+              </label>
+              <label className="grid gap-1">
+                <span className="text-xs text-slate-500">Range</span>
+                <select
+                  value={purchaseRange}
+                  onChange={(e) => setPurchaseRange((e.target as HTMLSelectElement).value as PurchaseRange)}
+                  className="h-9 rounded-lg bg-white px-3 border border-[color:var(--color-light)]/40 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+                >
+                  <option value="all">All time</option>
+                  <option value="week">This week</option>
+                  <option value="month">This month</option>
+                  <option value="quarter">This quarter</option>
+                  <option value="year">This year</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </label>
+              {purchaseRange === "custom" && (
+                <>
+                  <label className="grid gap-1">
+                    <span className="text-xs text-slate-500">Start</span>
+                    <input
+                      type="date"
+                      value={purchaseStart}
+                      onChange={(e) => setPurchaseStart((e.target as HTMLInputElement).value)}
+                      className="h-9 rounded-lg bg-white px-3 border border-[color:var(--color-light)]/40 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+                    />
+                  </label>
+                  <label className="grid gap-1">
+                    <span className="text-xs text-slate-500">End</span>
+                    <input
+                      type="date"
+                      value={purchaseEnd}
+                      onChange={(e) => setPurchaseEnd((e.target as HTMLInputElement).value)}
+                      className="h-9 rounded-lg bg-white px-3 border border-[color:var(--color-light)]/40 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+                    />
+                  </label>
+                </>
+              )}
+              <label className="grid gap-1">
+                <span className="text-xs text-slate-500">Status</span>
+                <select
+                  value={purchaseStatus}
+                  onChange={(e) => setPurchaseStatus((e.target as HTMLSelectElement).value as PurchaseStatusFilter)}
+                  className="h-9 rounded-lg bg-white px-3 border border-[color:var(--color-light)]/40 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+                >
+                  <option value="all">All</option>
+                  <option value="paid">Paid</option>
+                  <option value="pending">Pending</option>
+                  <option value="failed">Failed</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="mt-2 text-xs text-slate-500">
+              Showing {purchaseRangeLabel.toLowerCase()} · {filteredPurchases.length} records
+            </div>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-lg border border-[color:var(--color-light)]/40 p-3 shadow-sm">
+                <div className="text-xs text-slate-500">Paid total</div>
+                <div className="text-lg font-semibold">
+                  {Object.keys(purchaseTotals.byCurrency).length === 0 && "—"}
+                  {Object.entries(purchaseTotals.byCurrency).map(([code, minor], idx) => (
+                    <span key={code}>
+                      {idx > 0 ? " · " : ""}
+                      {formatMoney(minor, code)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-lg border border-[color:var(--color-light)]/40 p-3 shadow-sm">
+                <div className="text-xs text-slate-500">Transactions</div>
+                <div className="text-lg font-semibold">{purchaseTotals.totalCount}</div>
+              </div>
+              <div className="rounded-lg border border-[color:var(--color-light)]/40 p-3 shadow-sm">
+                <div className="text-xs text-slate-500">Paid</div>
+                <div className="text-lg font-semibold">{purchaseTotals.paidCount}</div>
+              </div>
+              <div className="rounded-lg border border-[color:var(--color-light)]/40 p-3 shadow-sm">
+                <div className="text-xs text-slate-500">Pending / Failed</div>
+                <div className="text-lg font-semibold">
+                  {purchaseTotals.pendingCount} / {purchaseTotals.failedCount}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 overflow-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left">
+                    <th className="py-2 pr-3">Date</th>
+                    <th className="py-2 pr-3">Item</th>
+                    <th className="py-2 pr-3">Customer</th>
+                    <th className="py-2 pr-3">Amount</th>
+                    <th className="py-2 pr-3">Status</th>
+                    <th className="py-2 pr-3">Reference</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredPurchases.map((p) => {
+                    const statusText = (p.status ?? "").toLowerCase();
+                    const isFailed =
+                      statusText.includes("failed") ||
+                      statusText.includes("abandoned") ||
+                      statusText.includes("cancel");
+                    const statusLabel = p.is_paid ? "Paid" : isFailed ? "Failed" : "Pending";
+                    const statusClass = p.is_paid
+                      ? "bg-green-100 text-green-800"
+                      : isFailed
+                        ? "bg-red-100 text-red-800"
+                        : "bg-amber-100 text-amber-800";
+                    return (
+                      <tr key={p.id} className="border-t border-[color:var(--color-light)]/40">
+                        <td className="py-2 pr-3 align-top">
+                          <div className="font-medium">{formatDateTime(pickPurchaseTime(p))}</div>
+                          <div className="text-xs text-slate-500">
+                            {p.paid_at ? "paid_at" : p.updated_at ? "updated_at" : "created_at"}
+                          </div>
+                        </td>
+                        <td className="py-2 pr-3 align-top">
+                          <div className="font-medium">{p.item_title}</div>
+                          <div className="text-xs text-slate-500">
+                            {p.kind} · {p.item_id}
+                          </div>
+                        </td>
+                        <td className="py-2 pr-3 align-top">
+                          <div className="font-medium">{p.user_email ?? p.user_id}</div>
+                          {p.user_email && (
+                            <div className="text-xs text-slate-500">{p.user_id}</div>
+                          )}
+                        </td>
+                        <td className="py-2 pr-3 align-top">
+                          <div className="font-medium">{formatMoney(p.amount_minor, p.currency)}</div>
+                          <div className="text-xs text-slate-500">{p.currency ?? "—"}</div>
+                        </td>
+                        <td className="py-2 pr-3 align-top">
+                          <span className={`inline-flex rounded-full px-2 py-0.5 text-xs ${statusClass}`}>
+                            {statusLabel}
+                          </span>
+                          {p.status && (
+                            <div className="text-xs text-slate-500 mt-1">{p.status}</div>
+                          )}
+                        </td>
+                        <td className="py-2 pr-3 align-top">
+                          <div className="font-medium">{p.reference ?? "—"}</div>
+                          <div className="text-xs text-slate-500">{p.provider ?? "—"}</div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {filteredPurchases.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="py-3 text-sm text-slate-500">
+                        No purchases found.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </Section>
         </div>
       )}
