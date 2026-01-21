@@ -86,8 +86,8 @@ body {
 
 /* ---------- Partners marquee ---------- */
 @keyframes partners-marquee-ltr {
-  from { transform: translateX(-50%); }
-  to   { transform: translateX(0%); }
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(-50%, 0, 0); }
 }
 
 .partners-marquee {
@@ -101,6 +101,8 @@ body {
   display: inline-flex;
   align-items: center;
   width: max-content;
+  transform: translate3d(0, 0, 0);
+  animation-fill-mode: both;
   animation: partners-marquee-ltr 55s linear infinite;
   will-change: transform;
 }

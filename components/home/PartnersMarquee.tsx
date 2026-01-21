@@ -19,7 +19,7 @@ export function PartnersMarquee({ partners }: Props) {
 
         <div className="partners-marquee mt-6">
           <div className="partners-marquee-track">
-            {[0, 1].map((dup) => (
+            {[0, 1, 2, 3].map((dup) => (
               <div
                 key={`row-${dup}`}
                 className="partners-marquee-row"
@@ -35,7 +35,7 @@ export function PartnersMarquee({ partners }: Props) {
                       alt={partner.alt}
                       width={320}
                       height={160}
-                      loading="lazy"
+                      priority={dup === 0}
                       decoding="async"
                       sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
                       className="h-24 sm:h-26 md:h-30 w-auto object-contain grayscale opacity-60 transition hover:opacity-100 hover:grayscale-0 focus:opacity-100 focus:grayscale-0 transform scale-[1.8] sm:scale-100 md:scale-100 origin-center"
