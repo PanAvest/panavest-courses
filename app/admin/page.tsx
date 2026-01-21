@@ -1700,7 +1700,7 @@ export default function AdminPage() {
   const [purchases, setPurchases] = useState<PurchaseRow[]>([]);
   const [purchasesLoading, setPurchasesLoading] = useState(false);
   const [purchaseQuery, setPurchaseQuery] = useState("");
-  const [purchaseRange, setPurchaseRange] = useState<PurchaseRange>("month");
+  const [purchaseRange, setPurchaseRange] = useState<PurchaseRange>("all");
   const [purchaseStatus, setPurchaseStatus] = useState<PurchaseStatusFilter>("all");
   const [purchaseStart, setPurchaseStart] = useState("");
   const [purchaseEnd, setPurchaseEnd] = useState("");

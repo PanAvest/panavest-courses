@@ -13,20 +13,8 @@ export async function GET(req: Request) {
   const db = getSupabaseAdmin();
 
   const [enrRes, ebookRes] = await Promise.all([
-    db
-      .from("enrollments")
-      .select(
-        "user_id, course_id, paid, paid_at, currency, amount_minor, gateway, paystack_reference, paystack_status, updated_at, created_at, courses ( title )"
-      )
-      .order("paid_at", { ascending: false })
-      .limit(limit),
-    db
-      .from("ebook_purchases")
-      .select(
-        "user_id, ebook_id, status, paid_at, updated_at, paystack_reference, ebooks ( title, price_cents )"
-      )
-      .order("paid_at", { ascending: false })
-      .limit(limit),
+    db.from("enrollments").select("*, courses ( title )").limit(limit),
+    db.from("ebook_purchases").select("*, ebooks ( title, price_cents )").limit(limit),
   ]);
 
   if (enrRes.error || ebookRes.error) {
@@ -140,7 +128,8 @@ export async function GET(req: Request) {
       const reference = isStr(r["paystack_reference"]) ? r["paystack_reference"] : null;
       const paidAt = isStr(r["paid_at"]) ? r["paid_at"] : null;
       const updatedAt = isStr(r["updated_at"]) ? r["updated_at"] : null;
-      const effectiveAt = paidAt || updatedAt || null;
+      const createdAt = isStr(r["created_at"]) ? r["created_at"] : null;
+      const effectiveAt = paidAt || updatedAt || createdAt || null;
       const userId = String(r["user_id"] ?? "");
       const refPart = reference || effectiveAt || "ebook";
       return {
@@ -155,11 +144,11 @@ export async function GET(req: Request) {
         currency: "GHS",
         status,
         is_paid: isPaid,
-        provider: reference ? "paystack" : null,
+        provider: isStr(r["gateway"]) ? r["gateway"] : reference ? "paystack" : null,
         reference,
         paid_at: paidAt,
         updated_at: updatedAt,
-        created_at: null,
+        created_at: createdAt,
         effective_at: effectiveAt,
       };
     }),
