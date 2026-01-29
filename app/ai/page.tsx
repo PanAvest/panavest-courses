@@ -97,7 +97,7 @@ type ImageApiResponse = {
 const USE_TRANSFORMERS = process.env.NEXT_PUBLIC_USE_TRANSFORMERS === "true";
 
 const DEFAULT_ACTIONS = ["read", "explain", "details", "copy", "regen", "images"] as const;
-const DEFAULT_ELEVENLABS_VOICE_ID = "JBFqnCBsd6RMkjVDRZzb";
+const DEFAULT_ELEVENLABS_VOICE_ID = "VR5rq02kIGuHRg0JKxB6";
 const ELEVENLABS_MODEL_ID = "eleven_multilingual_v2";
 const ELEVENLABS_OUTPUT_FORMAT = "mp3_44100_128";
 const SILENT_AUDIO_DATA =

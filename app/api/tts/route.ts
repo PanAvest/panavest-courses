@@ -8,7 +8,7 @@ import {
 export const runtime = "nodejs";
 
 const API_KEY = process.env.ELEVENLABS_API_KEY;
-const DEFAULT_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "JBFqnCBsd6RMkjVDRZzb";
+const DEFAULT_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "VR5rq02kIGuHRg0JKxB6";
 const DEFAULT_MODEL_ID = process.env.ELEVENLABS_MODEL_ID || "eleven_multilingual_v2";
 const DEFAULT_OUTPUT_FORMAT: TextToSpeechConvertRequestOutputFormat = "mp3_44100_128";
 
