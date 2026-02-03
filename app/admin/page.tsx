@@ -517,9 +517,15 @@ function AiGlossaryAdmin() {
     setStatus("Loading CSV...");
     try {
       const Papa = await loadPapa();
-      const res = await fetch("/scmpedia_full.csv", { cache: "no-store" });
-      if (!res.ok) throw new Error("CSV not found.");
-      const csv = await res.text();
+      const sources = ["/scmpedia_full_UPDATED.csv", "/scmpedia_full.csv"];
+      let csv = "";
+      for (const src of sources) {
+        const res = await fetch(`${src}?v=${Date.now()}`, { cache: "no-store" });
+        if (!res.ok) continue;
+        csv = await res.text();
+        if (csv) break;
+      }
+      if (!csv) throw new Error("CSV not found.");
       const parsed = Papa.parse(csv, { header: true, skipEmptyLines: true });
       const rows = Array.isArray(parsed.data) ? parsed.data : [];
       const data = rows
@@ -593,7 +599,7 @@ function AiGlossaryAdmin() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = "scmpedia_full.csv";
+      link.download = "scmpedia_full_UPDATED.csv";
       link.click();
       URL.revokeObjectURL(url);
       setDirty(false);
@@ -748,7 +754,7 @@ function AiGlossaryAdmin() {
           </div>
           <div className="mt-3 text-xs text-slate-500">
             Changes are local until you download the CSV and replace{" "}
-            <code>public/scmpedia_full.csv</code> in the repo.
+            <code>public/scmpedia_full_UPDATED.csv</code> (or <code>public/scmpedia_full.csv</code>) in the repo.
           </div>
         </Section>
       </div>

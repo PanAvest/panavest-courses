@@ -34,8 +34,8 @@ The admin UI is a separate route with no button in the main app.
 ### Workflow
 
 1) Edit or add terms in the admin UI.  
-2) Click **Download CSV** to export the updated `scmpedia_full.csv`.  
-3) Replace `public/scmpedia_full.csv` in the repo and redeploy.
+2) Click **Download CSV** to export the updated `scmpedia_full_UPDATED.csv`.  
+3) Replace `public/scmpedia_full_UPDATED.csv` in the repo and redeploy.
 
 ## Notes
 

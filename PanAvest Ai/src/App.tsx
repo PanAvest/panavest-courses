@@ -327,16 +327,31 @@ function useData() {
         document.head.appendChild(s)
       })
 
+    const loadCsv = async () => {
+      const sources = ['/scmpedia_full_UPDATED.csv', '/scmpedia_full.csv']
+      for (const src of sources) {
+        try {
+          const cacheBuster = `${src}?v=${Date.now()}`
+          const r = await fetch(cacheBuster, { cache: 'no-store' })
+          if (!r.ok) continue
+          const text = await r.text()
+          if (!text) continue
+          processCSV(text)
+          return
+        } catch {
+          // try the next source
+        }
+      }
+      setStatus('empty')
+    }
+
     Promise.all([
       load('https://cdn.jsdelivr.net/npm/fuse.js@6.6.2/dist/fuse.basic.min.js', 'Fuse'),
       load('https://cdn.jsdelivr.net/npm/papaparse@5.3.0/papaparse.min.js', 'Papa'),
     ]).then(([F, P]) => {
       fuseLibRef.current = F
       papaRef.current = P
-      fetch('/scmpedia_full.csv')
-        .then((r) => (r.ok ? r.text() : Promise.reject()))
-        .then(processCSV)
-        .catch(() => setStatus('empty'))
+      loadCsv()
     })
   }, [processCSV])
 
@@ -1044,7 +1059,9 @@ export default function App() {
                 studies.
               </p>
               {status === 'empty' && (
-                <div style={{ color: '#d93025', fontWeight: 500 }}>Please drag & drop scmpedia_full.csv here</div>
+                <div style={{ color: '#d93025', fontWeight: 500 }}>
+                  Please drag & drop scmpedia_full_UPDATED.csv (or scmpedia_full.csv) here
+                </div>
               )}
             </div>
           ) : (

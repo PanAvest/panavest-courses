@@ -374,6 +374,25 @@ function useData() {
 
   useEffect(() => {
     let mounted = true;
+    const loadCsv = async () => {
+      const sources = ["/scmpedia_full_UPDATED.csv", "/scmpedia_full.csv"];
+      for (const src of sources) {
+        try {
+          const cacheBuster = `${src}?v=${Date.now()}`;
+          const r = await fetch(cacheBuster, { cache: "no-store" });
+          if (!r.ok) continue;
+          const text = await r.text();
+          if (!text) continue;
+          if (!mounted) return;
+          processCSV(text);
+          return;
+        } catch {
+          // try next source
+        }
+      }
+      if (mounted) setStatus("empty");
+    };
+
     Promise.all([
       loadScript<FuseConstructor>("https://cdn.jsdelivr.net/npm/fuse.js@6.6.2/dist/fuse.basic.min.js", "Fuse"),
       loadScript<PapaParse>("https://cdn.jsdelivr.net/npm/papaparse@5.3.0/papaparse.min.js", "Papa"),
@@ -382,12 +401,7 @@ function useData() {
         if (!mounted) return;
         fuseLibRef.current = F;
         papaRef.current = P;
-        return fetch("/scmpedia_full.csv");
-      })
-      .then((r) => (r?.ok ? r.text() : Promise.reject(new Error("Failed to load CSV"))))
-      .then((text) => {
-        if (!mounted) return;
-        processCSV(text as string);
+        return loadCsv();
       })
       .catch(() => {
         if (!mounted) return;

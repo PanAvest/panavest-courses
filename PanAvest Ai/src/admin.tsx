@@ -144,8 +144,15 @@ function AdminApp() {
     setStatus('Loading CSV...')
     try {
       const Papa = await loadPapa()
-      const res = await fetch('/scmpedia_full.csv', { cache: 'no-store' })
-      const csv = await res.text()
+      const sources = ['/scmpedia_full_UPDATED.csv', '/scmpedia_full.csv']
+      let csv = ''
+      for (const src of sources) {
+        const res = await fetch(`${src}?v=${Date.now()}`, { cache: 'no-store' })
+        if (!res.ok) continue
+        csv = await res.text()
+        if (csv) break
+      }
+      if (!csv) throw new Error('Failed to load CSV')
       const parsed = Papa.parse(csv, { header: true, skipEmptyLines: true })
       const data = parsed.data
         .map((row: any) => ({
@@ -221,7 +228,7 @@ function AdminApp() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = 'scmpedia_full.csv'
+      a.download = 'scmpedia_full_UPDATED.csv'
       a.click()
       URL.revokeObjectURL(url)
       setDirty(false)
@@ -412,7 +419,7 @@ function AdminApp() {
             <div className="status">{dirty ? 'Unsaved changes' : status}</div>
           </div>
           <div className="helper">
-            Changes are local until you download the CSV and replace `public/scmpedia_full.csv` on the server.
+            Changes are local until you download the CSV and replace `public/scmpedia_full_UPDATED.csv` on the server.
           </div>
         </section>
       </main>
