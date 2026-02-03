@@ -1,0 +1,31 @@
+version: "3.9"
+
+services:
+  db:
+    image: mariadb:10.11
+    container_name: panavest-db
+    restart: unless-stopped
+    command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW
+    volumes:
+      - "/Volumes/Time Machine/PanAvestServer/nextcloud-db:/var/lib/mysql"
+    environment:
+      MYSQL_ROOT_PASSWORD: StrongRootPass123
+      MYSQL_PASSWORD: StrongDBPass123
+      MYSQL_DATABASE: nextcloud
+      MYSQL_USER: nextcloud
+
+  app:
+    image: nextcloud
+    container_name: panavest-nextcloud
+    ports:
+      - 8080:80
+    links:
+      - db
+    volumes:
+      - "/Volumes/Time Machine/PanAvestServer/nextcloud-data:/var/www/html/data"
+    restart: unless-stopped
+    environment:
+      MYSQL_PASSWORD: StrongDBPass123
+      MYSQL_DATABASE: nextcloud
+      MYSQL_USER: nextcloud
+      MYSQL_HOST: db
