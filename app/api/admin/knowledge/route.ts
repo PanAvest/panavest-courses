@@ -24,8 +24,10 @@ const LEGACY_LIST_FIELDS =
 
 function isMissingFreeColumnError(err: PostgrestError | null | undefined): boolean {
   if (!err) return false;
-  if (err.code !== "42703") return false;
-  return (err.message || "").includes("free_for_logged_in");
+  const text = `${err.message ?? ""} ${err.details ?? ""} ${err.hint ?? ""}`.toLowerCase();
+  if (!text.includes("free_for_logged_in")) return false;
+  if (err.code === "42703" || err.code === "PGRST204") return true;
+  return text.includes("does not exist") || text.includes("schema cache") || text.includes("could not find");
 }
 
 export async function GET() {

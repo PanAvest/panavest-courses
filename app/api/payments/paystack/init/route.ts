@@ -26,8 +26,11 @@ type PaystackInitErr = { status: false; message: string };
 
 function isMissingFreeColumnError(err: unknown): boolean {
   if (!err || typeof err !== "object") return false;
-  const rec = err as { code?: string; message?: string };
-  return rec.code === "42703" && (rec.message ?? "").includes("free_for_logged_in");
+  const rec = err as { code?: string; message?: string; details?: string; hint?: string };
+  const text = `${rec.message ?? ""} ${rec.details ?? ""} ${rec.hint ?? ""}`.toLowerCase();
+  if (!text.includes("free_for_logged_in")) return false;
+  if (rec.code === "42703" || rec.code === "PGRST204") return true;
+  return text.includes("does not exist") || text.includes("schema cache") || text.includes("could not find");
 }
 
 function getAdmin(): SupabaseClient {

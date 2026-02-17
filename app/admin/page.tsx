@@ -803,12 +803,21 @@ export default function AdminPage() {
     refreshKnowledgeAbort.current?.abort();
     const ac = new AbortController();
     refreshKnowledgeAbort.current = ac;
-    const r = await fetch("/api/admin/knowledge", {
-      cache: "no-store",
-      signal: ac.signal,
-    });
-    const d = await r.json();
-    setKnowledge(asKnowledgeArray(d));
+    try {
+      const r = await fetch("/api/admin/knowledge", {
+        cache: "no-store",
+        signal: ac.signal,
+      });
+      const d = await r.json();
+      if (!r.ok) {
+        console.error("refresh knowledge failed", d);
+        return;
+      }
+      setKnowledge(asKnowledgeArray(d));
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      console.error("refresh knowledge failed", err);
+    }
   }, []);
   useEffect(() => {
     if (tab === "catalog" || tab === "content" || tab === "prices")
@@ -1432,7 +1441,14 @@ export default function AdminPage() {
         signal: ac.signal,
       });
       const d = await r.json();
+      if (!r.ok) {
+        console.error("refresh ebooks failed", d);
+        return;
+      }
       setEbooks(asEbooks(d));
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      console.error("refresh ebooks failed", err);
     } finally {
       setLoadingEbooks(false);
     }
