@@ -167,7 +167,7 @@ export default function EbookDetailPage() {
       if (error) { setOwn({ kind: "not_owner" }); return; }
       setOwn(data?.status === "paid" ? { kind: "owner" } : { kind: "not_owner" });
     })();
-  }, [ebook?.id]);
+  }, [ebook?.id, ebook?.free_for_logged_in]);
 
   /** Handle Paystack return (?reference=...) + polling */
   useEffect(() => {

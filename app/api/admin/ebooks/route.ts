@@ -68,7 +68,17 @@ let { data, error } = await supabase
   .single();                   // exactly one row expected after upsert
 
 if (error && isMissingFreeColumnError(error)) {
-  const { free_for_logged_in: _drop, ...legacyPayload } = payload;
+  const legacyPayload = {
+    id: payload.id,
+    slug: payload.slug,
+    title: payload.title,
+    description: payload.description,
+    cover_url: payload.cover_url,
+    sample_url: payload.sample_url,
+    kpf_url: payload.kpf_url,
+    price_cents: payload.price_cents,
+    published: payload.published,
+  };
   const fallback = await supabase
     .from("ebooks")
     .upsert(legacyPayload, {

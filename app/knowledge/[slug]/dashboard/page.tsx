@@ -407,12 +407,13 @@ export default function CourseDashboard() {
 
       // Bundled e-books (if this course includes any)
       try {
-        let { data: bundleLinks, error: bundleErr } = await supabase
+        const bundlePrimary = await supabase
           .from("program_ebook_links")
           .select("ebook_id, ebooks!inner(id,slug,title,cover_url,free_for_logged_in)")
           .eq("course_id", c.id)
           .eq("active", true);
-        if (bundleErr && isMissingFreeColumnError(bundleErr)) {
+        let bundleLinks = bundlePrimary.data;
+        if (bundlePrimary.error && isMissingFreeColumnError(bundlePrimary.error)) {
           const fallback = await supabase
             .from("program_ebook_links")
             .select("ebook_id, ebooks!inner(id,slug,title,cover_url)")
