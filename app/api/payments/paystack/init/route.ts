@@ -68,6 +68,38 @@ export async function POST(request: Request) {
     const callback_url = `${origin}/api/payments/paystack/callback`;
     // (Optional) pre-create records so you can track pending states (safe to skip)
     const admin = getAdmin();
+    if (body.meta.kind === "course") {
+      const { data: course, error: courseErr } = await admin
+        .from("courses")
+        .select("free_for_logged_in")
+        .eq("id", body.meta.course_id)
+        .maybeSingle();
+      if (courseErr) {
+        return NextResponse.json({ error: courseErr.message }, { status: 500 });
+      }
+      if (course?.free_for_logged_in === true) {
+        return NextResponse.json(
+          { error: "This program is free for logged-in users. No payment is required." },
+          { status: 409 },
+        );
+      }
+    } else {
+      const { data: ebook, error: ebookErr } = await admin
+        .from("ebooks")
+        .select("free_for_logged_in")
+        .eq("id", body.meta.ebook_id)
+        .maybeSingle();
+      if (ebookErr) {
+        return NextResponse.json({ error: ebookErr.message }, { status: 500 });
+      }
+      if (ebook?.free_for_logged_in === true) {
+        return NextResponse.json(
+          { error: "This e-book is free for logged-in users. No payment is required." },
+          { status: 409 },
+        );
+      }
+    }
+
     const now = new Date().toISOString();
     if (body.meta.kind === "course") {
       await admin

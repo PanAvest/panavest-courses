@@ -46,7 +46,7 @@ export function getPublicCoursesHome(limit = 6): Promise<CourseRow[]> {
       const client = getSupabaseAnonClient();
       const { data, error } = await client
         .from("courses")
-        .select("id, slug, title, description, img, cpd_points, published, created_at")
+        .select("id, slug, title, description, img, cpd_points, published, free_for_logged_in, created_at")
         .eq("published", true)
         .order("created_at", { ascending: false })
         .limit(limit);
@@ -67,7 +67,7 @@ export function getPublicCoursesCatalog(): Promise<CourseRow[]> {
       const client = getSupabaseAnonClient();
       const { data, error } = await client
         .from("courses")
-        .select("id, slug, title, description, img, price, cpd_points, published")
+        .select("id, slug, title, description, img, price, cpd_points, published, free_for_logged_in")
         .eq("published", true)
         .order("title", { ascending: true });
       if (error) {
@@ -87,7 +87,7 @@ export function getPublicEbooksHome(limit = 8): Promise<EbookRow[]> {
       const client = getSupabaseAnonClient();
       const { data, error } = await client
         .from("ebooks")
-        .select("id, slug, title, description, cover_url, price_cents, published, created_at")
+        .select("id, slug, title, description, cover_url, price_cents, published, free_for_logged_in, created_at")
         .eq("published", true)
         .order("created_at", { ascending: false })
         .limit(limit);

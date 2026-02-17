@@ -14,6 +14,7 @@ type Ebook = {
   kpf_url?: string | null;
   price_cents: number;
   published: boolean;
+  free_for_logged_in?: boolean;
 };
 
 export default function EbooksPage() {
@@ -137,7 +138,9 @@ export default function EbooksPage() {
                   {b.description ?? "No description yet."}
                 </p>
                 <div className="mt-auto pt-3 text-sm font-medium">
-                  GH₵ {(b.price_cents / 100).toFixed(2)}
+                  {b.free_for_logged_in
+                    ? "Free with login"
+                    : `GH₵ ${(b.price_cents / 100).toFixed(2)}`}
                 </div>
               </div>
             </Link>

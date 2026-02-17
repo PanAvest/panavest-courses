@@ -10,6 +10,7 @@ type State =
   | { kind: "loading" }
   | { kind: "signed_out" }
   | { kind: "paid" }
+  | { kind: "free_with_login" }
   | { kind: "unpaid" };
 
 export default function EnrollCTA({ courseId, slug, className }: Props) {
@@ -22,6 +23,16 @@ export default function EnrollCTA({ courseId, slug, className }: Props) {
 
       if (!mounted) return;
       if (!user) { setState({ kind: "signed_out" }); return; }
+
+      const { data: course } = await supabase
+        .from("courses")
+        .select("free_for_logged_in")
+        .eq("id", courseId)
+        .maybeSingle();
+      if (course?.free_for_logged_in === true) {
+        setState({ kind: "free_with_login" });
+        return;
+      }
 
       const { data: enr, error } = await supabase
         .from("enrollments")
@@ -79,6 +90,17 @@ export default function EnrollCTA({ courseId, slug, className }: Props) {
         className={`rounded-lg bg-brand text-white px-5 py-3 font-semibold hover:opacity-90 ${className ?? ""}`}
       >
         Go to Dashboard
+      </Link>
+    );
+  }
+
+  if (state.kind === "free_with_login") {
+    return (
+      <Link
+        href={`/knowledge/${slug}/dashboard`}
+        className={`rounded-lg bg-brand text-white px-5 py-3 font-semibold hover:opacity-90 ${className ?? ""}`}
+      >
+        Start Program
       </Link>
     );
   }

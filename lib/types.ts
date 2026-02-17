@@ -22,6 +22,7 @@ export interface Database {
           img: string | null;
           accredited: string[] | null;
           published: boolean | null;
+          free_for_logged_in: boolean | null;
           created_at: string | null;
         };
         Insert: {
@@ -35,6 +36,7 @@ export interface Database {
           img?: string | null;
           accredited?: string[] | null;
           published?: boolean | null;
+          free_for_logged_in?: boolean | null;
           created_at?: string | null;
         };
         Update: Partial<{
@@ -48,6 +50,7 @@ export interface Database {
           img: string | null;
           accredited: string[] | null;
           published: boolean | null;
+          free_for_logged_in: boolean | null;
           created_at: string | null;
         }>;
         Relationships: [];
@@ -61,6 +64,7 @@ export interface Database {
           cover_url: string | null;
           price_cents: number | null;
           published: boolean | null;
+          free_for_logged_in: boolean | null;
           created_at: string | null;
         };
         Insert: {
@@ -71,6 +75,7 @@ export interface Database {
           cover_url?: string | null;
           price_cents?: number | null;
           published?: boolean | null;
+          free_for_logged_in?: boolean | null;
           created_at?: string | null;
         };
         Update: Partial<{
@@ -81,6 +86,7 @@ export interface Database {
           cover_url: string | null;
           price_cents: number | null;
           published: boolean | null;
+          free_for_logged_in: boolean | null;
           created_at: string | null;
         }>;
         Relationships: [];

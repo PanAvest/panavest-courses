@@ -20,6 +20,7 @@ type Course = {
   coming_soon?: boolean | null;
   delivery_mode?: string | null;
   interactive_path?: string | null;
+  free_for_logged_in?: boolean | null;
 };
 
 type BundledEbook = { ebook_id: string; slug: string; title: string; cover_url: string | null };
@@ -44,7 +45,7 @@ export default function CoursePreview() {
       if (!slug) return;
       const { data: c } = await supabase
         .from("courses")
-        .select("id,slug,title,description,img,price,currency,cpd_points,published,coming_soon,delivery_mode,interactive_path")
+        .select("id,slug,title,description,img,price,currency,cpd_points,published,coming_soon,delivery_mode,interactive_path,free_for_logged_in")
         .eq("slug", slug)
         .eq("published", true)
         .maybeSingle();
@@ -131,9 +132,11 @@ export default function CoursePreview() {
 
   const priceLabel = Number(course.price ?? 0).toFixed(2);
   const currency = course.currency || "GHS";
+  const freeWithLogin = course.free_for_logged_in === true;
+  const hasAccess = paid || freeWithLogin;
 
   // Button logic
-  const showEnroll = Boolean(userId) && !paid;                // hide if paid
+  const showEnroll = Boolean(userId) && !hasAccess; // hide if paid or free-with-login
   const primaryPaidText = started ? "Continue Learning" : "Start Course";
   const dashboardHref = `/knowledge/${course.slug}/dashboard`;
   const enrollHref = `/knowledge/${course.slug}/enroll`;
@@ -169,9 +172,13 @@ export default function CoursePreview() {
         {/* Right: pricing + actions */}
         <aside className="rounded-xl bg-white border border-[color:var(--color-light)]/40 shadow-sm transition-shadow duration-200 hover:shadow-md p-5 h-max">
           <div className="text-lg">
-            <span className="font-semibold">
-              {currency} {priceLabel}
-            </span>
+            {freeWithLogin ? (
+              <span className="font-semibold text-[#0a1156]">Free with login</span>
+            ) : (
+              <span className="font-semibold">
+                {currency} {priceLabel}
+              </span>
+            )}
             <span className="ml-2 text-muted">· {course.cpd_points ?? 0} CPPD</span>
           </div>
 
@@ -215,10 +222,10 @@ export default function CoursePreview() {
                 {!userId && (
                   <>
                     <Link
-                      href="/auth/sign-in"
+                      href={`/auth/sign-in?redirect=${encodeURIComponent(`/knowledge/${course.slug}`)}`}
                       className="inline-flex items-center justify-center rounded-lg bg-[#0a1156] text-white px-4 py-2 font-semibold hover:opacity-90"
                     >
-                      Sign in to enroll
+                      {freeWithLogin ? "Sign in to start" : "Sign in to enroll"}
                     </Link>
                     <Link
                       href={dashboardHref}
@@ -247,7 +254,7 @@ export default function CoursePreview() {
                   </>
                 )}
 
-                {/* Logged in + PAID => only show Start/Continue */}
+                {/* Logged in + access granted (paid or free-with-login) */}
                 {userId && !showEnroll && (
                   <Link
                     href={dashboardHref}

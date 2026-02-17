@@ -420,7 +420,9 @@ export default async function HomePage() {
                   {typeof b?.price_cents === "number" && (
                     <div className="mt-3">
                       <code className="rounded-md bg-[color:var(--color-light)]/40 px-2 py-1 text-[12px]">
-                        GH₵ {(b.price_cents / 100).toFixed(2)}
+                        {b.free_for_logged_in
+                          ? "Free with login"
+                          : `GH₵ ${(b.price_cents / 100).toFixed(2)}`}
                       </code>
                     </div>
                   )}

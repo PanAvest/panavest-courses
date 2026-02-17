@@ -14,7 +14,15 @@ import InteractivePlayer from "@/components/InteractivePlayer";
 import PdfPageViewer from "@/components/pdf/PdfPageViewer";
 
 /** Types */
-type Course = { id: string; slug: string; title: string; img: string | null; delivery_mode?: string | null; interactive_path?: string | null };
+type Course = {
+  id: string;
+  slug: string;
+  title: string;
+  img: string | null;
+  delivery_mode?: string | null;
+  interactive_path?: string | null;
+  free_for_logged_in?: boolean | null;
+};
 type Chapter = { id: string; title: string; order_index: number; intro_video_url: string | null };
 
 type Slide = {
@@ -71,7 +79,13 @@ type ChapterQuizScore = {
   completedAt: string | null;
 };
 
-type LinkedEbookMeta = { id: string; slug: string; title: string; cover_url: string | null };
+type LinkedEbookMeta = {
+  id: string;
+  slug: string;
+  title: string;
+  cover_url: string | null;
+  free_for_logged_in?: boolean | null;
+};
 type LinkedEbook = { ebook_id: string; slug: string; title: string; cover_url: string | null; owned: boolean };
 
 /** Types for anti-copy/auto-end guards on window */
@@ -304,7 +318,7 @@ export default function CourseDashboard() {
       // course
       const { data: c } = await supabase
         .from("courses")
-        .select("id,slug,title,img,delivery_mode,interactive_path")
+        .select("id,slug,title,img,delivery_mode,interactive_path,free_for_logged_in")
         .eq("slug", String(slug))
         .maybeSingle();
       if (!c) { router.push("/knowledge"); return; }
@@ -318,9 +332,23 @@ export default function CourseDashboard() {
         .eq("course_id", c.id)
         .maybeSingle();
 
-      if (enrErr || !enr || enr.paid !== true) {
+      const hasFreeAccess = c.free_for_logged_in === true;
+      const hasPaidAccess = enr?.paid === true;
+      if ((enrErr && !hasFreeAccess) || (!hasPaidAccess && !hasFreeAccess)) {
         router.replace(`/knowledge/${c.slug}/enroll`);
         return; // stop here; don't load content
+      }
+      if (hasFreeAccess && !enr) {
+        await supabase
+          .from("enrollments")
+          .upsert(
+            {
+              user_id: userId,
+              course_id: c.id,
+              paid: false,
+            } as Record<string, unknown>,
+            { onConflict: "user_id,course_id" },
+          );
       }
 
       // Ensure interactive placeholder chapter/slide exists (idempotent)
@@ -364,7 +392,7 @@ export default function CourseDashboard() {
       try {
         const { data: bundleLinks } = await supabase
           .from("program_ebook_links")
-          .select("ebook_id, ebooks!inner(id,slug,title,cover_url)")
+          .select("ebook_id, ebooks!inner(id,slug,title,cover_url,free_for_logged_in)")
           .eq("course_id", c.id)
           .eq("active", true);
 
@@ -396,7 +424,7 @@ export default function CourseDashboard() {
               slug: meta.slug,
               title: meta.title,
               cover_url: meta.cover_url ?? null,
-              owned: ownedIds.has(id),
+              owned: ownedIds.has(id) || meta.free_for_logged_in === true,
             } as LinkedEbook;
           })
           .filter(Boolean) as LinkedEbook[];

@@ -13,9 +13,23 @@ type EnrollmentRow = { course_id: string; progress_pct: number | null; courses?:
 type EnrolledCourse = { course_id: string; progress_pct: number; title: string; slug: string; img: string | null; cpd_points: number | null };
 type QuizAttempt = { course_id: string; chapter_id: string; total_count: number; correct_count: number; score_pct: number; completed_at: string };
 type ChapterInfo = { id: string; title: string; order_index: number; course_id: string };
-type EbookRow = { id: string; slug: string; title: string; cover_url: string | null; price_cents: number };
+type EbookRow = {
+  id: string;
+  slug: string;
+  title: string;
+  cover_url: string | null;
+  price_cents: number;
+  free_for_logged_in?: boolean | null;
+};
 type PurchaseRow = { ebook_id: string; status: string | null; ebooks?: EbookRow | EbookRow[] | null };
-type PurchasedEbook = { ebook_id: string; slug: string; title: string; cover_url: string | null; price_cedis: string };
+type PurchasedEbook = {
+  ebook_id: string;
+  slug: string;
+  title: string;
+  cover_url: string | null;
+  price_cedis: string;
+  access_label: "Purchased" | "Free with login";
+};
 type ProfileRow = { id: string; full_name: string | null; updated_at?: string | null };
 
 type CertificateRow = {
@@ -180,6 +194,35 @@ export default function DashboardPage() {
         });
       }
 
+      // Add free-with-login courses so logged-in users can start them without payment.
+      const { data: freeCourseRows } = await supabase
+        .from("courses")
+        .select("id,title,slug,img,cpd_points")
+        .eq("published", true)
+        .eq("free_for_logged_in", true)
+        .order("title", { ascending: true });
+      if (!guard()) return;
+      const enrolledCourseIds = new Set(enrolledTmp.map((c) => c.course_id));
+      (freeCourseRows as CourseRow[] | null | undefined)?.forEach((c) => {
+        if (!c?.id || enrolledCourseIds.has(c.id)) return;
+        enrolledCourseIds.add(c.id);
+        courseIds.push(c.id);
+        localMeta[c.id] = {
+          title: c.title,
+          slug: c.slug,
+          cpd_points: c.cpd_points ?? null,
+          img: c.img ?? null,
+        };
+        enrolledTmp.push({
+          course_id: c.id,
+          progress_pct: 0,
+          title: c.title,
+          slug: c.slug,
+          img: c.img ?? null,
+          cpd_points: c.cpd_points ?? null,
+        });
+      });
+
       // Compute progress from slides
       courseIds = Array.from(new Set(courseIds));
       const courseIdsForProvisional: string[] = courseIds.slice();
@@ -228,7 +271,7 @@ export default function DashboardPage() {
       }
       setEnrolled(enrolledTmp);
 
-      // Purchased E-Books (paid only)
+      // Purchased E-Books (paid only) + free-with-login e-books
       const { data: purRows } = await supabase
         .from("ebook_purchases")
         .select("ebook_id,status,ebooks!inner(id,slug,title,cover_url,price_cents)")
@@ -237,16 +280,45 @@ export default function DashboardPage() {
         .order("created_at", { ascending: false });
       if (!guard()) return;
 
-      if (purRows) {
-        const items = (purRows as unknown as PurchaseRow[])
-          .map((p) => {
-            const e = pickEbook(p.ebooks);
-            if (!e) return null;
-            return { ebook_id: p.ebook_id, slug: e.slug, title: e.title, cover_url: e.cover_url ?? null, price_cedis: `GH₵ ${((e.price_cents ?? 0) / 100).toFixed(2)}` } as PurchasedEbook;
-          })
-          .filter(Boolean) as PurchasedEbook[];
-        setEbooks(items);
-      }
+      const paidItems = ((purRows ?? []) as unknown as PurchaseRow[])
+        .map((p) => {
+          const e = pickEbook(p.ebooks);
+          if (!e) return null;
+          return {
+            ebook_id: p.ebook_id,
+            slug: e.slug,
+            title: e.title,
+            cover_url: e.cover_url ?? null,
+            price_cedis: `GH₵ ${((e.price_cents ?? 0) / 100).toFixed(2)}`,
+            access_label: "Purchased",
+          } as PurchasedEbook;
+        })
+        .filter(Boolean) as PurchasedEbook[];
+
+      const { data: freeRows } = await supabase
+        .from("ebooks")
+        .select("id,slug,title,cover_url,price_cents,free_for_logged_in")
+        .eq("published", true)
+        .eq("free_for_logged_in", true)
+        .order("created_at", { ascending: false });
+      if (!guard()) return;
+
+      const freeItems = ((freeRows ?? []) as EbookRow[])
+        .map((e) => ({
+          ebook_id: e.id,
+          slug: e.slug,
+          title: e.title,
+          cover_url: e.cover_url ?? null,
+          price_cedis: "Free with login",
+          access_label: "Free with login",
+        })) as PurchasedEbook[];
+
+      const mergedById = new Map<string, PurchasedEbook>();
+      paidItems.forEach((item) => mergedById.set(item.ebook_id, item));
+      freeItems.forEach((item) => {
+        if (!mergedById.has(item.ebook_id)) mergedById.set(item.ebook_id, item);
+      });
+      setEbooks(Array.from(mergedById.values()));
 
       // Quiz attempts
       const quizRows = await safeSelect(
@@ -727,12 +799,12 @@ export default function DashboardPage() {
 
       {!loading && (
         <>
-          {/* Purchased E-Books */}
+          {/* E-Book Library */}
           <section className="mt-8">
-            <h2 className="text-xl font-semibold">Purchased E-Books</h2>
+            <h2 className="text-xl font-semibold">E-Book Library</h2>
             {ebooks.length === 0 ? (
               <div className="mt-3 rounded-xl border border-[color:var(--color-light)]/40 bg-white p-4 shadow-sm transition-shadow duration-200 hover:shadow-md">
-                <p className="text-muted">No purchased e-books yet.</p>
+                <p className="text-muted">No e-books unlocked yet.</p>
                 <Link href="/ebooks" className="mt-2 inline-block rounded-lg bg-[color:#0a1156] px-4 py-2 text-white">
                   Browse e-books
                 </Link>
@@ -746,7 +818,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="p-4">
                       <div className="font-semibold line-clamp-1">{b.title}</div>
-                      <div className="mt-1 text-xs text-muted">Purchased · {b.price_cedis}</div>
+                      <div className="mt-1 text-xs text-muted">{b.access_label} · {b.price_cedis}</div>
                       <Link href={`/ebooks/${b.slug}`} className="mt-3 inline-block rounded-lg bg-[color:#0a1156] px-3 py-1.5 text-white">
                         Read
                       </Link>

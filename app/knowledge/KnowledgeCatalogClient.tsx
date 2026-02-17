@@ -88,7 +88,11 @@ export default function KnowledgeCatalogClient({ items }: KnowledgeCatalogClient
               <h3 className="font-semibold text-lg">{course.title}</h3>
               <div className="mt-1 text-sm text-muted line-clamp-2">{course.description}</div>
               <div className="mt-3 text-sm">
-                <span className="font-semibold">GH₵{Number(course.price ?? 0).toFixed(2)}</span>
+                <span className="font-semibold">
+                  {course.free_for_logged_in
+                    ? "Free with login"
+                    : `GH₵${Number(course.price ?? 0).toFixed(2)}`}
+                </span>
                 <span className="ml-2 text-muted">· {course.cpd_points ?? 0} CPPD</span>
               </div>
             </div>

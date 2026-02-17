@@ -64,6 +64,21 @@ export async function POST(req: Request) {
 
     // record intent
     const supabase = getSupabaseAdmin();
+    const { data: courseRow, error: courseErr } = await supabase
+      .from("courses")
+      .select("free_for_logged_in")
+      .eq("id", b.course_id!)
+      .maybeSingle();
+    if (courseErr) {
+      return NextResponse.json({ ok: false, error: courseErr.message }, { status: 500 });
+    }
+    if (courseRow?.free_for_logged_in === true) {
+      return NextResponse.json(
+        { ok: false, error: "This program is free for logged-in users. No payment is required." },
+        { status: 409 },
+      );
+    }
+
     const upsertRow: EnrollmentUpsert = {
       user_id: b.user_id!,
       course_id: b.course_id!,

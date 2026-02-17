@@ -4,7 +4,14 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
-type Course = { id: string; slug: string; title: string; price: number; currency?: string };
+type Course = {
+  id: string;
+  slug: string;
+  title: string;
+  price: number;
+  currency?: string;
+  free_for_logged_in?: boolean;
+};
 
 export default function EnrollPage() {
   const params = useParams<{ slug: string }>();
@@ -33,7 +40,7 @@ export default function EnrollPage() {
       if (!params?.slug) return;
       const { data: c } = await supabase
         .from("courses")
-        .select("id,slug,title,price,currency")
+        .select("id,slug,title,price,currency,free_for_logged_in")
         .eq("slug", String(params.slug))
         .maybeSingle();
 
@@ -43,10 +50,30 @@ export default function EnrollPage() {
         ...c,
         price: Number(c.price ?? 0),
         currency: c.currency ?? "GHS",
+        free_for_logged_in: Boolean(c.free_for_logged_in ?? false),
       });
       setLoading(false);
     })();
   }, [params?.slug, router]);
+
+  // Free-with-login course: grant enrollment row and skip payment page.
+  useEffect(() => {
+    if (!userId || !course?.id || !course.free_for_logged_in) return;
+    let cancelled = false;
+    (async () => {
+      setNotice("This program is free with login. Redirecting…");
+      await supabase.from("enrollments").upsert(
+        { user_id: userId, course_id: course.id, paid: false },
+        { onConflict: "user_id,course_id" },
+      );
+      if (!cancelled) {
+        router.replace(`/knowledge/${course.slug}/dashboard`);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, course, router]);
 
   // If user returned from Paystack, verify immediately (supports ?reference=... or ?trxref=...)
   useEffect(() => {
@@ -74,6 +101,15 @@ export default function EnrollPage() {
   // Pay with Paystack
   async function payNow() {
     if (!userId || !email || !course) return;
+    if (course.free_for_logged_in) {
+      setNotice("This program is free with login. Redirecting…");
+      await supabase.from("enrollments").upsert(
+        { user_id: userId, course_id: course.id, paid: false },
+        { onConflict: "user_id,course_id" },
+      );
+      router.replace(`/knowledge/${course.slug}/dashboard`);
+      return;
+    }
 
     try {
       setNotice("Redirecting to Paystack…");
@@ -114,11 +150,17 @@ export default function EnrollPage() {
   return (
     <div className="mx-auto max-w-screen-md px-4 md:px-6 py-10">
       <h1 className="text-2xl font-bold">Enroll: {course.title}</h1>
-      <p className="mt-2 text-muted">Pay once to unlock this course with your account.</p>
+      <p className="mt-2 text-muted">
+        {course.free_for_logged_in
+          ? "This program is free for any logged-in account."
+          : "Pay once to unlock this course with your account."}
+      </p>
 
       <div className="mt-6 rounded-xl bg-white border border-[color:var(--color-light)]/40 p-5 shadow-sm transition-shadow duration-200 hover:shadow-md">
         <div className="text-lg font-semibold">
-          Total: {course.currency || "GHS"} {course.price.toFixed(2)}
+          {course.free_for_logged_in
+            ? "Total: Free with login"
+            : `Total: ${course.currency || "GHS"} ${course.price.toFixed(2)}`}
         </div>
 
         <button
@@ -126,7 +168,7 @@ export default function EnrollPage() {
           onClick={payNow}
           className="mt-4 rounded-lg bg-[#0a1156] text-white px-5 py-2 font-semibold hover:opacity-90"
         >
-          Enroll (Mobile Money/Card)
+          {course.free_for_logged_in ? "Start Program" : "Enroll (Mobile Money/Card)"}
         </button>
 
         {!!notice && <div className="mt-3 text-sm">{notice}</div>}

@@ -12,7 +12,8 @@ const Ebook = z.object({
   sample_url: z.string().url().nullable().optional(),
   kpf_url: z.string().url().nullable().optional(),
   price_cents: z.number().int(),
-  published: z.boolean()
+  published: z.boolean(),
+  free_for_logged_in: z.boolean().optional().default(false),
 });
 
 export async function GET(

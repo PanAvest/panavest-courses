@@ -18,7 +18,7 @@ function isUniqueViolation(err: PostgrestError | null | undefined): boolean {
 }
 
 const LIST_FIELDS =
-  "id,slug,title,description,level,price,cpd_points,img,accredited,published,coming_soon,delivery_mode,interactive_path,created_at";
+  "id,slug,title,description,level,price,cpd_points,img,accredited,published,coming_soon,delivery_mode,interactive_path,free_for_logged_in,created_at";
 
 export async function GET() {
   const admin = getSupabaseAdmin();
@@ -47,6 +47,7 @@ export async function POST(req: Request) {
       coming_soon?: boolean;
       delivery_mode?: string | null;
       interactive_path?: string | null;
+      free_for_logged_in?: boolean;
     };
 
     const payload = {
@@ -75,6 +76,8 @@ export async function POST(req: Request) {
       coming_soon: typeof body?.coming_soon === "boolean" ? body.coming_soon : false,
       delivery_mode: body?.delivery_mode === "interactive" ? "interactive" : "slides",
       interactive_path: (body?.interactive_path ?? null) as string | null,
+      free_for_logged_in:
+        typeof body?.free_for_logged_in === "boolean" ? body.free_for_logged_in : false,
     };
 
     if (!payload.slug || !payload.title) {
@@ -103,6 +106,7 @@ export async function POST(req: Request) {
           coming_soon: payload.coming_soon,
           delivery_mode: payload.delivery_mode,
           interactive_path: payload.interactive_path,
+          free_for_logged_in: payload.free_for_logged_in,
         })
         .eq("id", payload.id)
         .select(LIST_FIELDS)
@@ -135,6 +139,7 @@ export async function POST(req: Request) {
           coming_soon: payload.coming_soon,
           delivery_mode: payload.delivery_mode,
           interactive_path: payload.interactive_path,
+          free_for_logged_in: payload.free_for_logged_in,
         },
       ],
       { onConflict: "slug" }

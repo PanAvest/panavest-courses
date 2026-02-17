@@ -20,6 +20,7 @@ type Knowledge = {
   coming_soon?: boolean | null;
   delivery_mode?: "slides" | "interactive";
   interactive_path?: string | null;
+  free_for_logged_in?: boolean | null;
 };
 type AdminUser = {
   id: string;
@@ -75,6 +76,7 @@ type Ebook = {
   kpf_url?: string | null;
   price_cents: number; // USD cents
   published: boolean;
+  free_for_logged_in?: boolean;
   created_at?: string | null;
 };
 type FinalExam = {
@@ -281,6 +283,8 @@ function asKnowledgeArray(x: unknown): Knowledge[] {
       coming_soon: typeof r["coming_soon"] === "boolean" ? r["coming_soon"] : null,
       delivery_mode: r["delivery_mode"] === "interactive" ? "interactive" : "slides",
       interactive_path: isStr(r["interactive_path"]) ? r["interactive_path"] : null,
+      free_for_logged_in:
+        typeof r["free_for_logged_in"] === "boolean" ? r["free_for_logged_in"] : false,
     };
   });
 }
@@ -376,6 +380,7 @@ function asEbooks(x: unknown): Ebook[] {
       kpf_url: isStr(r["kpf_url"]) ? r["kpf_url"] : "",
       price_cents: num(r["price_cents"], 0),
       published: Boolean(r["published"] ?? true),
+      free_for_logged_in: Boolean(r["free_for_logged_in"] ?? false),
       created_at: isStr(r["created_at"]) ? r["created_at"] : null,
     };
   });
@@ -789,6 +794,7 @@ export default function AdminPage() {
     coming_soon: false,
     delivery_mode: "slides",
     interactive_path: "",
+    free_for_logged_in: false,
   });
   const [savingK, setSavingK] = useState(false);
 
@@ -836,6 +842,7 @@ export default function AdminPage() {
       coming_soon: false,
       delivery_mode: "slides",
       interactive_path: "",
+      free_for_logged_in: false,
     });
     await refreshKnowledge();
   }
@@ -1402,6 +1409,7 @@ export default function AdminPage() {
     kpf_url: "",
     price_cents: 0,
     published: true,
+    free_for_logged_in: false,
   });
   const [savingEbook, setSavingEbook] = useState(false);
   const [loadingEbooks, setLoadingEbooks] = useState(false);
@@ -1473,6 +1481,7 @@ export default function AdminPage() {
       kpf_url: "",
       price_cents: 0,
       published: true,
+      free_for_logged_in: false,
     });
     await refreshEbooks();
   }
@@ -1493,6 +1502,7 @@ export default function AdminPage() {
         kpf_url: "",
         price_cents: 0,
         published: true,
+        free_for_logged_in: false,
       });
     await refreshEbooks();
   }
@@ -2027,6 +2037,16 @@ export default function AdminPage() {
                 <label className="inline-flex items-center gap-2">
                   <input
                     type="checkbox"
+                    checked={Boolean(kForm.free_for_logged_in)}
+                    onChange={(e) =>
+                      setKForm((f) => ({ ...f, free_for_logged_in: (e.target as HTMLInputElement).checked }))
+                    }
+                  />
+                  <span className="text-sm">Free with login</span>
+                </label>
+                <label className="inline-flex items-center gap-2">
+                  <input
+                    type="checkbox"
                     checked={kForm.coming_soon ?? false}
                     onChange={(e) => setKForm((f) => ({ ...f, coming_soon: (e.target as HTMLInputElement).checked }))}
                   />
@@ -2056,6 +2076,7 @@ export default function AdminPage() {
                       coming_soon: false,
                       delivery_mode: "slides",
                       interactive_path: "",
+                      free_for_logged_in: false,
                     })
                   }
                   className="rounded-lg px-4 py-2 border border-[color:var(--color-light)]/40 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
@@ -2083,7 +2104,8 @@ export default function AdminPage() {
                   <div className="text-sm">
                     <div className="font-semibold">{k.title}</div>
                     <div className="text-slate-500 text-xs">
-                      /{k.slug} · {k.level ?? "—"} · GH₵{k.price ?? 0} · {k.published ? "Published" : "Draft"} ·{" "}
+                      /{k.slug} · {k.level ?? "—"} ·{" "}
+                      {k.free_for_logged_in ? "Free with login" : `GH₵${k.price ?? 0}`} · {k.published ? "Published" : "Draft"} ·{" "}
                       {k.delivery_mode === "interactive" ? "Interactive" : "Standard"}
                     </div>
                   </div>
@@ -2152,14 +2174,31 @@ export default function AdminPage() {
                     className="h-10 rounded-lg bg-white px-3 border border-[color:var(--color-light)]/40 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
                   />
                 </label>
-                <label className="inline-flex items-center gap-2 mt-6 sm:mt-0">
-                  <input
-                    type="checkbox"
-                    checked={ebookForm.published}
-                    onChange={(e) => setEbookForm((f) => ({ ...f, published: (e.target as HTMLInputElement).checked }))}
-                  />
-                  <span className="text-sm">Published</span>
-                </label>
+                <div className="flex flex-col justify-end gap-2">
+                  <label className="inline-flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={ebookForm.published}
+                      onChange={(e) =>
+                        setEbookForm((f) => ({ ...f, published: (e.target as HTMLInputElement).checked }))
+                      }
+                    />
+                    <span className="text-sm">Published</span>
+                  </label>
+                  <label className="inline-flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(ebookForm.free_for_logged_in)}
+                      onChange={(e) =>
+                        setEbookForm((f) => ({
+                          ...f,
+                          free_for_logged_in: (e.target as HTMLInputElement).checked,
+                        }))
+                      }
+                    />
+                    <span className="text-sm">Free with login</span>
+                  </label>
+                </div>
               </div>
 
               {([
@@ -2203,6 +2242,7 @@ export default function AdminPage() {
                       kpf_url: "",
                       price_cents: 0,
                       published: true,
+                      free_for_logged_in: false,
                     })
                   }
                   className="rounded-lg px-4 py-2 border border-[color:var(--color-light)]/40 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
@@ -2240,7 +2280,9 @@ export default function AdminPage() {
                       <div className="font-semibold">{e.title}</div>
                       <div className="text-xs text-slate-500">
                         /{e.slug} ·{" "}
-                        {(e.price_cents / 100).toLocaleString(undefined, { style: "currency", currency: "USD" })} ·{" "}
+                        {e.free_for_logged_in
+                          ? "Free with login"
+                          : (e.price_cents / 100).toLocaleString(undefined, { style: "currency", currency: "USD" })} ·{" "}
                         {e.published ? "Published" : "Draft"}
                       </div>
                     </div>

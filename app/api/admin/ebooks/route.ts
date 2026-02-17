@@ -13,6 +13,7 @@ const EbookSchema = z.object({
   kpf_url: z.string().url().nullable().optional(),
   price_cents: z.number().int().nonnegative().default(0),
   published: z.boolean().default(true),
+  free_for_logged_in: z.boolean().default(false),
 });
 
 function adminClient() {

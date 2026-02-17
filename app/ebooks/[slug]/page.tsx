@@ -38,6 +38,7 @@ type Ebook = {
   sample_url?: string | null;
   price_cents: number;
   published: boolean;
+  free_for_logged_in?: boolean;
 };
 
 type OwnershipState =
@@ -153,6 +154,10 @@ export default function EbookDetailPage() {
       if (!ebook?.id) { setOwn({ kind: "loading" }); return; }
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setOwn({ kind: "signed_out" }); return; }
+      if (ebook.free_for_logged_in) {
+        setOwn({ kind: "owner" });
+        return;
+      }
       const { data, error } = await supabase
         .from("ebook_purchases")
         .select("status")
@@ -207,16 +212,21 @@ export default function EbookDetailPage() {
   }, [search, ebook?.id, userId, slug]);
 
   /** Price label */
-  const price = useMemo(
-    () => (ebook ? `GH₵ ${(ebook.price_cents / 100).toFixed(2)}` : ""),
-    [ebook]
-  );
+  const price = useMemo(() => {
+    if (!ebook) return "";
+    if (ebook.free_for_logged_in) return "Free with login";
+    return `GH₵ ${(ebook.price_cents / 100).toFixed(2)}`;
+  }, [ebook]);
 
   /** Start Paystack */
   async function handleBuy() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push(`/auth/sign-in?redirect=${encodeURIComponent(`/ebooks/${slug}`)}`); return; }
     if (!ebook || !email) return;
+    if (ebook.free_for_logged_in) {
+      setOwn({ kind: "owner" });
+      return;
+    }
 
     setBuying(true);
     try {
@@ -251,7 +261,7 @@ export default function EbookDetailPage() {
     });
 
     if (res.status === 401) { setRenderError("Session expired or not signed in. Please sign in again."); return null; }
-    if (res.status === 403) { setRenderError("You haven’t purchased this e-book for this account."); return null; }
+    if (res.status === 403) { setRenderError("This e-book is locked for your account."); return null; }
     if (!res.ok) { setRenderError(`Secure PDF request failed: ${res.status}`); return null; }
 
     const buf = await res.arrayBuffer();
@@ -438,7 +448,7 @@ export default function EbookDetailPage() {
                       href={`/auth/sign-in?redirect=${encodeURIComponent(`/ebooks/${slug}`)}`}
                       className="inline-flex items-center justify-center rounded-lg bg-brand text-white px-5 py-3 font-semibold hover:opacity-90 w-full sm:w-auto"
                     >
-                      Sign in to buy
+                      {ebook.free_for_logged_in ? "Sign in to read" : "Sign in to buy"}
                     </Link>
                     <Link
                       href={dashboardHref}
@@ -486,7 +496,11 @@ export default function EbookDetailPage() {
               </div>
 
               {own.kind !== "owner" && (
-                <p className="mt-3 text-xs text-muted">Sign in and purchase to unlock reading.</p>
+                <p className="mt-3 text-xs text-muted">
+                  {ebook.free_for_logged_in
+                    ? "Sign in to unlock reading."
+                    : "Sign in and purchase to unlock reading."}
+                </p>
               )}
             </div>
           </div>
@@ -501,8 +515,12 @@ export default function EbookDetailPage() {
                   <div className="text-lg font-semibold">Access locked</div>
                   <p className="text-sm text-muted mt-1">
                     {own.kind === "signed_out"
-                      ? "Sign in and purchase to read the full e-book."
-                      : "Purchase to read the full e-book."}
+                      ? ebook.free_for_logged_in
+                        ? "Sign in to read the full e-book."
+                        : "Sign in and purchase to read the full e-book."
+                      : ebook.free_for_logged_in
+                        ? "Sign in to read the full e-book."
+                        : "Purchase to read the full e-book."}
                   </p>
                 </div>
               </div>
