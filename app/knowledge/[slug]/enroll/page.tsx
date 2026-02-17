@@ -13,6 +13,12 @@ type Course = {
   free_for_logged_in?: boolean;
 };
 
+function isMissingFreeColumnError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const rec = err as { code?: string; message?: string };
+  return rec.code === "42703" && (rec.message ?? "").includes("free_for_logged_in");
+}
+
 export default function EnrollPage() {
   const params = useParams<{ slug: string }>();
   const router = useRouter();
@@ -38,11 +44,22 @@ export default function EnrollPage() {
   useEffect(() => {
     (async () => {
       if (!params?.slug) return;
-      const { data: c } = await supabase
+      let c: Course | null = null;
+      const primary = await supabase
         .from("courses")
         .select("id,slug,title,price,currency,free_for_logged_in")
         .eq("slug", String(params.slug))
         .maybeSingle();
+      if (!primary.error) {
+        c = primary.data as Course | null;
+      } else if (isMissingFreeColumnError(primary.error)) {
+        const fallback = await supabase
+          .from("courses")
+          .select("id,slug,title,price,currency")
+          .eq("slug", String(params.slug))
+          .maybeSingle();
+        c = fallback.data as Course | null;
+      }
 
       if (!c) { router.push("/knowledge"); return; }
 

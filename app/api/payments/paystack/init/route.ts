@@ -24,6 +24,12 @@ type PaystackInitOk = {
 };
 type PaystackInitErr = { status: false; message: string };
 
+function isMissingFreeColumnError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const rec = err as { code?: string; message?: string };
+  return rec.code === "42703" && (rec.message ?? "").includes("free_for_logged_in");
+}
+
 function getAdmin(): SupabaseClient {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!; // service role for server routes
@@ -75,7 +81,9 @@ export async function POST(request: Request) {
         .eq("id", body.meta.course_id)
         .maybeSingle();
       if (courseErr) {
-        return NextResponse.json({ error: courseErr.message }, { status: 500 });
+        if (!isMissingFreeColumnError(courseErr)) {
+          return NextResponse.json({ error: courseErr.message }, { status: 500 });
+        }
       }
       if (course?.free_for_logged_in === true) {
         return NextResponse.json(
@@ -90,7 +98,9 @@ export async function POST(request: Request) {
         .eq("id", body.meta.ebook_id)
         .maybeSingle();
       if (ebookErr) {
-        return NextResponse.json({ error: ebookErr.message }, { status: 500 });
+        if (!isMissingFreeColumnError(ebookErr)) {
+          return NextResponse.json({ error: ebookErr.message }, { status: 500 });
+        }
       }
       if (ebook?.free_for_logged_in === true) {
         return NextResponse.json(

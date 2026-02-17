@@ -25,6 +25,12 @@ type Course = {
 
 type BundledEbook = { ebook_id: string; slug: string; title: string; cover_url: string | null };
 
+function isMissingFreeColumnError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const rec = err as { code?: string; message?: string };
+  return rec.code === "42703" && (rec.message ?? "").includes("free_for_logged_in");
+}
+
 export default function CoursePreview() {
   const params = useParams<{ slug: string }>();
   const slug = params?.slug as string;
@@ -43,12 +49,24 @@ export default function CoursePreview() {
     let mounted = true;
     (async () => {
       if (!slug) return;
-      const { data: c } = await supabase
+      let c: Course | null = null;
+      const primary = await supabase
         .from("courses")
         .select("id,slug,title,description,img,price,currency,cpd_points,published,coming_soon,delivery_mode,interactive_path,free_for_logged_in")
         .eq("slug", slug)
         .eq("published", true)
         .maybeSingle();
+      if (!primary.error) {
+        c = primary.data as Course | null;
+      } else if (isMissingFreeColumnError(primary.error)) {
+        const fallback = await supabase
+          .from("courses")
+          .select("id,slug,title,description,img,price,currency,cpd_points,published,coming_soon,delivery_mode,interactive_path")
+          .eq("slug", slug)
+          .eq("published", true)
+          .maybeSingle();
+        c = fallback.data as Course | null;
+      }
 
       if (mounted) {
         setCourse(c ?? null);

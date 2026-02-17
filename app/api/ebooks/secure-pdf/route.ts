@@ -6,6 +6,12 @@ import { createClient } from "@supabase/supabase-js";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function isMissingFreeColumnError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const rec = err as { code?: string; message?: string };
+  return rec.code === "42703" && (rec.message ?? "").includes("free_for_logged_in");
+}
+
 // Create a Supabase client that runs RLS as the user (forward the access token)
 function supabaseForToken(accessToken: string) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -47,11 +53,20 @@ export async function GET(req: NextRequest) {
     const userId = userInfo.user.id;
 
     // 3) Load ebook. Keep selection minimal to avoid column errors.
-    const { data: ebook, error: ebookErr } = await sb
+    let { data: ebook, error: ebookErr } = await sb
       .from("ebooks")
       .select("id, published, sample_url, free_for_logged_in")
       .eq("id", ebookId)
       .maybeSingle();
+    if (ebookErr && isMissingFreeColumnError(ebookErr)) {
+      const fallback = await sb
+        .from("ebooks")
+        .select("id, published, sample_url")
+        .eq("id", ebookId)
+        .maybeSingle();
+      ebook = fallback.data as (typeof ebook & { free_for_logged_in?: boolean }) | null;
+      ebookErr = fallback.error;
+    }
 
     if (ebookErr) {
       return NextResponse.json({ error: `DB error: ${ebookErr.message}` }, { status: 500 });

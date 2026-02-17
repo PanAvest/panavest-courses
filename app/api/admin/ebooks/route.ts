@@ -16,6 +16,12 @@ const EbookSchema = z.object({
   free_for_logged_in: z.boolean().default(false),
 });
 
+function isMissingFreeColumnError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const rec = err as { code?: string; message?: string };
+  return rec.code === "42703" && (rec.message ?? "").includes("free_for_logged_in");
+}
+
 function adminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!; // server-side secret
@@ -52,7 +58,7 @@ export async function POST(req: Request) {
   // Upsert a SINGLE row (by id if present, otherwise by unique slug)
   // Important: request a single row back without throwing if zero/multi rows
  // ✅ works with a single object payload
-const { data, error } = await supabase
+let { data, error } = await supabase
   .from("ebooks")
   .upsert(payload, {
     onConflict: "slug",        // slug must be UNIQUE in the table
@@ -60,6 +66,20 @@ const { data, error } = await supabase
   })
   .select("*")
   .single();                   // exactly one row expected after upsert
+
+if (error && isMissingFreeColumnError(error)) {
+  const { free_for_logged_in: _drop, ...legacyPayload } = payload;
+  const fallback = await supabase
+    .from("ebooks")
+    .upsert(legacyPayload, {
+      onConflict: "slug",
+      ignoreDuplicates: false,
+    })
+    .select("*")
+    .single();
+  data = fallback.data;
+  error = fallback.error;
+}
 
 
   if (error) {

@@ -19,13 +19,29 @@ function isUniqueViolation(err: PostgrestError | null | undefined): boolean {
 
 const LIST_FIELDS =
   "id,slug,title,description,level,price,cpd_points,img,accredited,published,coming_soon,delivery_mode,interactive_path,free_for_logged_in,created_at";
+const LEGACY_LIST_FIELDS =
+  "id,slug,title,description,level,price,cpd_points,img,accredited,published,coming_soon,delivery_mode,interactive_path,created_at";
+
+function isMissingFreeColumnError(err: PostgrestError | null | undefined): boolean {
+  if (!err) return false;
+  if (err.code !== "42703") return false;
+  return (err.message || "").includes("free_for_logged_in");
+}
 
 export async function GET() {
   const admin = getSupabaseAdmin();
-  const { data, error } = await admin
+  let { data, error } = await admin
     .from("courses")
     .select(LIST_FIELDS)
     .order("title", { ascending: true });
+  if (error && isMissingFreeColumnError(error)) {
+    const fallback = await admin
+      .from("courses")
+      .select(LEGACY_LIST_FIELDS)
+      .order("title", { ascending: true });
+    data = fallback.data as unknown as typeof data;
+    error = fallback.error;
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data ?? []);
@@ -91,7 +107,7 @@ export async function POST(req: Request) {
 
     if (payload.id) {
       // UPDATE by id (safe for slug changes)
-      const { data, error: updErr } = await admin
+      let { data, error: updErr } = await admin
         .from("courses")
         .update({
           slug: payload.slug,
@@ -111,6 +127,29 @@ export async function POST(req: Request) {
         .eq("id", payload.id)
         .select(LIST_FIELDS)
         .single();
+      if (updErr && isMissingFreeColumnError(updErr)) {
+        const fallback = await admin
+          .from("courses")
+          .update({
+            slug: payload.slug,
+            title: payload.title,
+            description: payload.description,
+            level: payload.level,
+            price: payload.price,
+            cpd_points: payload.cpd_points,
+            img: payload.img,
+            accredited: payload.accredited,
+            published: payload.published,
+            coming_soon: payload.coming_soon,
+            delivery_mode: payload.delivery_mode,
+            interactive_path: payload.interactive_path,
+          })
+          .eq("id", payload.id)
+          .select(LEGACY_LIST_FIELDS)
+          .single();
+        data = fallback.data as unknown as typeof data;
+        updErr = fallback.error;
+      }
 
       if (updErr) {
         if (isUniqueViolation(updErr)) {
@@ -122,7 +161,7 @@ export async function POST(req: Request) {
     }
 
     // CREATE via upsert on slug
-    const { data, error: insErr } = await admin
+    let { data, error: insErr } = await admin
       .from("courses")
       .upsert(
         [
@@ -146,6 +185,33 @@ export async function POST(req: Request) {
     )
       .select(LIST_FIELDS)
       .single();
+    if (insErr && isMissingFreeColumnError(insErr)) {
+      const fallback = await admin
+        .from("courses")
+        .upsert(
+          [
+            {
+              slug: payload.slug,
+              title: payload.title,
+              description: payload.description,
+              level: payload.level,
+              price: payload.price,
+              cpd_points: payload.cpd_points,
+              img: payload.img,
+              accredited: payload.accredited,
+              published: payload.published,
+              coming_soon: payload.coming_soon,
+              delivery_mode: payload.delivery_mode,
+              interactive_path: payload.interactive_path,
+            },
+          ],
+          { onConflict: "slug" }
+        )
+        .select(LEGACY_LIST_FIELDS)
+        .single();
+      data = fallback.data as unknown as typeof data;
+      insErr = fallback.error;
+    }
 
     if (insErr) {
       if (isUniqueViolation(insErr)) {

@@ -12,6 +12,12 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 let supabase: SupabaseClient<Database> | null = null;
 
+function isMissingFreeColumnError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const rec = err as { code?: string; message?: string };
+  return rec.code === "42703" && (rec.message ?? "").includes("free_for_logged_in");
+}
+
 function getSupabaseAnonClient(): SupabaseClient<Database> {
   if (!supabaseUrl || !supabaseAnonKey) {
     throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY");
@@ -44,12 +50,27 @@ export function getPublicCoursesHome(limit = 6): Promise<CourseRow[]> {
   return unstable_cache(
     async () => {
       const client = getSupabaseAnonClient();
-      const { data, error } = await client
+      const primary = await client
         .from("courses")
         .select("id, slug, title, description, img, cpd_points, published, free_for_logged_in, created_at")
         .eq("published", true)
         .order("created_at", { ascending: false })
         .limit(limit);
+      let data = primary.data as CourseRow[] | null;
+      let error = primary.error;
+      if (error && isMissingFreeColumnError(error)) {
+        const fallback = await client
+          .from("courses")
+          .select("id, slug, title, description, img, cpd_points, published, created_at")
+          .eq("published", true)
+          .order("created_at", { ascending: false })
+          .limit(limit);
+        data = (fallback.data ?? []).map((row) => ({
+          ...row,
+          free_for_logged_in: false,
+        })) as CourseRow[];
+        error = fallback.error;
+      }
       if (error) {
         console.error("[KDS] courses home fetch failed", error);
         return [];
@@ -65,11 +86,25 @@ export function getPublicCoursesCatalog(): Promise<CourseRow[]> {
   return unstable_cache(
     async () => {
       const client = getSupabaseAnonClient();
-      const { data, error } = await client
+      const primary = await client
         .from("courses")
         .select("id, slug, title, description, img, price, cpd_points, published, free_for_logged_in")
         .eq("published", true)
         .order("title", { ascending: true });
+      let data = primary.data as CourseRow[] | null;
+      let error = primary.error;
+      if (error && isMissingFreeColumnError(error)) {
+        const fallback = await client
+          .from("courses")
+          .select("id, slug, title, description, img, price, cpd_points, published")
+          .eq("published", true)
+          .order("title", { ascending: true });
+        data = (fallback.data ?? []).map((row) => ({
+          ...row,
+          free_for_logged_in: false,
+        })) as CourseRow[];
+        error = fallback.error;
+      }
       if (error) {
         console.error("[KDS] courses catalog fetch failed", error);
         return [];
@@ -85,12 +120,27 @@ export function getPublicEbooksHome(limit = 8): Promise<EbookRow[]> {
   return unstable_cache(
     async () => {
       const client = getSupabaseAnonClient();
-      const { data, error } = await client
+      const primary = await client
         .from("ebooks")
         .select("id, slug, title, description, cover_url, price_cents, published, free_for_logged_in, created_at")
         .eq("published", true)
         .order("created_at", { ascending: false })
         .limit(limit);
+      let data = primary.data as EbookRow[] | null;
+      let error = primary.error;
+      if (error && isMissingFreeColumnError(error)) {
+        const fallback = await client
+          .from("ebooks")
+          .select("id, slug, title, description, cover_url, price_cents, published, created_at")
+          .eq("published", true)
+          .order("created_at", { ascending: false })
+          .limit(limit);
+        data = (fallback.data ?? []).map((row) => ({
+          ...row,
+          free_for_logged_in: false,
+        })) as EbookRow[];
+        error = fallback.error;
+      }
       if (error) {
         console.error("[KDS] ebooks home fetch failed", error);
         return [];

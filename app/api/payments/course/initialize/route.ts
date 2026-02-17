@@ -18,6 +18,12 @@ type EnrollmentUpsert = {
   intent_amount_major?: number | null;
 };
 
+function isMissingFreeColumnError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const rec = err as { code?: string; message?: string };
+  return rec.code === "42703" && (rec.message ?? "").includes("free_for_logged_in");
+}
+
 // Optional: make GET return a friendly message instead of a 400 in console
 export async function GET() {
   return NextResponse.json({
@@ -70,7 +76,9 @@ export async function POST(req: Request) {
       .eq("id", b.course_id!)
       .maybeSingle();
     if (courseErr) {
-      return NextResponse.json({ ok: false, error: courseErr.message }, { status: 500 });
+      if (!isMissingFreeColumnError(courseErr)) {
+        return NextResponse.json({ ok: false, error: courseErr.message }, { status: 500 });
+      }
     }
     if (courseRow?.free_for_logged_in === true) {
       return NextResponse.json(

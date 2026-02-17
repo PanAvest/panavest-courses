@@ -155,6 +155,12 @@ function pickLinkedEbook(e: LinkedEbookMeta | LinkedEbookMeta[] | null | undefin
   return Array.isArray(e) ? e[0] ?? null : e;
 }
 
+function isMissingFreeColumnError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const rec = err as { code?: string; message?: string };
+  return rec.code === "42703" && (rec.message ?? "").includes("free_for_logged_in");
+}
+
 function VideoPlayer({
   src,
   poster,
@@ -316,11 +322,22 @@ export default function CourseDashboard() {
       setLoading(true);
 
       // course
-      const { data: c } = await supabase
+      let c: Course | null = null;
+      const primary = await supabase
         .from("courses")
         .select("id,slug,title,img,delivery_mode,interactive_path,free_for_logged_in")
         .eq("slug", String(slug))
         .maybeSingle();
+      if (!primary.error) {
+        c = primary.data as Course | null;
+      } else if (isMissingFreeColumnError(primary.error)) {
+        const fallback = await supabase
+          .from("courses")
+          .select("id,slug,title,img,delivery_mode,interactive_path")
+          .eq("slug", String(slug))
+          .maybeSingle();
+        c = fallback.data as Course | null;
+      }
       if (!c) { router.push("/knowledge"); return; }
       setCourse(c);
 
@@ -390,11 +407,19 @@ export default function CourseDashboard() {
 
       // Bundled e-books (if this course includes any)
       try {
-        const { data: bundleLinks } = await supabase
+        let { data: bundleLinks, error: bundleErr } = await supabase
           .from("program_ebook_links")
           .select("ebook_id, ebooks!inner(id,slug,title,cover_url,free_for_logged_in)")
           .eq("course_id", c.id)
           .eq("active", true);
+        if (bundleErr && isMissingFreeColumnError(bundleErr)) {
+          const fallback = await supabase
+            .from("program_ebook_links")
+            .select("ebook_id, ebooks!inner(id,slug,title,cover_url)")
+            .eq("course_id", c.id)
+            .eq("active", true);
+          bundleLinks = fallback.data as typeof bundleLinks;
+        }
 
         const ebookIds = (bundleLinks ?? [])
           .map((row: { ebook_id?: string | null }) => row.ebook_id)
