@@ -114,6 +114,7 @@ type TTSProvider = "elevenlabs" | "browser";
 
 type TTS = {
   speak: (id: string, text: string) => void;
+  stop: () => void;
   speakingId: string | null;
   preparingId: string | null;
   voices: SpeechSynthesisVoice[];
@@ -427,6 +428,19 @@ function useTTS() {
   const audioUrlRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const audioUnlockedRef = useRef(false);
+  const speakingIdRef = useRef<string | null>(null);
+  const preparingIdRef = useRef<string | null>(null);
+  const playTokenRef = useRef(0);
+
+  const setSpeaking = useCallback((id: string | null) => {
+    speakingIdRef.current = id;
+    setSpeakingId(id);
+  }, []);
+
+  const setPreparing = useCallback((id: string | null) => {
+    preparingIdRef.current = id;
+    setPreparingId(id);
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -456,24 +470,35 @@ function useTTS() {
   }, [selectedVoiceURI]);
 
   const stopAudio = useCallback(() => {
+    playTokenRef.current += 1;
     abortRef.current?.abort();
     abortRef.current = null;
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.src = "";
+    const audio = audioRef.current;
+    if (audio) {
+      audio.onended = null;
+      audio.onerror = null;
+      audio.pause();
+      audio.currentTime = 0;
+      audio.src = "";
+      if (typeof audio.load === "function") audio.load();
     }
     if (audioUrlRef.current) {
       URL.revokeObjectURL(audioUrlRef.current);
       audioUrlRef.current = null;
     }
-    setSpeakingId(null);
-    setPreparingId(null);
-  }, []);
+    setSpeaking(null);
+    setPreparing(null);
+  }, [setPreparing, setSpeaking]);
 
   const stopBrowser = useCallback(() => {
     const synth = synthRef.current;
     if (synth) synth.cancel();
   }, []);
+
+  const stop = useCallback(() => {
+    stopAudio();
+    stopBrowser();
+  }, [stopAudio, stopBrowser]);
 
   const unlockAudio = useCallback(() => {
     if (audioUnlockedRef.current) return;
@@ -500,27 +525,24 @@ function useTTS() {
 
   useEffect(() => {
     return () => {
-      stopAudio();
-      stopBrowser();
+      stop();
     };
-  }, [stopAudio, stopBrowser]);
+  }, [stop]);
 
   const speakBrowser = useCallback(
     (id: string, text: string, force = false) => {
       const synth = synthRef.current;
       if (!synth) return;
 
-      if (!force && speakingId === id) {
-        synth.cancel();
-        setSpeakingId(null);
-        setPreparingId(null);
+      if (!force && (speakingIdRef.current === id || preparingIdRef.current === id)) {
+        stop();
         return;
       }
 
       stopAudio();
       synth.cancel();
-      setPreparingId(null);
-      setSpeakingId(id);
+      setPreparing(null);
+      setSpeaking(id);
 
       const u = new SpeechSynthesisUtterance(text);
       const voice = voices.find((v) => v.voiceURI === selectedVoiceURI);
@@ -528,25 +550,29 @@ function useTTS() {
 
       u.rate = 1.0;
       u.pitch = 1.0;
-      u.onend = () => setSpeakingId(null);
-      u.onerror = () => setSpeakingId(null);
+      u.onend = () => {
+        if (speakingIdRef.current === id) setSpeaking(null);
+      };
+      u.onerror = () => {
+        if (speakingIdRef.current === id) setSpeaking(null);
+      };
       synth.speak(u);
     },
-    [selectedVoiceURI, speakingId, stopAudio, voices]
+    [selectedVoiceURI, setPreparing, setSpeaking, stop, stopAudio, voices]
   );
 
   const speakElevenLabs = useCallback(
     async (id: string, text: string) => {
-      if (speakingId === id) {
-        stopAudio();
+      if (speakingIdRef.current === id || preparingIdRef.current === id) {
+        stop();
         return;
       }
 
-      stopAudio();
-      stopBrowser();
+      stop();
       unlockAudio();
-      setPreparingId(id);
-      setSpeakingId(id);
+      const playToken = ++playTokenRef.current;
+      setPreparing(id);
+      setSpeaking(id);
 
       const controller = new AbortController();
       abortRef.current = controller;
@@ -583,25 +609,30 @@ function useTTS() {
         }
 
         const blob = await response.blob();
+        if (controller.signal.aborted || playToken !== playTokenRef.current) return;
         const url = URL.createObjectURL(blob);
         audioUrlRef.current = url;
         const audio = audioRef.current ?? new Audio();
         audioRef.current = audio;
         audio.src = url;
-        audio.onended = () => stopAudio();
-        audio.onerror = () => stopAudio();
+        audio.onended = () => {
+          if (playToken === playTokenRef.current) stopAudio();
+        };
+        audio.onerror = () => {
+          if (playToken === playTokenRef.current) stopAudio();
+        };
         await audio.play();
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") {
           return;
         }
-        setSpeakingId(null);
+        if (playToken === playTokenRef.current) setSpeaking(null);
         throw err;
       } finally {
-        setPreparingId(null);
+        if (playToken === playTokenRef.current) setPreparing(null);
       }
     },
-    [speakingId, stopAudio, stopBrowser, unlockAudio]
+    [setPreparing, setSpeaking, stop, stopAudio, unlockAudio]
   );
 
   const speak = useCallback(
@@ -611,7 +642,7 @@ function useTTS() {
         void speakElevenLabs(id, text).catch((err) => {
           const message = err instanceof Error ? err.message : String(err);
           if (message.toLowerCase().includes("missing elevenlabs api key")) {
-            setPreparingId(null);
+            setPreparing(null);
             setProvider("browser");
             speakBrowser(id, text, true);
             return;
@@ -623,11 +654,12 @@ function useTTS() {
       }
       speakBrowser(id, text);
     },
-    [provider, speakBrowser, speakElevenLabs, setProvider]
+    [provider, setPreparing, setProvider, speakBrowser, speakElevenLabs]
   );
 
   return {
     speak,
+    stop,
     speakingId,
     preparingId,
     voices,
@@ -931,6 +963,10 @@ const AssistantCard = ({
   const isPreparing = tts.preparingId === message.id;
 
   const handleRead = () => {
+    if (isPreparing || isSpeaking) {
+      tts.stop();
+      return;
+    }
     if (speech) tts.speak(message.id, speech);
   };
 
@@ -1038,29 +1074,23 @@ const AssistantCard = ({
         )}
 
         <button
-          className={`${styles.actionBtn} ${isSpeaking ? styles.actionBtnActive : ""}`}
+          className={`${styles.actionBtn} ${isSpeaking || isPreparing ? styles.actionBtnStop : ""}`}
           onClick={handleRead}
-          disabled={!canRead}
+          disabled={!canRead && !isPreparing && !isSpeaking}
         >
           {isPreparing || isSpeaking ? (
-            <span className={styles.speakerAnim} data-state={isPreparing ? "loading" : "playing"} aria-hidden>
-              <svg
-                className={styles.speakerIcon}
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M4 10v4h3l4 4V6l-4 4H4z" />
-              </svg>
-              <span className={styles.speakerBars}>
-                <span className={styles.speakerBar}></span>
-                <span className={styles.speakerBar}></span>
-                <span className={styles.speakerBar}></span>
-              </span>
-            </span>
+            <svg
+              className={styles.buttonIcon}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <rect x="7" y="7" width="10" height="10" rx="1" />
+            </svg>
           ) : (
             <svg
               className={styles.buttonIcon}
@@ -1077,7 +1107,7 @@ const AssistantCard = ({
               <path d="M18.5 6.5a6 6 0 0 1 0 11" />
             </svg>
           )}
-          {isPreparing ? "Preparing..." : isSpeaking ? "Reading" : "Read"}
+          {isPreparing || isSpeaking ? "Stop" : "Read"}
         </button>
 
         <button className={styles.actionBtn} onClick={() => setShowDetails((prev) => !prev)}>
