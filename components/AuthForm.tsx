@@ -7,6 +7,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { COUNTRIES } from "@/lib/countries";
 import { educationOptions } from "@/lib/profileConstants";
+import ModernDatePicker, { toIsoDateString } from "@/components/ModernDatePicker";
 
 type Mode = "sign-in" | "sign-up";
 
@@ -52,6 +53,7 @@ export default function AuthForm({ mode }: { mode: Mode }) {
   const cta = mode === "sign-in" ? "Sign In" : "Sign Up";
 
   const normalizedEmail = email.trim();
+  const maxDob = useMemo(() => toIsoDateString(new Date()), []);
   const passwordStrength: PasswordCheck = useMemo(() => {
     return evaluatePassword(password, normalizedEmail, fullName);
   }, [password, normalizedEmail, fullName]);
@@ -228,11 +230,12 @@ export default function AuthForm({ mode }: { mode: Mode }) {
             {step === 1 && (
               <label className="block">
                 <span className="text-sm">Date of birth</span>
-                <input
-                  type="date"
-                  className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 border border-[color:var(--color-light)]/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+                <ModernDatePicker
                   value={dob}
-                  onChange={(ev) => setDob(ev.target.value)}
+                  onChange={setDob}
+                  min="1900-01-01"
+                  max={maxDob}
+                  placeholder="Select your date of birth"
                 />
               </label>
             )}

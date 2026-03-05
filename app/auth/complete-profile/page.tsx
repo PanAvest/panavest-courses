@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { COUNTRIES } from "@/lib/countries";
 import { educationOptions } from "@/lib/profileConstants";
+import ModernDatePicker, { toIsoDateString } from "@/components/ModernDatePicker";
 
 export default function CompleteProfilePage() {
   const router = useRouter();
@@ -19,6 +20,7 @@ export default function CompleteProfilePage() {
   const [err, setErr] = useState<string | null>(null);
 
   const selectedCountry = useMemo(() => COUNTRIES.find((c) => c.code === country), [country]);
+  const maxDob = useMemo(() => toIsoDateString(new Date()), []);
 
   useEffect(() => {
     let cancelled = false;
@@ -147,11 +149,12 @@ export default function CompleteProfilePage() {
 
           <label className="block">
             <span className="text-sm">Date of birth</span>
-            <input
-              type="date"
-              className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 border border-[color:var(--color-light)]/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+            <ModernDatePicker
               value={dob}
-              onChange={(ev) => setDob(ev.target.value)}
+              onChange={setDob}
+              min="1900-01-01"
+              max={maxDob}
+              placeholder="Select your date of birth"
             />
           </label>
 

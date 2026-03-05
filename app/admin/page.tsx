@@ -4,6 +4,7 @@ type UserAction = "ban" | "unban" | "revoke" | "clear-history" | "delete";
 
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import ModernDatePicker from "@/components/ModernDatePicker";
 
 /* ─────────────────────────────── Types ─────────────────────────────── */
 type Knowledge = {
@@ -3547,20 +3548,22 @@ export default function AdminPage() {
                 <>
                   <label className="grid gap-1">
                     <span className="text-xs text-slate-500">Start</span>
-                    <input
-                      type="date"
+                    <ModernDatePicker
                       value={purchaseStart}
-                      onChange={(e) => setPurchaseStart((e.target as HTMLInputElement).value)}
-                      className="h-9 rounded-lg bg-white px-3 border border-[color:var(--color-light)]/40 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+                      onChange={setPurchaseStart}
+                      max={purchaseEnd || undefined}
+                      allowClear
+                      className="h-9 w-full rounded-lg bg-white px-3 border border-[color:var(--color-light)]/40 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 text-left"
                     />
                   </label>
                   <label className="grid gap-1">
                     <span className="text-xs text-slate-500">End</span>
-                    <input
-                      type="date"
+                    <ModernDatePicker
                       value={purchaseEnd}
-                      onChange={(e) => setPurchaseEnd((e.target as HTMLInputElement).value)}
-                      className="h-9 rounded-lg bg-white px-3 border border-[color:var(--color-light)]/40 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+                      onChange={setPurchaseEnd}
+                      min={purchaseStart || undefined}
+                      allowClear
+                      className="h-9 w-full rounded-lg bg-white px-3 border border-[color:var(--color-light)]/40 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 text-left"
                     />
                   </label>
                 </>
