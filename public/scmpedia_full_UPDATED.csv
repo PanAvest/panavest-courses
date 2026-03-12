@@ -15277,7 +15277,7 @@ TCCC,Abbreviation for: Tower Control Computer Complex.
 TCE,Abbreviation for: Tone Control Equipment.
 TCLT,Abbreviation for: Tentative Calculated Landing Time.
 TCM,Abbreviation for: Transportation Control Measures.
-TCO,Abbreviation for: Telecommunications Certification Officer and Total Cost of Ownership.
+TCO,"Total Cost of Ownership: A financial and lifecycle costing methodology used to calculate the total economic cost of an asset or service across its full lifecycle, including acquisition, operation, maintenance, and disposal costs."
 TCOM,Abbreviation for: Terminal Communications.
 TCS,Abbreviation for: Tower Communications System.
 TDC,Abbreviation for: Total Delivered Cost.
@@ -18857,7 +18857,7 @@ Suspension of Work Clause,"A contract provision that allows an agency to suspend
 System Infrastructure,"CANADIAN The fundamental enabling structure upon which a system operates, including the technology platform, software and other standards, shared services, management support and capabilities."
 Systems Analysis,"The process of analyzing existing systems for the purpose of evaluating possible improvements in methods and procedures. (Jansen, 2002)"
 Systems Contract,A contract that establishes a source of supply for a specified period for a large group or related family of materials; a method of procurement designed to improve reordering of materials used repeatedly. May include a catalog with a list and description of items that can be purchased. Also see Blanket Order.
-TACO,- See Total Acquisition Costs of Ownership
+TACO,"Total Acquisition Cost of Ownership (Boateng, 2013): A financial and lifecycle costing methodology that evaluates the full economic cost and developmental impact value of acquiring and operating an asset or service throughout its entire useful life."
 T & C,See Terms and Conditions.
 T & M,See time and materials contract.
 Tabulation of Bids/Responses,"The recording of responses to bids and proposals for the purposes of comparison, analysis and record keeping."
@@ -19541,3 +19541,7 @@ X12,"A standard for electronic communication of business forms. For example, for
 XML (eXtensible Markup Language),"An “open”, ISO standard data language, similar to, but more powerful than HTML. It is not only for storing and transmitting data, but also describing what the data mean. It is becoming a popular format for business-to-business transactions on the Web. Two features of it are that, like HTML, it uses tags, and an XML file is tree structured, as illustrated by the following example:"
 See   http,//www.w3.org/XML/.
 Zero sum game,"A situation in which the total amount of profit ( or “pie”) is fixed. Individual players by their actions can only affect how the profit is allocated (or pie is cut). Also called a constant sum game. In contrast, see Prisoner’s dilemma."
+SISO,"Single Sourcing (Boateng, 2013): Single sourcing occurs when multiple suppliers are available, but procurement deliberately selects only one supplier due to constraints such as time delays, the need for standardisation, operational continuity, transitional migration, or risk containment. This approach helps prevent delays, reduce complexity, ensure system stability, support migration processes, and lower the risk of operational failure."
+SOSO,"Sole Sourcing (Boateng, 2013): Sole sourcing occurs when only one supplier is capable of providing the required goods, services, or works. This typically arises due to proprietary technology, intellectual property rights, custom-built systems, unique configurations, exclusive capabilities or certifications, or compatibility requirements with existing systems where alternative options would pose unacceptable operational or technical risks."
+VFD,"Value for Development (Boateng, 2013): A procurement and governance principle that evaluates the broader implications and impact of procurement decisions on medium- to long-term socio-economic development, including industrial growth, skills transfer, and local economic empowerment."
+VFM,"Value for Money: A procurement and governance principle that ensures the optimal use of resources by balancing cost, quality, risk, and performance to achieve the most advantageous outcome."
