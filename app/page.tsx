@@ -214,17 +214,8 @@ export default async function HomePage() {
       {/* ===== KDS MOBILE ===== */}
       <section className="py-12 sm:py-16 animate-fade-up">
         <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
-          <div className="relative overflow-hidden rounded-[32px] border border-[color:var(--color-light)]/70 bg-[linear-gradient(135deg,#fffaf7_0%,#ffffff_44%,#f7f2ee_100%)] px-6 py-10 shadow-[0_24px_80px_rgba(15,23,42,0.08)] sm:px-10 sm:py-14 lg:px-14 lg:py-16">
-            <div
-              aria-hidden="true"
-              className="absolute left-[-4rem] top-[-3rem] h-40 w-40 rounded-full bg-[#f4d8ca]/55 blur-3xl"
-            />
-            <div
-              aria-hidden="true"
-              className="absolute bottom-[-3rem] right-[-2rem] h-56 w-56 rounded-full bg-[#f1e7df]/80 blur-3xl"
-            />
-
-            <div className="relative grid gap-12 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-center">
+          <div className="px-2 py-2 sm:px-6 sm:py-4 lg:px-8 lg:py-6">
+            <div className="grid gap-12 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-center">
               {/* Left copy */}
               <div className="flex flex-col text-center md:text-left">
                 <span className="inline-flex w-fit items-center gap-2 self-center rounded-full border border-[color:var(--color-light)]/80 bg-white/90 px-3 py-1 text-[11px] font-medium text-[color:var(--color-ink)] shadow-sm md:self-start sm:text-xs">
@@ -300,11 +291,7 @@ export default async function HomePage() {
 
               {/* Right visual */}
               <div className="relative flex justify-center lg:justify-end">
-                <div
-                  aria-hidden="true"
-                  className="absolute bottom-6 h-24 w-[78%] rounded-full bg-[rgba(182,84,55,0.12)] blur-2xl"
-                />
-                <div className="relative w-full max-w-[640px] rounded-[32px] border border-white/80 bg-white/75 p-3 shadow-[0_34px_90px_rgba(15,23,42,0.16)] backdrop-blur-sm sm:p-5">
+                <div className="relative w-full max-w-[640px]">
                   <Image
                     src="/mobile.png"
                     alt="KDS mobile experience showing the dashboard and course progress views"
