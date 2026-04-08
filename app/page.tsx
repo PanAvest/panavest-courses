@@ -211,94 +211,109 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ===== KDS MOBILE (matches hero + theme) ===== */}
-      <section className="py-10 sm:py-14 animate-fade-up">
+      {/* ===== KDS MOBILE ===== */}
+      <section className="py-12 sm:py-16 animate-fade-up">
         <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
-          <div className="rounded-xl bg-white shadow-sm px-6 py-10 sm:px-10 sm:py-12 lg:px-14 lg:py-14 grid gap-10 md:grid-cols-[1.05fr_.95fr] items-center transition-shadow duration-200 hover:shadow-md">
-            {/* Left copy */}
-            <div className="flex flex-col gap-4 text-center md:text-left">
-              {/* pill matches hero style */}
-              <span className="inline-flex items-center gap-2 rounded-full bg-white/90 px-2.5 py-0.5 text-[11px] sm:text-xs shadow-sm">
-                <span
-                  className="h-2 w-2 rounded-full"
-                  style={{ background: BRAND.primary }}
-                />
-                <span className="font-medium">
-                  KDS mobile app · Learn anywhere
+          <div className="relative overflow-hidden rounded-[32px] border border-[color:var(--color-light)]/70 bg-[linear-gradient(135deg,#fffaf7_0%,#ffffff_44%,#f7f2ee_100%)] px-6 py-10 shadow-[0_24px_80px_rgba(15,23,42,0.08)] sm:px-10 sm:py-14 lg:px-14 lg:py-16">
+            <div
+              aria-hidden="true"
+              className="absolute left-[-4rem] top-[-3rem] h-40 w-40 rounded-full bg-[#f4d8ca]/55 blur-3xl"
+            />
+            <div
+              aria-hidden="true"
+              className="absolute bottom-[-3rem] right-[-2rem] h-56 w-56 rounded-full bg-[#f1e7df]/80 blur-3xl"
+            />
+
+            <div className="relative grid gap-12 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-center">
+              {/* Left copy */}
+              <div className="flex flex-col text-center md:text-left">
+                <span className="inline-flex w-fit items-center gap-2 self-center rounded-full border border-[color:var(--color-light)]/80 bg-white/90 px-3 py-1 text-[11px] font-medium text-[color:var(--color-ink)] shadow-sm md:self-start sm:text-xs">
+                  <span
+                    className="h-2 w-2 rounded-full"
+                    style={{ background: BRAND.primary }}
+                  />
+                  KDS mobile app
                 </span>
-              </span>
 
-              <h2 className="font-extrabold text-[28px] sm:text-[34px] lg:text-[40px] leading-tight text-[color:var(--color-ink)]">
-                Learn anywhere with the KDS mobile app.
-              </h2>
+                <h2 className="mt-5 max-w-xl font-extrabold text-[30px] leading-[1.05] text-[color:var(--color-ink)] sm:text-[38px] lg:text-[48px]">
+                  Learn anywhere with the KDS mobile app.
+                </h2>
 
-              <p className="text-sm sm:text-base text-[color:var(--color-ink)]/75 max-w-xl mx-auto md:mx-0">
-                Access your Knowledge Programs, assessments, and certificates securely from your phone — the same PanAvest KDS experience, optimized for mobile.
-              </p>
+                <p className="mt-5 max-w-2xl text-base leading-7 text-[color:var(--color-ink)]/75 sm:text-lg">
+                  Access your Knowledge Programs, assessments, and certificates securely from your phone with the same PanAvest KDS experience, rebuilt for a cleaner mobile workflow.
+                </p>
 
-              <ul className="mt-2 space-y-2 text-sm sm:text-base text-[color:var(--color-ink)] max-w-xl mx-auto md:mx-0">
-                <li className="flex items-start gap-3">
-                  <span className="mt-1 text-green-600">
-                    <IconCheck />
-                  </span>
-                  <span>Track your progress in real time</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="mt-1 text-green-600">
-                    <IconCheck />
-                  </span>
-                  <span>Take assessments from secure mobile browser</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="mt-1 text-green-600">
-                    <IconCheck />
-                  </span>
-                  <span>View earned CPD/CPPD certificates on the go</span>
-                </li>
-              </ul>
+                <ul className="mt-8 grid gap-3 text-left text-sm text-[color:var(--color-ink)] sm:text-base">
+                  <li className="flex items-start gap-3 rounded-2xl border border-white/80 bg-white/80 px-4 py-3 shadow-[0_10px_30px_rgba(15,23,42,0.05)] backdrop-blur-sm">
+                    <span className="mt-1 text-green-600">
+                      <IconCheck />
+                    </span>
+                    <span>Track your progress, linked programs, and completion status in real time.</span>
+                  </li>
+                  <li className="flex items-start gap-3 rounded-2xl border border-white/80 bg-white/80 px-4 py-3 shadow-[0_10px_30px_rgba(15,23,42,0.05)] backdrop-blur-sm">
+                    <span className="mt-1 text-green-600">
+                      <IconCheck />
+                    </span>
+                    <span>Continue lessons and assessments from a secure mobile learning workspace.</span>
+                  </li>
+                  <li className="flex items-start gap-3 rounded-2xl border border-white/80 bg-white/80 px-4 py-3 shadow-[0_10px_30px_rgba(15,23,42,0.05)] backdrop-blur-sm">
+                    <span className="mt-1 text-green-600">
+                      <IconCheck />
+                    </span>
+                    <span>Review certificates and course activity on the go without losing your place.</span>
+                  </li>
+                </ul>
 
-              <div className="mt-6 flex flex-wrap items-center justify-center md:justify-start gap-4">
-                {/* App Store button – real link, hover animation */}
-                <a
-                  href="https://apps.apple.com/in/app/panavest-kds/id6755534884"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-3 rounded-2xl bg-black px-5 py-3 text-sm font-semibold text-white shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-transform transition-shadow duration-200"
-                >
-                  <Image
-                    src="/appstore-svgrepo-com.svg"
-                    alt="Download on the App Store"
-                    width={24}
-                    height={24}
-                    className="h-5 w-auto"
-                  />
-                  <span>Download on the App Store</span>
-                </a>
+                <div className="mt-8 flex flex-wrap items-center justify-center gap-4 md:justify-start">
+                  <a
+                    href="https://apps.apple.com/in/app/panavest-kds/id6755534884"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-3 rounded-2xl bg-black px-5 py-3 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(0,0,0,0.18)] transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-[0_22px_46px_rgba(0,0,0,0.22)]"
+                  >
+                    <Image
+                      src="/appstore-svgrepo-com.svg"
+                      alt="Download on the App Store"
+                      width={24}
+                      height={24}
+                      className="h-5 w-auto"
+                    />
+                    <span>Download on the App Store</span>
+                  </a>
 
-                {/* Play Store badge – coming soon */}
-                <div className="inline-flex items-center gap-3 rounded-xl bg-white px-5 py-3 text-sm font-medium text-[color:var(--color-ink)]/80 opacity-75 cursor-default shadow-sm">
-                  <Image
-                    src="/playstore-svgrepo-com.svg"
-                    alt="Play Store"
-                    width={24}
-                    height={24}
-                    className="h-5 w-auto"
-                  />
-                  <span>Play Store · coming soon</span>
+                  <div className="inline-flex items-center gap-3 rounded-2xl border border-[color:var(--color-light)]/80 bg-white/80 px-5 py-3 text-sm font-medium text-[color:var(--color-ink)]/75 shadow-sm backdrop-blur-sm">
+                    <Image
+                      src="/playstore-svgrepo-com.svg"
+                      alt="Google Play"
+                      width={24}
+                      height={24}
+                      className="h-5 w-auto opacity-75"
+                    />
+                    <span>Android native app coming soon</span>
+                  </div>
                 </div>
-              </div>
-            </div>
 
-            {/* Right visual */}
-            <div className="flex justify-center">
-              <div className="w-full max-w-[420px] md:max-w-[460px] lg:max-w-[520px]">
-                <Image
-                  src="/mobile.png"
-                  alt="KDS Mobile preview"
-                  width={1040}
-                  height={1040}
-                  className="w-full h-auto object-contain drop-shadow-xl"
+                <p className="mt-4 text-sm text-[color:var(--color-ink)]/60">
+                  Available now on iPhone. Android is in progress and not live yet.
+                </p>
+              </div>
+
+              {/* Right visual */}
+              <div className="relative flex justify-center lg:justify-end">
+                <div
+                  aria-hidden="true"
+                  className="absolute bottom-6 h-24 w-[78%] rounded-full bg-[rgba(182,84,55,0.12)] blur-2xl"
                 />
+                <div className="relative w-full max-w-[640px] rounded-[32px] border border-white/80 bg-white/75 p-3 shadow-[0_34px_90px_rgba(15,23,42,0.16)] backdrop-blur-sm sm:p-5">
+                  <Image
+                    src="/mobile.png"
+                    alt="KDS mobile experience showing the dashboard and course progress views"
+                    width={2000}
+                    height={2000}
+                    sizes="(max-width: 768px) 100vw, (max-width: 1280px) 48vw, 640px"
+                    className="w-full h-auto object-contain"
+                  />
+                </div>
               </div>
             </div>
           </div>
