@@ -78,6 +78,8 @@ const MIN_ZOOM = 0.8;
 const MAX_ZOOM = 3;
 const ZOOM_STEP = 0.2;
 const FLIP_ANIMATION_MS = 560;
+const MOBILE_SCROLL_ACTIVE_PAGES = 3;
+const DESKTOP_SCROLL_ACTIVE_PAGES = 5;
 
 const clampZoom = (value: number) =>
   Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Math.round(value * 100) / 100));
@@ -133,6 +135,9 @@ export default function EbookDetailPage() {
   const zoomRef = useRef(zoom);
   const currentPageRef = useRef(currentPage);
   const flipSpreadStartRef = useRef(flipSpreadStart);
+  const scrollRenderSeqRef = useRef(0);
+  const scrollSyncRunningRef = useRef(false);
+  const scrollSyncPendingRef = useRef(false);
   const pinchStateRef = useRef({
     active: false,
     startDistance: 0,
@@ -357,6 +362,11 @@ export default function EbookDetailPage() {
     return Math.max(220, Math.floor(safeWidth * zoom));
   }, [zoom]);
 
+  const getScrollActivePageCount = useCallback(() => {
+    if (typeof window === "undefined") return DESKTOP_SCROLL_ACTIVE_PAGES;
+    return window.innerWidth < 768 ? MOBILE_SCROLL_ACTIVE_PAGES : DESKTOP_SCROLL_ACTIVE_PAGES;
+  }, []);
+
   const getFlipMetrics = useCallback((): FlipMetrics => {
     const viewportWidth = flipViewportRef.current?.clientWidth
       ?? scrollRef.current?.clientWidth
@@ -456,7 +466,8 @@ export default function EbookDetailPage() {
     const aspectRatio = base.height / base.width;
     pageAspectRef.current = aspectRatio;
     const targetWidth = Math.max(220, Math.floor(cssWidth));
-    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+    const isCompactViewport = window.innerWidth < 768;
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, isCompactViewport ? 1.35 : 1.8);
     const viewport = page.getViewport({ scale: (targetWidth * pixelRatio) / base.width });
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("Canvas context unavailable");
@@ -474,6 +485,132 @@ export default function EbookDetailPage() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     await page.render({ canvasContext: ctx, viewport }).promise;
   }, [ensurePdfDoc]);
+
+  const releaseScrollCanvas = useCallback((pageWrap: HTMLDivElement) => {
+    const existing = pageWrap.querySelector<HTMLCanvasElement>("canvas[data-page]");
+    if (existing) {
+      existing.width = 0;
+      existing.height = 0;
+      existing.remove();
+    }
+    pageWrap.dataset.state = "idle";
+    delete pageWrap.dataset.renderWidth;
+  }, []);
+
+  const syncVisibleScrollPages = useCallback(async () => {
+    const pagesEl = pagesRef.current;
+    const scroller = scrollRef.current;
+    if (!pagesEl || !scroller || readerMode !== "scroll" || !showReader) return;
+
+    if (scrollSyncRunningRef.current) {
+      scrollSyncPendingRef.current = true;
+      return;
+    }
+
+    scrollSyncRunningRef.current = true;
+
+    try {
+      do {
+        scrollSyncPendingRef.current = false;
+
+        const wrappers = Array.from(pagesEl.children) as HTMLDivElement[];
+        if (wrappers.length === 0) break;
+
+        const pageWidth = getScrollPageWidth();
+        const placeholderHeight = Math.max(280, Math.floor(pageWidth * pageAspectRef.current));
+        const scrollerRect = scroller.getBoundingClientRect();
+        const probeLine = scrollerRect.top + scroller.clientHeight * 0.18;
+
+        let bestPage = currentPageRef.current;
+        let bestDistance = Number.POSITIVE_INFINITY;
+        for (const pageWrap of wrappers) {
+          pageWrap.style.minHeight = `${placeholderHeight}px`;
+          pageWrap.style.height = `${placeholderHeight}px`;
+
+          const rect = pageWrap.getBoundingClientRect();
+          const center = rect.top + rect.height / 2;
+          const distance = Math.abs(center - probeLine);
+          if (distance < bestDistance) {
+            bestDistance = distance;
+            bestPage = Number(pageWrap.dataset.page ?? "1");
+          }
+        }
+
+        setCurrentPage((value) => (value === bestPage ? value : bestPage));
+
+        const radius = Math.floor(getScrollActivePageCount() / 2);
+        const activePages = new Set<number>();
+        for (
+          let pageNumber = Math.max(1, bestPage - radius);
+          pageNumber <= Math.min(wrappers.length, bestPage + radius);
+          pageNumber += 1
+        ) {
+          activePages.add(pageNumber);
+        }
+
+        for (const pageWrap of wrappers) {
+          const pageNumber = Number(pageWrap.dataset.page ?? "0");
+          if (!activePages.has(pageNumber)) {
+            releaseScrollCanvas(pageWrap);
+          }
+        }
+
+        const seq = ++scrollRenderSeqRef.current;
+        const orderedPages = Array.from(activePages).sort(
+          (a, b) => Math.abs(a - bestPage) - Math.abs(b - bestPage),
+        );
+
+        for (const pageNumber of orderedPages) {
+          if (scrollRenderSeqRef.current !== seq) break;
+
+          const pageWrap = pagesEl.querySelector<HTMLDivElement>(`[data-page="${pageNumber}"]`);
+          if (!pageWrap) continue;
+
+          const renderedWidth = Number(pageWrap.dataset.renderWidth ?? "0");
+          const renderState = pageWrap.dataset.state ?? "idle";
+          const existingCanvas = pageWrap.querySelector<HTMLCanvasElement>("canvas[data-page]");
+          const widthMatches = Math.abs(renderedWidth - pageWidth) < 2;
+
+          if (renderState === "rendered" && existingCanvas && widthMatches) continue;
+          if (renderState === "rendering") continue;
+
+          releaseScrollCanvas(pageWrap);
+          pageWrap.dataset.state = "rendering";
+
+          const canvas = document.createElement("canvas");
+          canvas.dataset.page = String(pageNumber);
+          pageWrap.appendChild(canvas);
+
+          try {
+            await renderPdfPageToCanvas(pageNumber, pageWidth, canvas);
+            if (scrollRenderSeqRef.current !== seq || !activePages.has(pageNumber)) {
+              releaseScrollCanvas(pageWrap);
+              continue;
+            }
+            pageWrap.dataset.state = "rendered";
+            pageWrap.dataset.renderWidth = String(pageWidth);
+            const renderedHeight = Number.parseFloat(canvas.style.height || "0");
+            if (Number.isFinite(renderedHeight) && renderedHeight > 0) {
+              pageWrap.style.minHeight = `${renderedHeight}px`;
+              pageWrap.style.height = `${renderedHeight}px`;
+            }
+          } catch (e) {
+            releaseScrollCanvas(pageWrap);
+            setRenderError((e as Error).message || "Failed to load PDF");
+          }
+        }
+      } while (scrollSyncPendingRef.current);
+    } finally {
+      scrollSyncRunningRef.current = false;
+    }
+  }, [
+    getScrollActivePageCount,
+    getScrollPageWidth,
+    readerMode,
+    releaseScrollCanvas,
+    renderPdfPageToCanvas,
+    showReader,
+  ]);
 
   const renderFlipPageFrame = useCallback(async (pageNumber: number, pageWidth: number): Promise<FlipPageFrame | null> => {
     const doc = await ensurePdfDoc();
@@ -554,15 +691,16 @@ export default function EbookDetailPage() {
       pagesEl.style.width = `${pageWidth}px`;
 
       const fragment = document.createDocumentFragment();
+      const placeholderHeight = Math.max(280, Math.floor(pageWidth * pageAspectRef.current));
       for (let pageNumber = 1; pageNumber <= doc.numPages; pageNumber += 1) {
         const pageWrap = document.createElement("div");
         pageWrap.style.display = "flex";
         pageWrap.style.justifyContent = "center";
-
-        const canvas = document.createElement("canvas");
-        canvas.dataset.page = String(pageNumber);
-        await renderPdfPageToCanvas(pageNumber, pageWidth, canvas);
-        pageWrap.appendChild(canvas);
+        pageWrap.style.minHeight = `${placeholderHeight}px`;
+        pageWrap.style.height = `${placeholderHeight}px`;
+        pageWrap.style.contain = "layout paint";
+        pageWrap.dataset.page = String(pageNumber);
+        pageWrap.dataset.state = "idle";
         fragment.appendChild(pageWrap);
       }
       pagesEl.appendChild(fragment);
@@ -571,13 +709,14 @@ export default function EbookDetailPage() {
       const nextHorizontalRange = Math.max(scroller.scrollWidth - scroller.clientWidth, 0);
       scroller.scrollTop = nextVerticalRange > 0 ? previousTopRatio * nextVerticalRange : 0;
       scroller.scrollLeft = nextHorizontalRange > 0 ? previousLeftRatio * nextHorizontalRange : 0;
+      await syncVisibleScrollPages();
     } catch (e) {
       setRenderError((e as Error).message || "Failed to load PDF");
     } finally {
       setRendering(false);
       renderingRef.current = false;
     }
-  }, [ensurePdfDoc, getScrollPageWidth, renderPdfPageToCanvas]);
+  }, [ensurePdfDoc, getScrollPageWidth, syncVisibleScrollPages]);
 
   const loadCurrentFlipSpread = useCallback(async (startPage: number) => {
     setFlipLoading(true);
@@ -786,43 +925,25 @@ export default function EbookDetailPage() {
   useEffect(() => {
     if (!showReader || readerMode !== "scroll") return;
     const scroller = scrollRef.current;
-    const pagesEl = pagesRef.current;
-    if (!scroller || !pagesEl) return;
+    if (!scroller) return;
 
     let rafId = 0;
-    const updateCurrent = () => {
+    const syncScrollWindow = () => {
       rafId = 0;
-      const pageNodes = Array.from(pagesEl.querySelectorAll<HTMLCanvasElement>("canvas[data-page]"));
-      if (!pageNodes.length) return;
-      const scrollerRect = scroller.getBoundingClientRect();
-      const probeLine = scrollerRect.top + scroller.clientHeight * 0.18;
-      let bestPage = currentPageRef.current;
-      let bestDistance = Number.POSITIVE_INFINITY;
-
-      for (const node of pageNodes) {
-        const rect = node.getBoundingClientRect();
-        const center = rect.top + rect.height / 2;
-        const distance = Math.abs(center - probeLine);
-        if (distance < bestDistance) {
-          bestDistance = distance;
-          bestPage = Number(node.dataset.page ?? "1");
-        }
-      }
-
-      setCurrentPage((value) => (value === bestPage ? value : bestPage));
+      void syncVisibleScrollPages();
     };
 
     const onScroll = () => {
-      if (!rafId) rafId = window.requestAnimationFrame(updateCurrent);
+      if (!rafId) rafId = window.requestAnimationFrame(syncScrollWindow);
     };
 
     scroller.addEventListener("scroll", onScroll, { passive: true });
-    updateCurrent();
+    syncScrollWindow();
     return () => {
       scroller.removeEventListener("scroll", onScroll);
       if (rafId) window.cancelAnimationFrame(rafId);
     };
-  }, [readerMode, showReader]);
+  }, [readerMode, showReader, syncVisibleScrollPages]);
 
   useEffect(() => {
     if (!isFullscreen) return;
