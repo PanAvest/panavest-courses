@@ -21,6 +21,7 @@ export default function ResetRequestClient() {
     }
     setBusy(true);
     try {
+      window.localStorage.setItem("panavest:password-recovery-started-at", String(Date.now()));
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/auth/reset/confirm`,
       });

@@ -84,6 +84,7 @@ export default function ResetConfirmClient() {
     try {
       const { error: updErr } = await supabase.auth.updateUser({ password });
       if (updErr) throw updErr;
+      window.localStorage.removeItem("panavest:password-recovery-started-at");
       setStage("done");
       setMsg("Password updated. You can now sign in.");
       setTimeout(() => router.push("/auth/sign-in"), 1200);
