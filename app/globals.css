@@ -125,12 +125,12 @@ body {
   padding-right: 2.75rem;
 }
 
-.partners-logo-tile {
+.partners-logo-item {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 9.75rem;
-  height: 4.75rem;
+  width: 9rem;
+  height: 4rem;
   flex: 0 0 auto;
   cursor: default;
   transform: translate3d(0, 0, 0);
@@ -139,10 +139,10 @@ body {
   will-change: transform;
 }
 
-.partners-logo-img {
+.partners-logo-mark {
   display: block;
-  max-width: 8.75rem;
-  max-height: 3.5rem;
+  max-width: 8.25rem;
+  max-height: 3rem;
   width: auto;
   height: auto;
   opacity: 0.6;
@@ -156,13 +156,13 @@ body {
   will-change: opacity, filter;
 }
 
-.partners-logo-tile:hover,
-.partners-logo-tile:focus-within {
+.partners-logo-item:hover,
+.partners-logo-item:focus-within {
   transform: translate3d(0, -3px, 0);
 }
 
-.partners-logo-tile:hover .partners-logo-img,
-.partners-logo-tile:focus-within .partners-logo-img {
+.partners-logo-item:hover .partners-logo-mark,
+.partners-logo-item:focus-within .partners-logo-mark {
   opacity: 1;
   filter:
     grayscale(0)
@@ -176,11 +176,11 @@ body {
     gap: 1.75rem;
     padding-right: 1.75rem;
   }
-  .partners-logo-tile {
+  .partners-logo-item {
     width: 7.25rem;
     height: 4rem;
   }
-  .partners-logo-img {
+  .partners-logo-mark {
     max-width: 6.25rem;
     max-height: 2.9rem;
   }

@@ -26,9 +26,9 @@ export function PartnersMarquee({ partners }: Props) {
                 aria-hidden={dup > 0}
               >
                 {partners.map((partner) => (
-                  <div
+                  <span
                     key={`${partner.src}-${dup}`}
-                    className="partners-logo-tile"
+                    className="partners-logo-item"
                   >
                     <Image
                       src={partner.src}
@@ -38,9 +38,9 @@ export function PartnersMarquee({ partners }: Props) {
                       priority={dup === 0}
                       decoding="async"
                       sizes="(max-width: 640px) 120px, (max-width: 1024px) 140px, 150px"
-                      className="partners-logo-img"
+                      className="partners-logo-mark"
                     />
-                  </div>
+                  </span>
                 ))}
               </div>
             ))}
