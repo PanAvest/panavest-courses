@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import PageSkeleton from "@/components/PageSkeleton";
 import { supabase } from "@/lib/supabaseClient";
 
 export const dynamic = "force-dynamic";
@@ -19,13 +20,7 @@ type ConsentParams = {
 
 export default function ConsentPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="mx-auto flex min-h-[60vh] max-w-md items-center justify-center text-[color:var(--color-text-muted)]">
-          Loading...
-        </div>
-      }
-    >
+    <Suspense fallback={<PageSkeleton variant="narrow" />}>
       <ConsentInner />
     </Suspense>
   );
@@ -105,11 +100,7 @@ function ConsentInner() {
   }
 
   if (!ready) {
-    return (
-      <div className="mx-auto flex min-h-[60vh] max-w-md items-center justify-center text-[color:var(--color-text-muted)]">
-        Loading...
-      </div>
-    );
+    return <PageSkeleton variant="narrow" />;
   }
 
   return (

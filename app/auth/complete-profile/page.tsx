@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import PageSkeleton from "@/components/PageSkeleton";
 import { supabase } from "@/lib/supabaseClient";
 import { COUNTRIES } from "@/lib/countries";
 import { educationOptions } from "@/lib/profileConstants";
@@ -109,11 +110,7 @@ export default function CompleteProfilePage() {
   }
 
   if (loading) {
-    return (
-      <div className="mx-auto flex min-h-[60vh] max-w-md items-center justify-center text-[color:var(--color-text-muted)]">
-        Loading...
-      </div>
-    );
+    return <PageSkeleton variant="narrow" />;
   }
 
   return (

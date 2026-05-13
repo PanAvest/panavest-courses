@@ -2,11 +2,12 @@
 export const runtime = "edge";
 
 import { Suspense } from "react";
+import PageSkeleton from "@/components/PageSkeleton";
 import SignInClient from "./SignInClient";
 
 export default function SignInPage() {
   return (
-    <Suspense fallback={<div className="mx-auto max-w-md px-4 sm:px-6 lg:px-8 py-10">Loading sign-in…</div>}>
+    <Suspense fallback={<PageSkeleton variant="narrow" />}>
       <SignInClient />
     </Suspense>
   );

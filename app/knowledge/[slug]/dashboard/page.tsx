@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import { flushSync } from "react-dom";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import PageSkeleton from "@/components/PageSkeleton";
 import { supabase } from "@/lib/supabaseClient";
 import { issueCertificateForCourse, IssueCertificateError } from "@/lib/client/issueCertificate";
 import ProgressBar from "@/components/ProgressBar";
@@ -1248,7 +1249,7 @@ export default function CourseDashboard() {
     </button>
   );
 
-  if (loading) return <div className="mx-auto max-w-screen-lg px-4 py-10">Loading…</div>;
+  if (loading) return <PageSkeleton variant="dashboard" />;
   if (!course) return <div className="mx-auto max-w-screen-lg px-4 py-10">Not found.</div>;
 
   return (

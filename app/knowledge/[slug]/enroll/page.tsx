@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
+import PageSkeleton from "@/components/PageSkeleton";
 import { supabase } from "@/lib/supabaseClient";
 
 type Course = {
@@ -165,7 +166,7 @@ export default function EnrollPage() {
     }
   }
 
-  if (loading || !course) return <div className="mx-auto max-w-screen-lg px-4 py-10">Loading…</div>;
+  if (loading || !course) return <PageSkeleton />;
 
   return (
     <div className="mx-auto max-w-screen-md px-4 md:px-6 py-10">

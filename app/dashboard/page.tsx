@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import PageSkeleton from "@/components/PageSkeleton";
 import { supabase } from "@/lib/supabaseClient";
 import SimpleCertificate from "@/components/SimpleCertificate";
 
@@ -795,7 +796,7 @@ export default function DashboardPage() {
 
       <p className="mt-2 text-xs text-gray-500">Your certificate displays the name set here. You can update it anytime and re-download.</p>
 
-      {loading && <p className="mt-4 text-muted">Loading…</p>}
+      {loading && <PageSkeleton variant="dashboard" />}
 
       {!loading && (
         <>

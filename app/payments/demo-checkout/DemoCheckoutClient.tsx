@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import PageSkeleton from "@/components/PageSkeleton";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function DemoCheckoutClient() {
@@ -57,7 +58,7 @@ export default function DemoCheckoutClient() {
   }
 
   if (loading) {
-    return <main className="mx-auto max-w-screen-sm px-4 py-10">Loading…</main>;
+    return <PageSkeleton variant="narrow" />;
   }
 
   return (

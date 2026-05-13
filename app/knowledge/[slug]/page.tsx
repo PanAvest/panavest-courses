@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import PageSkeleton from "@/components/PageSkeleton";
 import { supabase } from "@/lib/supabaseClient";
 
 type Course = {
@@ -144,7 +145,7 @@ export default function CoursePreview() {
   }, [course?.id]);
 
   if (loading) {
-    return <div className="mx-auto max-w-screen-lg px-4 py-10">Loading…</div>;
+    return <PageSkeleton />;
   }
 
   if (!course) {
