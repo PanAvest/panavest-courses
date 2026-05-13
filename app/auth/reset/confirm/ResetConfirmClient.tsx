@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createPasswordRecoveryClient } from "@/lib/supabaseClient";
+import { evaluatePassword } from "@/lib/passwordStrength";
+import PasswordRules from "@/components/PasswordRules";
 
 const supabase = typeof window !== "undefined" ? createPasswordRecoveryClient() : null;
 
@@ -17,6 +19,7 @@ export default function ResetConfirmClient() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const passwordStrength = useMemo(() => evaluatePassword(password, "", ""), [password]);
 
   useEffect(() => {
     let mounted = true;
@@ -80,6 +83,10 @@ export default function ResetConfirmClient() {
       setError("Passwords do not match.");
       return;
     }
+    if (passwordStrength.issues.length > 0) {
+      setError(`Update your password to meet our strength rules: ${passwordStrength.issues.join("; ")}`);
+      return;
+    }
     setBusy(true);
     try {
       const { error: updErr } = await supabase.auth.updateUser({ password });
@@ -132,6 +139,8 @@ export default function ResetConfirmClient() {
                 placeholder="••••••••"
               />
             </label>
+
+            <PasswordRules strength={passwordStrength} />
 
             <label className="block">
               <span className="text-sm">Retype new password</span>
