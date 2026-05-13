@@ -9,6 +9,15 @@ function unauthorized() {
 }
 
 export function middleware(req: NextRequest) {
+  const host = req.headers.get("host")?.toLowerCase().split(":")[0] ?? "";
+  if (host === "panavest-courses.vercel.app") {
+    const url = req.nextUrl.clone();
+    url.protocol = "https";
+    url.hostname = "panavestkds.com";
+    url.port = "";
+    return NextResponse.redirect(url, 308);
+  }
+
   const p = req.nextUrl.pathname;
   if (!(p.startsWith("/admin") || p.startsWith("/api/admin"))) return NextResponse.next();
 
@@ -27,4 +36,4 @@ export function middleware(req: NextRequest) {
   return NextResponse.next();
 }
 
-export const config = { matcher: ["/admin/:path*", "/api/admin/:path*"] };
+export const config = { matcher: ["/:path*"] };
