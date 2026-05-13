@@ -51,6 +51,24 @@ export function getSupabaseClient(): SupabaseClient {
   return browserClient;
 }
 
+export function createPasswordRecoveryClient(): SupabaseClient {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url) throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL");
+  if (!anon) throw new Error("Missing NEXT_PUBLIC_SUPABASE_ANON_KEY");
+
+  return createClient(url, anon, {
+    db: { schema: "public" },
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      flowType: "implicit",
+    },
+    global: { fetch },
+  });
+}
+
 /** ───────────── SERVER CLIENT (strict) ───────────── */
 function getServerClient(): SupabaseClient {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;

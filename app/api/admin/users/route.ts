@@ -101,6 +101,14 @@ export async function POST(req: NextRequest) {
 
   const { action, email } = body as { action: string; email?: string };
   const admin = getSupabaseAdmin();
+  const configuredSiteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.VERCEL_PROJECT_PRODUCTION_URL ||
+    "https://panavestkds.com";
+  const siteUrl = configuredSiteUrl.startsWith("http")
+    ? configuredSiteUrl
+    : `https://${configuredSiteUrl}`;
+  const resetRedirectTo = `${siteUrl.replace(/\/$/, "")}/auth/reset/confirm`;
 
   try {
     if (action === "generate_confirmation_link") {
@@ -128,6 +136,9 @@ export async function POST(req: NextRequest) {
       const { data, error } = await admin.auth.admin.generateLink({
         type: "recovery",
         email,
+        options: {
+          redirectTo: resetRedirectTo,
+        },
       });
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });

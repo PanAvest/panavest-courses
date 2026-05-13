@@ -77,30 +77,30 @@ export default function Header() {
   return (
     <header className="w-full bg-[color:var(--color-bg)] md:bg-transparent">
       {/* Top bar */}
-      <div className="w-full px-3 sm:px-4 md:px-6 h-16 md:h-20 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link href="/" className="flex items-center" aria-label="Panavest home">
+      <div className="w-full px-3 sm:px-4 md:px-6 h-16 lg:h-20 flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <Link href="/" className="flex shrink-0 items-center" aria-label="Panavest home">
             <Image
               src={logo}
               alt="Panavest"
-              className="h-16 md:h-20 w-auto"
-              sizes="(max-width: 768px) 64px, 80px"
+              className="h-12 w-auto sm:h-14 lg:h-16"
+              sizes="(max-width: 640px) 48px, (max-width: 1024px) 56px, 64px"
               priority
               unoptimized
             />
             <span className="sr-only">Panavest</span>
           </Link>
-          <div className="hidden md:flex flex-col text-[11px] leading-tight text-muted">
+          <div className="hidden xl:flex max-w-[25rem] shrink flex-col text-[11px] leading-tight text-muted">
             <span className="text-ink font-semibold">Our Standards</span>
-            <span>ISO 9001 Quality Management – Aligned</span>
-            <span>ISO 21001 Educational Organizations – Informed</span>
-            <span>ISO/IEC 27001 Information Security – Aligned</span>
-            <span>CPD / Assessment-Based Certification – Accredited-Ready</span>
+            <span className="truncate">ISO 9001 Quality Management - Aligned</span>
+            <span className="truncate">ISO 21001 Educational Organizations - Informed</span>
+            <span className="truncate">ISO/IEC 27001 Information Security - Aligned</span>
+            <span className="truncate">CPD / Assessment-Based Certification - Accredited-Ready</span>
           </div>
         </div>
 
         {/* Desktop nav */}
-        <nav className="hidden sm:flex items-center gap-6">
+        <nav className="hidden lg:flex items-center gap-3 xl:gap-5">
           <Link href="/knowledge" className="text-sm text-muted hover:text-ink">Knowledge</Link>
           <Link href="/about" className="text-sm text-muted hover:text-ink">About</Link>
           <Link href="/ebooks" className="text-sm text-muted hover:text-ink">E-Books</Link>
@@ -172,7 +172,7 @@ export default function Header() {
 
         {/* Mobile hamburger */}
         <button
-          className="sm:hidden inline-flex items-center justify-center rounded-md p-2 ring-1 ring-black/10 hover:bg-black/[0.04]"
+          className="lg:hidden inline-flex shrink-0 items-center justify-center rounded-md p-2 ring-1 ring-black/10 hover:bg-black/[0.04]"
           aria-label="Open menu"
           aria-expanded={open}
           onClick={() => setOpen(v => !v)}
@@ -185,7 +185,7 @@ export default function Header() {
 
       {/* Mobile menu */}
       {open && (
-        <div className="sm:hidden border-t border-light bg-[color:var(--color-bg)]">
+        <div className="lg:hidden border-t border-light bg-[color:var(--color-bg)]">
           <div className="px-4 py-3 flex flex-col gap-3">
             <Link href="/knowledge" onClick={() => setOpen(false)} className="text-ink">Knowledge</Link>
             <Link href="/about" onClick={() => setOpen(false)} className="text-ink">About</Link>

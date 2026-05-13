@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { getSupabaseClient } from "@/lib/supabaseClient";
+import { createPasswordRecoveryClient } from "@/lib/supabaseClient";
 
-const supabase = typeof window !== "undefined" ? getSupabaseClient() : null;
+const supabase = typeof window !== "undefined" ? createPasswordRecoveryClient() : null;
 
 export default function ResetRequestClient() {
   const [email, setEmail] = useState("");

@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import PartnersMarquee from "@/components/home/PartnersMarquee";
+import RecoveryRedirect from "@/components/RecoveryRedirect";
 import { getPartnersCached, getPublicCoursesHome, getPublicEbooksHome } from "@/app/lib/public-data";
 import { BOARDROOM_BLUR } from "@/app/lib/blur";
 
@@ -96,6 +97,7 @@ export default async function HomePage() {
 
   return (
     <>
+      <RecoveryRedirect />
       {/* ===== HERO (no bg, no card, no shadow) ===== */}
       <section className="relative isolate overflow-hidden bg-white md:bg-black">
         <div aria-hidden="true" className="absolute inset-0 -z-10 hidden md:block animate-fade-up">
