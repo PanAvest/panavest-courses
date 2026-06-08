@@ -736,309 +736,525 @@ export default function DashboardPage() {
     }
   };
 
+  const BRAND = "#b65437";
+
+  const initials = fullName
+    ? fullName.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()
+    : "?";
+
+  const totalCerts = (certs?.length ?? 0) + (provisionalCerts?.length ?? 0);
+  const avgProgress =
+    enrolled.length > 0
+      ? Math.round(enrolled.reduce((s, c) => s + c.progress_pct, 0) / enrolled.length)
+      : 0;
+
+  const statCards = [
+    {
+      label: "Enrolled",
+      value: enrolled.length,
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden>
+          <path d="M12 3 2 8l10 5 9-4.5V15h2V8L12 3zm0 13-6-3v4l6 3 6-3v-4l-6 3z" />
+        </svg>
+      ),
+    },
+    {
+      label: "Avg Progress",
+      value: `${avgProgress}%`,
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden>
+          <path d="M3 3h2v18H3V3zm16 18h2V9h-2v12zM11 21h2V13h-2v8zM7 21h2V7H7v14zM15 21h2V3h-2v18z" />
+        </svg>
+      ),
+    },
+    {
+      label: "Certificates",
+      value: totalCerts,
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden>
+          <path d="M12 1l3 6 6 .5-4.5 4 1.3 6.5L12 15l-5.8 3.9 1.3-6.5L3 7.5 9 7z" />
+        </svg>
+      ),
+    },
+    {
+      label: "E-Books",
+      value: ebooks.length,
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden>
+          <path d="M4 3h6a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4V3zm0 16h6a2 2 0 0 1 2 2H6a2 2 0 0 1-2-2zm10-16h6v16h-6a2 2 0 0 0-2 2V5a2 2 0 0 1 2-2z" />
+        </svg>
+      ),
+    },
+  ];
+
   if (!sessionReady) {
     return (
-      <div className="mx-auto max-w-screen-lg px-4 md:px-6 py-8">
-        <h1 className="text-2xl sm:text-3xl font-bold">Welcome</h1>
-        <p className="mt-2 text-xs text-gray-500">Checking your session…</p>
+      <div className="bg-[color:var(--color-bg)] min-h-screen">
+        <div className="bg-white border-b border-[color:var(--color-light)] px-4 sm:px-6 lg:px-8 py-8">
+          <div className="mx-auto max-w-screen-xl animate-pulse space-y-3">
+            <div className="h-8 w-48 rounded-xl bg-[color:var(--color-light)]" />
+            <div className="h-4 w-64 rounded-xl bg-[color:var(--color-light)]" />
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-screen-lg px-4 md:px-6 py-8">
-      {/* Welcome header with persistent name */}
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl sm:text-3xl font-bold">{fullName ? `Welcome, ${fullName}` : "Welcome"}</h1>
+    <div className="bg-[color:var(--color-bg)] min-h-screen">
 
-        <div className="flex items-center gap-2">
-          <Link
-            href="/settings"
-            className="rounded-xl px-3 py-1.5 text-sm bg-white shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
-            title="Profile settings"
-          >
-            ⚙️ Settings
-          </Link>
-          {!isEditingName ? (
-            <button
-              type="button"
-              onClick={() => setIsEditingName(true)}
-              className="rounded-xl px-3 py-1.5 text-sm bg-white shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
-              title="Your certificate uses this name"
-            >
-              {fullName ? "Edit name" : "Add name"}
-            </button>
-          ) : (
-            <div className="flex items-center gap-2">
-              <input
-                className="rounded-xl px-3 py-1.5 text-sm bg-white shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
-                placeholder="Your full name"
-                value={nameDraft}
-                onChange={(e) => setNameDraft(e.target.value)}
-              />
-              <button type="button" onClick={saveName} className="rounded-lg bg-[color:#0a1156] text-white px-3 py-1.5 text-sm">
-                Save
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsEditingName(false);
-                  setNameDraft(fullName);
-                }}
-                className="rounded-xl px-3 py-1.5 text-sm bg-white shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+      {/* ── Welcome header ── */}
+      <div className="bg-white border-b border-[color:var(--color-light)]">
+        <div className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 py-7">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+
+            {/* Left: avatar + name */}
+            <div className="flex items-center gap-4 min-w-0">
+              <div
+                className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full text-base font-bold text-white"
+                style={{ background: BRAND }}
+                aria-hidden
               >
-                Cancel
-              </button>
+                {initials}
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-2xl sm:text-3xl font-bold text-[color:var(--color-ink)] leading-tight">
+                  {fullName ? `Welcome, ${fullName.split(" ")[0]}` : "Welcome"}
+                </h1>
+                {!isEditingName ? (
+                  <p className="mt-0.5 text-sm text-[color:var(--color-muted)]">
+                    Certificate name:{" "}
+                    <span className="font-medium text-[color:var(--color-ink)]">{fullName || "Not set"}</span>
+                    {" · "}
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingName(true)}
+                      className="underline decoration-dotted underline-offset-2 hover:text-[color:var(--color-ink)] transition"
+                    >
+                      {fullName ? "Edit" : "Add name"}
+                    </button>
+                  </p>
+                ) : (
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <input
+                      className="rounded-xl border border-[color:var(--color-light)] bg-white px-3 py-1.5 text-sm shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+                      placeholder="Your full name"
+                      value={nameDraft}
+                      onChange={(e) => setNameDraft(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      onClick={saveName}
+                      className="rounded-lg px-3 py-1.5 text-sm font-semibold text-white transition hover:opacity-90"
+                      style={{ background: BRAND }}
+                    >
+                      Save
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setIsEditingName(false); setNameDraft(fullName); }}
+                      className="rounded-lg border border-[color:var(--color-light)] bg-white px-3 py-1.5 text-sm font-medium hover:bg-[color:var(--color-bg)] transition"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
-          )}
+
+            {/* Right: Settings */}
+            <Link
+              href="/settings"
+              className="flex items-center gap-2 rounded-xl border border-[color:var(--color-light)] bg-white px-4 py-2 text-sm font-medium text-[color:var(--color-ink)] hover:bg-[color:var(--color-bg)] transition shadow-sm"
+            >
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
+                <path d="M12 15.5A3.5 3.5 0 0 1 8.5 12 3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5 3.5 3.5 0 0 1-3.5 3.5m7.43-2.92c.04-.34.07-.68.07-1.08s-.03-.74-.07-1.08l2.11-1.63c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64L4.57 11c-.04.34-.07.67-.07 1.08s.03.74.07 1.08l-2.11 1.63c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.58 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.59z" />
+              </svg>
+              Settings
+            </Link>
+          </div>
         </div>
       </div>
 
-      <p className="mt-2 text-xs text-gray-500">Your certificate displays the name set here. You can update it anytime and re-download.</p>
+      <div className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 py-8 space-y-10">
 
-      {loading && <PageSkeleton variant="dashboard" />}
+        {/* ── Stats row ── */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {statCards.map((s) => (
+            <div key={s.label} className="rounded-2xl border border-[color:var(--color-light)] bg-white p-5 shadow-sm">
+              <div className="flex items-start justify-between gap-2">
+                <div className="text-2xl font-bold text-[color:var(--color-ink)]">{s.value}</div>
+                <div
+                  className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl"
+                  style={{ background: "rgba(182,84,55,0.1)", color: BRAND }}
+                >
+                  {s.icon}
+                </div>
+              </div>
+              <div className="mt-1 text-xs font-semibold uppercase tracking-wide text-[color:var(--color-muted)]">
+                {s.label}
+              </div>
+            </div>
+          ))}
+        </div>
 
-      {!loading && (
-        <>
-          {/* E-Book Library */}
-          <section className="mt-8">
-            <h2 className="text-xl font-semibold">E-Book Library</h2>
-            {ebooks.length === 0 ? (
-              <div className="mt-3 rounded-xl border border-[color:var(--color-light)]/40 bg-white p-4 shadow-sm transition-shadow duration-200 hover:shadow-md">
-                <p className="text-muted">No e-books unlocked yet.</p>
-                <Link href="/ebooks" className="mt-2 inline-block rounded-lg bg-[color:#0a1156] px-4 py-2 text-white">
-                  Browse e-books
+        {loading && <PageSkeleton variant="dashboard" />}
+
+        {!loading && (
+          <>
+            {/* ── Knowledge Programs ── */}
+            <section>
+              <div className="flex items-end justify-between gap-4 mb-5">
+                <div>
+                  <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: BRAND }}>Learning</p>
+                  <h2 className="mt-1 text-xl font-bold text-[color:var(--color-ink)]">My Knowledge Programs</h2>
+                </div>
+                <Link href="/courses" className="text-sm font-medium underline decoration-dotted underline-offset-4 text-[color:var(--color-ink)]/50 hover:text-[color:var(--color-ink)] transition">
+                  Browse all
                 </Link>
               </div>
-            ) : (
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                {ebooks.map((b) => (
-                  <div key={b.ebook_id} className="rounded-xl border border-[color:var(--color-light)]/40 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md overflow-hidden">
-                    <div className="relative w-full h-40">
-                      <Image src={b.cover_url || "/project-management.png"} alt={b.title} fill className="object-cover" sizes="(max-width: 768px) 100vw, 50vw" />
-                    </div>
-                    <div className="p-4">
-                      <div className="font-semibold line-clamp-1">{b.title}</div>
-                      <div className="mt-1 text-xs text-muted">{b.access_label} · {b.price_cedis}</div>
-                      <Link href={`/ebooks/${b.slug}`} className="mt-3 inline-block rounded-lg bg-[color:#0a1156] px-3 py-1.5 text-white">
-                        Read
-                      </Link>
-                    </div>
+
+              {enrolled.length === 0 ? (
+                <div className="rounded-2xl border border-[color:var(--color-light)] bg-white p-8 text-center shadow-sm">
+                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full" style={{ background: "rgba(182,84,55,0.1)", color: BRAND }}>
+                    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor" aria-hidden>
+                      <path d="M12 3 2 8l10 5 9-4.5V15h2V8L12 3zm0 13-6-3v4l6 3 6-3v-4l-6 3z" />
+                    </svg>
                   </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          {/* Continue learning */}
-          <section className="mt-10">
-            <h2 className="text-xl font-semibold">Continue learning</h2>
-            {enrolled.length === 0 ? (
-              <div className="mt-3 rounded-xl border border-[color:var(--color-light)]/40 bg-white p-4 shadow-sm transition-shadow duration-200 hover:shadow-md">
-                <p className="text-muted">You haven’t enrolled yet.</p>
-                <Link href="/courses" className="mt-2 inline-block rounded-lg bg-[color:#0a1156] px-4 py-2 text-white">
-                  Browse knowledge
-                </Link>
-              </div>
-            ) : (
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                {enrolled.map((c) => (
-                  <div key={c.course_id} className="rounded-xl border border-[color:var(--color-light)]/40 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md overflow-hidden">
-                    <div className="relative w-full h-40">
-                      <Image src={c.img || "/project-management.png"} alt={c.title} fill className="object-cover" sizes="(max-width: 768px) 100vw, 50vw" />
-                    </div>
-                    <div className="p-4">
-                      <div className="font-semibold line-clamp-1">{c.title}</div>
-                      <div className="mt-2 h-2 w-full bg-[color:var(--color-light)] rounded">
-                        <div className="h-2 bg-[color:#0a1156] rounded" style={{ width: `${c.progress_pct}%` }} />
-                      </div>
-                      <div className="mt-2 text-xs text-muted">{Math.round(c.progress_pct)}% complete</div>
-                      <Link href={`/knowledge/${c.slug}/dashboard`} className="mt-3 inline-block rounded-lg bg-[color:#0a1156] px-3 py-1.5 text-white">
-                        Resume
-                      </Link>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          {/* Course Certificates (real + provisional) */}
-          <section className="mt-10">
-            <h2 className="text-xl font-semibold">Certificates</h2>
-
-            {(certs?.length ?? 0) + (provisionalCerts?.length ?? 0) === 0 ? (
-              <p className="mt-3 text-muted">No certificates yet. Complete a course and pass the final exam to earn one.</p>
-            ) : (
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                {/* Real certificates */}
-                {certs.map((c) => {
-                  const courseTitle = c.courses?.title ?? "Course";
-                  const courseSlug = c.courses?.slug ?? "";
-                  const bg = c.courses?.img ?? "/project-management.png";
-                  const cpd = (c.courses?.cpd_points ?? null) as number | null;
-                  const kdsCertId = makeKdsCertId(userId, c.course_id);
-                  const verifyUrl = `${verifyOrigin}/verify?cert_id=${encodeURIComponent(c.id)}`;
-
-                  return (
-                    <div key={c.id} className="rounded-xl border border-[color:var(--color-light)]/40 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md overflow-hidden">
-                      <div className="relative w-full h-36">
-                        <Image src={bg} alt={courseTitle} fill className="object-cover" sizes="(max-width:768px) 100vw, 50vw" />
-                      </div>
-                      <div className="p-4">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="font-semibold line-clamp-1">{courseTitle}</div>
-                          {courseSlug && (
-                            <Link href={`/knowledge/${courseSlug}/dashboard`} className="text-xs rounded-md px-2 py-1 bg-[color:var(--color-light)]">
-                              View course
-                            </Link>
-                          )}
-                        </div>
-
-                        <div className="mt-2 text-sm">
-                          <div><span className="font-medium">Issued to:</span> {fullName || "—"}</div>
-                          <div className="text-muted text-xs">Certificate No: {c.certificate_no}</div>
-                          <div className="text-muted text-xs">Issued: {new Date(c.issued_at).toLocaleString()}</div>
-                          {cpd != null && <div className="text-muted text-xs">CPD/CPPD: {cpd}</div>}
-                        </div>
-
-                        {/* Inline preview */}
-                        <details className="mt-3 rounded-xl border border-[color:var(--color-light)]/40 p-3 shadow-sm transition-shadow duration-200 open:shadow-md">
-                          <summary className="cursor-pointer text-sm font-medium">Preview certificate</summary>
-                          <div className="mt-4">
-                            <SimpleCertificate
-                              recipient={fullName || "Your Name"}
-                              course={courseTitle}
-                              date={c.issued_at}
-                              certId={kdsCertId}
-                              qrValue={verifyUrl}
-                              showPrint={false}
-                              accent="#0a1156"
-                            />
+                  <p className="font-semibold text-[color:var(--color-ink)]">No programs enrolled yet</p>
+                  <p className="mt-1 text-sm text-[color:var(--color-muted)]">Explore knowledge programs and start learning.</p>
+                  <Link href="/courses" className="mt-4 inline-flex items-center rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90" style={{ background: BRAND }}>
+                    Browse Knowledge
+                  </Link>
+                </div>
+              ) : (
+                <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                  {enrolled.map((c) => (
+                    <div key={c.course_id} className="rounded-2xl border border-[color:var(--color-light)] bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                      <div className="relative w-full aspect-video bg-[color:var(--color-light)]/30">
+                        <Image src={c.img || "/project-management.png"} alt={c.title} fill className="object-cover" sizes="(max-width: 768px) 100vw, 33vw" />
+                        {c.cpd_points != null && (
+                          <div className="absolute top-2 left-2 rounded-md px-2 py-0.5 text-[10px] font-bold text-white" style={{ background: BRAND }}>
+                            CPPD {c.cpd_points}
                           </div>
-                        </details>
-
-                        <div className="mt-3 flex flex-wrap items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              downloadCertPdf(c.id, {
-                                recipient: fullName || "Your Name",
-                                course: courseTitle,
-                                issuedAt: c.issued_at,
-                                certNumber: kdsCertId,
-                                verifyUrl,
-                              })
-                            }
-                            disabled={downloadingCertId === c.id}
-                            className="rounded-lg bg-[color:#0a1156] text-white px-3 py-1.5 text-sm disabled:opacity-60"
-                          >
-                            {downloadingCertId === c.id ? "Preparing…" : "Download certificate"}
-                          </button>
-                          <div className="text-xs text-muted">Final score: {c.score_pct != null ? `${c.score_pct}%` : "—"}</div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {/* Provisional certs */}
-                {provisionalCerts.map((pc) => {
-                  const kdsCertId = makeKdsCertId(userId, pc.course_id);
-                  return (
-                    <div key={`provisional-${pc.course_id}`} className="rounded-xl border border-[color:var(--color-light)]/40 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md overflow-hidden">
-                      <div className="relative w-full h-36">
-                        <Image src={pc.img ?? "/project-management.png"} alt={pc.course_title} fill className="object-cover" sizes="(max-width:768px) 100vw, 50vw" />
-                      </div>
-                      <div className="p-4">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="font-semibold line-clamp-1">{pc.course_title}</div>
-                          {pc.course_slug && (
-                            <Link href={`/knowledge/${pc.course_slug}/dashboard`} className="text-xs rounded-md px-2 py-1 bg-[color:var(--color-light)]">
-                              View course
-                            </Link>
-                          )}
-                        </div>
-
-                        <div className="mt-2 text-sm">
-                          <div><span className="font-medium">Issued to:</span> {fullName || "—"}</div>
-                          <div className="text-muted text-xs">Status: Provisional (awaiting issuance)</div>
-                          <div className="text-muted text-xs">Passed: {new Date(pc.passed_at).toLocaleString()}</div>
-                          {pc.cpd_points != null && <div className="text-muted text-xs">CPD/CPPD: {pc.cpd_points}</div>}
-                        </div>
-
-                        <details className="mt-3 rounded-xl border border-[color:var(--color-light)]/40 p-3 shadow-sm transition-shadow duration-200 open:shadow-md">
-                          <summary className="cursor-pointer text-sm font-medium">Preview (print/save)</summary>
-                          <div className="mt-4">
-                            <SimpleCertificate
-                              recipient={fullName || "Your Name"}
-                              course={pc.course_title}
-                              date={pc.passed_at}
-                              certId={kdsCertId}
-                              qrProvider="none"
-                              showPrint
-                              accent="#0a1156"
-                            />
-                          </div>
-                        </details>
-
-                        <div className="mt-3 flex items-center gap-2">
-                          <span className="rounded-lg px-3 py-1.5 text-xs bg-gray-100 text-gray-600">Official download available after issuance</span>
-                          <div className="text-xs text-muted">Final score: {pc.score_pct}%</div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-
-          {/* Quiz results */}
-          <section className="mt-10">
-            <h2 className="text-xl font-semibold">Your quiz results</h2>
-            {Object.keys(quizByCourse).length === 0 ? (
-              <p className="mt-3 text-muted">No quiz attempts yet.</p>
-            ) : (
-              <div className="mt-4 grid gap-4">
-                {Object.entries(quizByCourse).map(([courseId, rows]) => {
-                  const meta = courseMetaMap[courseId];
-                  return (
-                    <div key={courseId} className="rounded-xl border border-[color:var(--color-light)]/40 bg-white p-4 shadow-sm transition-shadow duration-200 hover:shadow-md">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="font-semibold">{meta?.title ?? "Course"}</div>
-                        {meta?.slug && (
-                          <Link href={`/knowledge/${meta.slug}/dashboard`} className="text-sm rounded-lg px-3 py-1.5 bg-[color:var(--color-light)]">
-                            Go to course
-                          </Link>
                         )}
                       </div>
+                      <div className="p-4">
+                        <h3 className="font-semibold text-[15px] text-[color:var(--color-ink)] line-clamp-2 leading-snug">{c.title}</h3>
+                        <div className="mt-3 space-y-1.5">
+                          <div className="h-1.5 w-full rounded-full bg-[color:var(--color-light)]">
+                            <div
+                              className="h-1.5 rounded-full transition-all"
+                              style={{ width: `${c.progress_pct}%`, background: BRAND }}
+                            />
+                          </div>
+                          <div className="text-xs text-[color:var(--color-muted)]">{Math.round(c.progress_pct)}% complete</div>
+                        </div>
+                        <Link
+                          href={`/knowledge/${c.slug}/dashboard`}
+                          className="mt-4 inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+                          style={{ background: BRAND }}
+                        >
+                          {c.progress_pct > 0 ? "Resume" : "Start"}
+                          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor" aria-hidden>
+                            <path d="M8 5v14l11-7z" />
+                          </svg>
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
 
-                      <ul className="mt-3 grid gap-2">
-                        {rows.map(({ attempt, chapter }) => (
-                          <li key={`${attempt.course_id}-${attempt.chapter_id}-${attempt.completed_at}`} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[color:var(--color-light)]/40 bg-white px-3 py-2 shadow-sm">
-                            <div className="min-w-0">
-                              <div className="font-medium line-clamp-1">{chapter.title}</div>
-                              <div className="text-xs text-muted">
-                                {attempt.correct_count}/{attempt.total_count} correct · {new Date(attempt.completed_at).toLocaleString()}
-                              </div>
+            {/* ── Certificates ── */}
+            <section>
+              <div className="flex items-end justify-between gap-4 mb-5">
+                <div>
+                  <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: BRAND }}>Credentials</p>
+                  <h2 className="mt-1 text-xl font-bold text-[color:var(--color-ink)]">Certificates</h2>
+                </div>
+              </div>
+
+              {totalCerts === 0 ? (
+                <div className="rounded-2xl border border-[color:var(--color-light)] bg-white p-8 text-center shadow-sm">
+                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full" style={{ background: "rgba(182,84,55,0.1)", color: BRAND }}>
+                    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor" aria-hidden>
+                      <path d="M12 1l3 6 6 .5-4.5 4 1.3 6.5L12 15l-5.8 3.9 1.3-6.5L3 7.5 9 7z" />
+                    </svg>
+                  </div>
+                  <p className="font-semibold text-[color:var(--color-ink)]">No certificates yet</p>
+                  <p className="mt-1 text-sm text-[color:var(--color-muted)]">Complete a course and pass the final exam to earn your first certificate.</p>
+                </div>
+              ) : (
+                <div className="grid gap-5 sm:grid-cols-2">
+                  {/* Real certificates */}
+                  {certs.map((c) => {
+                    const courseTitle = c.courses?.title ?? "Course";
+                    const courseSlug = c.courses?.slug ?? "";
+                    const bg = c.courses?.img ?? "/project-management.png";
+                    const cpd = (c.courses?.cpd_points ?? null) as number | null;
+                    const kdsCertId = makeKdsCertId(userId, c.course_id);
+                    const verifyUrl = `${verifyOrigin}/verify?cert_id=${encodeURIComponent(c.id)}`;
+
+                    return (
+                      <div key={c.id} className="rounded-2xl border border-[color:var(--color-light)] bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                        <div className="relative w-full h-36">
+                          <Image src={bg} alt={courseTitle} fill className="object-cover" sizes="(max-width:768px) 100vw, 50vw" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                          <div className="absolute bottom-3 left-4 right-4">
+                            <div className="font-semibold text-white text-[15px] line-clamp-1">{courseTitle}</div>
+                          </div>
+                          <div className="absolute top-3 right-3 rounded-md px-2 py-0.5 text-[10px] font-bold text-white" style={{ background: BRAND }}>
+                            Certified
+                          </div>
+                        </div>
+                        <div className="p-4 space-y-3">
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                              <div className="text-[color:var(--color-muted)] uppercase tracking-wide text-[10px] font-semibold">Issued to</div>
+                              <div className="mt-0.5 font-medium text-[color:var(--color-ink)]">{fullName || "—"}</div>
                             </div>
-                            <div className="shrink-0">
-                              <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-[color:var(--color-light)]">
+                            <div>
+                              <div className="text-[color:var(--color-muted)] uppercase tracking-wide text-[10px] font-semibold">Issued</div>
+                              <div className="mt-0.5 font-medium text-[color:var(--color-ink)]">{new Date(c.issued_at).toLocaleDateString()}</div>
+                            </div>
+                            <div>
+                              <div className="text-[color:var(--color-muted)] uppercase tracking-wide text-[10px] font-semibold">Certificate No</div>
+                              <div className="mt-0.5 font-mono text-[11px] text-[color:var(--color-ink)]">{c.certificate_no}</div>
+                            </div>
+                            {cpd != null && (
+                              <div>
+                                <div className="text-[color:var(--color-muted)] uppercase tracking-wide text-[10px] font-semibold">CPPD</div>
+                                <div className="mt-0.5 font-medium text-[color:var(--color-ink)]">{cpd}</div>
+                              </div>
+                            )}
+                          </div>
+
+                          <details className="rounded-xl border border-[color:var(--color-light)] overflow-hidden">
+                            <summary className="cursor-pointer px-4 py-2.5 text-sm font-medium text-[color:var(--color-ink)] bg-[color:var(--color-bg)] hover:bg-[color:var(--color-light)]/40 transition select-none">
+                              Preview certificate
+                            </summary>
+                            <div className="p-4">
+                              <SimpleCertificate
+                                recipient={fullName || "Your Name"}
+                                course={courseTitle}
+                                date={c.issued_at}
+                                certId={kdsCertId}
+                                qrValue={verifyUrl}
+                                showPrint={false}
+                                accent="#0a1156"
+                              />
+                            </div>
+                          </details>
+
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                downloadCertPdf(c.id, {
+                                  recipient: fullName || "Your Name",
+                                  course: courseTitle,
+                                  issuedAt: c.issued_at,
+                                  certNumber: kdsCertId,
+                                  verifyUrl,
+                                })
+                              }
+                              disabled={downloadingCertId === c.id}
+                              className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+                              style={{ background: BRAND }}
+                            >
+                              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor" aria-hidden>
+                                <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
+                              </svg>
+                              {downloadingCertId === c.id ? "Preparing…" : "Download PDF"}
+                            </button>
+                            {courseSlug && (
+                              <Link href={`/knowledge/${courseSlug}/dashboard`} className="rounded-xl border border-[color:var(--color-light)] px-4 py-2 text-sm font-medium text-[color:var(--color-ink)] hover:bg-[color:var(--color-bg)] transition">
+                                View course
+                              </Link>
+                            )}
+                            {c.score_pct != null && (
+                              <span className="ml-auto text-xs text-[color:var(--color-muted)]">Score: {c.score_pct}%</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Provisional certs */}
+                  {provisionalCerts.map((pc) => {
+                    const kdsCertId = makeKdsCertId(userId, pc.course_id);
+                    return (
+                      <div key={`provisional-${pc.course_id}`} className="rounded-2xl border border-[color:var(--color-light)] bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                        <div className="relative w-full h-36">
+                          <Image src={pc.img ?? "/project-management.png"} alt={pc.course_title} fill className="object-cover" sizes="(max-width:768px) 100vw, 50vw" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                          <div className="absolute bottom-3 left-4 right-4">
+                            <div className="font-semibold text-white text-[15px] line-clamp-1">{pc.course_title}</div>
+                          </div>
+                          <div className="absolute top-3 right-3 rounded-md px-2 py-0.5 text-[10px] font-bold bg-amber-500/90 text-white">
+                            Provisional
+                          </div>
+                        </div>
+                        <div className="p-4 space-y-3">
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                              <div className="text-[color:var(--color-muted)] uppercase tracking-wide text-[10px] font-semibold">Issued to</div>
+                              <div className="mt-0.5 font-medium text-[color:var(--color-ink)]">{fullName || "—"}</div>
+                            </div>
+                            <div>
+                              <div className="text-[color:var(--color-muted)] uppercase tracking-wide text-[10px] font-semibold">Passed</div>
+                              <div className="mt-0.5 font-medium text-[color:var(--color-ink)]">{new Date(pc.passed_at).toLocaleDateString()}</div>
+                            </div>
+                            {pc.cpd_points != null && (
+                              <div>
+                                <div className="text-[color:var(--color-muted)] uppercase tracking-wide text-[10px] font-semibold">CPPD</div>
+                                <div className="mt-0.5 font-medium text-[color:var(--color-ink)]">{pc.cpd_points}</div>
+                              </div>
+                            )}
+                            <div>
+                              <div className="text-[color:var(--color-muted)] uppercase tracking-wide text-[10px] font-semibold">Score</div>
+                              <div className="mt-0.5 font-medium text-[color:var(--color-ink)]">{pc.score_pct}%</div>
+                            </div>
+                          </div>
+
+                          <details className="rounded-xl border border-[color:var(--color-light)] overflow-hidden">
+                            <summary className="cursor-pointer px-4 py-2.5 text-sm font-medium text-[color:var(--color-ink)] bg-[color:var(--color-bg)] hover:bg-[color:var(--color-light)]/40 transition select-none">
+                              Preview (print / save)
+                            </summary>
+                            <div className="p-4">
+                              <SimpleCertificate
+                                recipient={fullName || "Your Name"}
+                                course={pc.course_title}
+                                date={pc.passed_at}
+                                certId={kdsCertId}
+                                qrProvider="none"
+                                showPrint
+                                accent="#0a1156"
+                              />
+                            </div>
+                          </details>
+
+                          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-800">
+                            Official PDF download will be available once the certificate is formally issued.
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+
+            {/* ── E-Book Library ── */}
+            <section>
+              <div className="flex items-end justify-between gap-4 mb-5">
+                <div>
+                  <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: BRAND }}>Library</p>
+                  <h2 className="mt-1 text-xl font-bold text-[color:var(--color-ink)]">E-Book Library</h2>
+                </div>
+                <Link href="/ebooks" className="text-sm font-medium underline decoration-dotted underline-offset-4 text-[color:var(--color-ink)]/50 hover:text-[color:var(--color-ink)] transition">
+                  Browse all
+                </Link>
+              </div>
+
+              {ebooks.length === 0 ? (
+                <div className="rounded-2xl border border-[color:var(--color-light)] bg-white p-8 text-center shadow-sm">
+                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full" style={{ background: "rgba(182,84,55,0.1)", color: BRAND }}>
+                    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor" aria-hidden>
+                      <path d="M4 3h6a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4V3zm0 16h6a2 2 0 0 1 2 2H6a2 2 0 0 1-2-2zm10-16h6v16h-6a2 2 0 0 0-2 2V5a2 2 0 0 1 2-2z" />
+                    </svg>
+                  </div>
+                  <p className="font-semibold text-[color:var(--color-ink)]">No e-books unlocked yet</p>
+                  <p className="mt-1 text-sm text-[color:var(--color-muted)]">Purchase or unlock free e-books to access them here.</p>
+                  <Link href="/ebooks" className="mt-4 inline-flex items-center rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90" style={{ background: BRAND }}>
+                    Browse E-Books
+                  </Link>
+                </div>
+              ) : (
+                <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                  {ebooks.map((b) => (
+                    <div key={b.ebook_id} className="rounded-2xl border border-[color:var(--color-light)] bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                      <div className="relative w-full h-52 bg-[color:var(--color-light)]/30">
+                        <Image src={b.cover_url || "/project-management.png"} alt={b.title} fill className="object-cover" sizes="(max-width: 640px) 100vw, 25vw" />
+                      </div>
+                      <div className="p-4">
+                        <h3 className="font-semibold text-[14px] text-[color:var(--color-ink)] line-clamp-2 leading-snug">{b.title}</h3>
+                        <div className="mt-1.5 text-xs text-[color:var(--color-muted)]">{b.access_label}</div>
+                        <Link
+                          href={`/ebooks/${b.slug}`}
+                          className="mt-3 inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+                          style={{ background: BRAND }}
+                        >
+                          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor" aria-hidden>
+                            <path d="M4 3h6a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4V3zm10 0h6v16h-6a2 2 0 0 0-2 2V5a2 2 0 0 1 2-2z" />
+                          </svg>
+                          Read
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {/* ── Quiz Results ── */}
+            {Object.keys(quizByCourse).length > 0 && (
+              <section>
+                <div className="mb-5">
+                  <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: BRAND }}>Assessments</p>
+                  <h2 className="mt-1 text-xl font-bold text-[color:var(--color-ink)]">Quiz Results</h2>
+                </div>
+
+                <div className="space-y-4">
+                  {Object.entries(quizByCourse).map(([courseId, rows]) => {
+                    const meta = courseMetaMap[courseId];
+                    const avgScore = rows.length > 0 ? Math.round(rows.reduce((s, r) => s + r.attempt.score_pct, 0) / rows.length) : 0;
+                    return (
+                      <div key={courseId} className="rounded-2xl border border-[color:var(--color-light)] bg-white shadow-sm overflow-hidden">
+                        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[color:var(--color-light)]">
+                          <div>
+                            <div className="font-semibold text-[color:var(--color-ink)]">{meta?.title ?? "Course"}</div>
+                            <div className="mt-0.5 text-xs text-[color:var(--color-muted)]">{rows.length} chapter{rows.length !== 1 ? "s" : ""} · avg {avgScore}%</div>
+                          </div>
+                          {meta?.slug && (
+                            <Link href={`/knowledge/${meta.slug}/dashboard`} className="flex-shrink-0 rounded-xl border border-[color:var(--color-light)] px-3 py-1.5 text-sm font-medium text-[color:var(--color-ink)] hover:bg-[color:var(--color-bg)] transition">
+                              Go to course
+                            </Link>
+                          )}
+                        </div>
+                        <ul className="divide-y divide-[color:var(--color-light)]">
+                          {rows.map(({ attempt, chapter }) => (
+                            <li
+                              key={`${attempt.course_id}-${attempt.chapter_id}-${attempt.completed_at}`}
+                              className="flex items-center justify-between gap-4 px-5 py-3"
+                            >
+                              <div className="min-w-0">
+                                <div className="text-sm font-medium text-[color:var(--color-ink)] line-clamp-1">{chapter.title}</div>
+                                <div className="text-xs text-[color:var(--color-muted)]">
+                                  {attempt.correct_count}/{attempt.total_count} correct · {new Date(attempt.completed_at).toLocaleDateString()}
+                                </div>
+                              </div>
+                              <span
+                                className="flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-bold text-white"
+                                style={{ background: attempt.score_pct >= 70 ? "#059669" : attempt.score_pct >= 50 ? BRAND : "#dc2626" }}
+                              >
                                 {attempt.score_pct}%
                               </span>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  );
-                })}
-              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
             )}
-          </section>
-        </>
-      )}
+          </>
+        )}
+      </div>
     </div>
   );
 }

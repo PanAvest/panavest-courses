@@ -10,7 +10,6 @@ import { useParams, useRouter } from "next/navigation";
 import PageSkeleton from "@/components/PageSkeleton";
 import { supabase } from "@/lib/supabaseClient";
 import { issueCertificateForCourse, IssueCertificateError } from "@/lib/client/issueCertificate";
-import ProgressBar from "@/components/ProgressBar";
 import InteractivePlayer from "@/components/InteractivePlayer";
 import PdfPageViewer from "@/components/pdf/PdfPageViewer";
 
@@ -255,7 +254,6 @@ export default function CourseDashboard() {
   const router = useRouter();
 
   const [userId, setUserId] = useState("");
-  const [userEmail, setUserEmail] = useState<string>("");
 
   const [course, setCourse] = useState<Course | null>(null);
   const [chapters, setChapters] = useState<Chapter[]>([]);
@@ -314,7 +312,6 @@ export default function CourseDashboard() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/auth/sign-in"); return; }
       setUserId(user.id);
-      setUserEmail(user.email ?? "");
     })();
   }, [router]);
 
@@ -497,12 +494,10 @@ export default function CourseDashboard() {
       });
 
       setSlides(slSorted);
-      if (!initializedRef.current) {
-        setActiveSlide(slSorted[0] ?? null); // always first slide initially
-        initializedRef.current = true;
-      }
 
       // ✅ slide progress: merge server + localStorage; keep local in sync
+      // Active slide is set AFTER progress so we can resume at the first incomplete slide.
+      let resolvedCompleted: string[] = [];
       try {
         const { data: prog, error: progErr } = await supabase
           .from("user_slide_progress")
@@ -511,19 +506,23 @@ export default function CourseDashboard() {
           .eq("course_id", c.id);
 
         if (progErr) {
-          // server failed → fallback to local only
-          const fromLocal = JSON.parse(localStorage.getItem(progressKey(userId, c.id)) ?? "[]") as string[];
-          setCompleted(fromLocal);
+          resolvedCompleted = JSON.parse(localStorage.getItem(progressKey(userId, c.id)) ?? "[]") as string[];
         } else {
           const fromServer = (prog ?? []).map((p: { slide_id: string }) => p.slide_id);
           const fromLocal = JSON.parse(localStorage.getItem(progressKey(userId, c.id)) ?? "[]") as string[];
-          const merged = Array.from(new Set([...fromServer, ...fromLocal]));
-          setCompleted(merged);
-          localStorage.setItem(progressKey(userId, c.id), JSON.stringify(merged));
+          resolvedCompleted = Array.from(new Set([...fromServer, ...fromLocal]));
+          localStorage.setItem(progressKey(userId, c.id), JSON.stringify(resolvedCompleted));
         }
       } catch {
-        const fromLocal = JSON.parse(localStorage.getItem(progressKey(userId, c.id)) ?? "[]") as string[];
-        setCompleted(fromLocal);
+        resolvedCompleted = JSON.parse(localStorage.getItem(progressKey(userId, c.id)) ?? "[]") as string[];
+      }
+      setCompleted(resolvedCompleted);
+
+      // Resume at first incomplete slide; fall back to last slide if all done
+      if (!initializedRef.current) {
+        const firstIncomplete = slSorted.find(s => !resolvedCompleted.includes(s.id));
+        setActiveSlide(firstIncomplete ?? slSorted[slSorted.length - 1] ?? null);
+        initializedRef.current = true;
       }
 
       // quiz questions
@@ -1211,387 +1210,632 @@ export default function CourseDashboard() {
     return completedQuizzes.includes(activeSlide.chapter_id);
   }, [completedQuizzes, activeSlide]);
 
-  const finalStatus = finalExam && finalExamQuestions.length > 0 ? (
-    <div className="flex flex-wrap items-center gap-2 text-[11px] md:text-xs">
-      {!canTakeFinal && !finalAttemptExists && (
-        <span className="px-2 py-1 rounded-full bg-amber-100 text-amber-800">
-          Complete all slides & chapter quizzes to unlock Final Exam
-        </span>
-      )}
-      {canTakeFinal && !finalAttemptExists && (
-        <button
-          type="button"
-          onClick={openFinalConfirm}
-          className="rounded-lg bg-[color:#0a1156] text-white px-3 py-1.5 text-xs md:text-sm hover:opacity-90"
-          aria-label="Start Final Exam"
-          title={isOnline ? "Start Final Exam" : "You are offline"}
-        >
-          Start Final Exam
-        </button>
-      )}
-      {finalAttemptExists && (
-        <span className="px-2 py-1 rounded-full bg-green-100 text-green-800">
-          Final Exam completed
-        </span>
-      )}
-    </div>
-  ) : null;
-
-  const menuButton = (
-    <button
-      type="button"
-      className="rounded-xl bg-white px-3 py-1.5 text-xs font-medium shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
-      onClick={() => setMobileNavOpen((v) => !v)}
-      aria-expanded={mobileNavOpen}
-      aria-controls="course-sidebar"
-    >
-      {mobileNavOpen ? "Hide Menu" : "Show Menu"}
-    </button>
-  );
+  const BRAND = "#b65437";
 
   if (loading) return <PageSkeleton variant="dashboard" />;
-  if (!course) return <div className="mx-auto max-w-screen-lg px-4 py-10">Not found.</div>;
+  if (!course) return (
+    <div className="mx-auto max-w-screen-lg px-4 py-16 text-center">
+      <p className="text-[color:var(--color-muted)]">Program not found.</p>
+      <Link href="/knowledge" className="mt-4 inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white" style={{ background: BRAND }}>
+        Back to Knowledge
+      </Link>
+    </div>
+  );
+
+  /* ── Inline SVG icons (no emojis) ── */
+  const IconCheck = () => (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
+      <path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z" />
+    </svg>
+  );
+  const IconCheckCircle = () => (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
+      <path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2zm-2 14.4-4-4 1.4-1.4 2.6 2.6 6.6-6.6 1.4 1.4-8 8z" />
+    </svg>
+  );
+  const IconCircle = () => (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
+      <path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16z" />
+    </svg>
+  );
+  const IconLock = () => (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
+      <path d="M18 8h-1V6A5 5 0 0 0 7 6v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2zm-6 9a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm3-9H9V6a3 3 0 0 1 6 0v2z" />
+    </svg>
+  );
+  const IconPlay = () => (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
+      <path d="M8 5v14l11-7z" />
+    </svg>
+  );
+  const IconBack = () => (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
+      <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
+    </svg>
+  );
+  const IconClock = () => (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
+      <path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2zm.5 5v5.25l4.5 2.67-.75 1.23L11 13V7h1.5z" />
+    </svg>
+  );
+  const IconWifi = () => (
+    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor" aria-hidden>
+      <path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3a4.237 4.237 0 0 0-6 0zm-4-4 2 2a7.074 7.074 0 0 1 10 0l2-2C15.14 9.14 8.87 9.14 5 13z" />
+    </svg>
+  );
+  const IconWifiOff = () => (
+    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor" aria-hidden>
+      <path d="M22.99 9C19.15 5.16 13.8 3.76 8.84 4.78L11 6.94c3.24-.4 6.63.6 9.14 3.06l2-2zm-2.14 2.14-2.04 2.04C20.2 14.52 21 16.16 21 18h2c0-2.31-.95-4.44-2.15-6.86zM7 6L5.2 4.2C2.44 5.36 0 7.27 0 10c0 2.21.87 4.24 2.27 5.75L4.14 14C3.07 12.85 2 11.5 2 10c0-2.21 2.5-4 5-4zm6 6-2-2H7.85L9.26 11.5A2.99 2.99 0 0 0 9 13c0 1.66 1.34 3 3 3s3-1.34 3-3c0-.83-.34-1.58-.88-2.12L13 12zm5.5 5.5-1.38-1.38A6.965 6.965 0 0 0 16 17H9l-2-2H5.07L1.39 11.32 0 12.71l3 3H2v2h5l2 2h6c1.07 0 2.07-.27 2.93-.75L20.59 21 22 19.59l-3.5-3.45z" />
+    </svg>
+  );
+  const IconWarning = () => (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
+      <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" />
+    </svg>
+  );
+  const IconClose = () => (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden>
+      <path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+    </svg>
+  );
+  const IconMenu = () => (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden>
+      <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z" />
+    </svg>
+  );
+  const IconStar = () => (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
+      <path d="M12 1l3 6 6 .5-4.5 4 1.3 6.5L12 15l-5.8 3.9 1.3-6.5L3 7.5 9 7z" />
+    </svg>
+  );
 
   return (
-    <div className="mx-auto max-w-screen-2xl px-4 md:px-6 py-6">
-      {/* Header with Final Exam CTA beside title */}
-      <div className="mb-4 flex flex-col gap-2 md:gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="flex-1 min-w-0 flex flex-col gap-1">
-          <div className="flex items-start justify-between gap-3">
-            <div className="text-lg md:text-2xl font-semibold leading-snug truncate">{course.title}</div>
-            <div className="md:hidden self-center">{menuButton}</div>
-          </div>
-          {userEmail && (
-            <div className="md:hidden text-xs text-muted truncate">{userEmail}</div>
+    <div className="flex flex-col bg-[color:var(--color-bg)]" style={{ minHeight: "calc(100dvh - 4rem)" }}>
+
+      {/* ── Sticky top bar ── */}
+      <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-[color:var(--color-light)] shadow-[0_1px_4px_rgba(44,37,34,0.06)]">
+        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 h-13 flex items-center gap-3" style={{ height: "3.25rem" }}>
+          {/* Back */}
+          <Link
+            href="/courses"
+            className="flex items-center gap-1.5 text-sm text-[color:var(--color-muted)] hover:text-[color:var(--color-ink)] transition flex-shrink-0"
+          >
+            <IconBack />
+            <span className="hidden sm:inline">Knowledge</span>
+          </Link>
+          <span className="text-[color:var(--color-light)] text-lg select-none flex-shrink-0">/</span>
+
+          {/* Course title */}
+          <span className="font-semibold text-[color:var(--color-ink)] truncate flex-1 text-sm">{course.title}</span>
+
+          {/* Progress pill */}
+          <span className="hidden sm:inline-flex items-center gap-1 rounded-full border border-[color:var(--color-light)] bg-[color:var(--color-bg)] px-3 py-1 text-xs font-medium text-[color:var(--color-ink)] flex-shrink-0">
+            <span className="font-bold">{pct}%</span>
+            <span className="text-[color:var(--color-muted)]">· {done}/{totalSlidesSafe}</span>
+          </span>
+
+          {/* Final exam CTA */}
+          {finalExam && finalExamQuestions.length > 0 && !finalAttemptExists && (
+            <button
+              type="button"
+              onClick={openFinalConfirm}
+              disabled={!canTakeFinal}
+              className={`hidden sm:flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition flex-shrink-0 ${
+                canTakeFinal
+                  ? "text-white hover:opacity-90 shadow-sm"
+                  : "border border-amber-200 bg-amber-50 text-amber-700 cursor-not-allowed"
+              }`}
+              style={canTakeFinal ? { background: BRAND } : {}}
+            >
+              {canTakeFinal ? (
+                <><IconStar /> Final Exam</>
+              ) : (
+                <><IconLock /> Exam locked</>
+              )}
+            </button>
           )}
-          {finalStatus}
-        </div>
-        <div className="hidden md:flex items-center gap-2 text-xs md:text-sm text-muted self-start">
-          {userEmail && <span className="truncate max-w-[40vw] md:max-w-[260px]">{userEmail}</span>}
-          <div className="self-center">{menuButton}</div>
+          {finalExam && finalAttemptExists && (
+            <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-green-100 text-green-800 px-3 py-1 text-xs font-semibold flex-shrink-0">
+              <IconCheck /> Exam done
+            </span>
+          )}
+
+          {/* Mobile outline toggle */}
+          <button
+            type="button"
+            onClick={() => setMobileNavOpen((v) => !v)}
+            aria-expanded={mobileNavOpen}
+            aria-controls="course-sidebar"
+            className="lg:hidden flex items-center gap-1.5 rounded-xl border border-[color:var(--color-light)] bg-white px-3 py-1.5 text-xs font-medium flex-shrink-0"
+          >
+            <IconMenu />
+            <span className="hidden xs:inline">{mobileNavOpen ? "Close" : "Outline"}</span>
+          </button>
         </div>
       </div>
 
-      {includedEbooks.length > 0 && (
-        <div className="mb-4 grid gap-3 md:grid-cols-2">
-          {includedEbooks.map((eb) => (
-            <div key={eb.ebook_id} className="flex items-center gap-3 rounded-xl border border-[color:var(--color-light)]/40 bg-white p-4 shadow-sm transition-shadow duration-200 hover:shadow-md">
-              <div className="h-20 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-[color:var(--color-light)]">
-                {eb.cover_url ? (
-                  <Image
-                    src={eb.cover_url}
-                    alt={eb.title}
-                    width={96}
-                    height={120}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-[11px] text-muted">E-book</div>
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-[11px] uppercase tracking-wide text-muted">Included e-book</div>
-                <div className="text-sm md:text-base font-semibold leading-snug">{eb.title}</div>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <Link
-                    href={`/ebooks/${eb.slug}`}
-                    className="inline-flex items-center justify-center rounded-lg bg-[color:#0a1156] px-3 py-1.5 text-xs md:text-sm font-semibold text-white hover:opacity-90"
-                  >
-                    {eb.owned ? "Open e-book" : "View e-book"}
-                  </Link>
-                  <Link
-                    href="/dashboard"
-                    className="inline-flex items-center justify-center rounded-xl px-3 py-1.5 text-xs md:text-sm bg-white shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
-                  >
-                    Library
-                  </Link>
-                </div>
-                {!eb.owned && (
-                  <div className="mt-2 text-[11px] text-amber-700">
-                    Access is activating—refresh in a moment if you just paid.
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* ── Main layout ── */}
+      <div className="flex flex-1 mx-auto w-full max-w-screen-2xl overflow-hidden">
 
-      {/* Pre-test checklist banner */}
-      <div className="mb-4 rounded-xl border border-amber-200/40 bg-amber-50 p-3 text-xs md:text-sm shadow-sm">
-        <div className="font-semibold mb-1">Before starting any test:</div>
-        <ul className="list-disc pl-5 grid gap-1">
-          <li>Use a stable internet connection (ethernet or strong Wi-Fi). {isOnline ? "✅ Online" : "⚠️ Offline"}</li>
-          <li>Close other heavy apps/tabs; disable VPNs that cause drops.</li>
-          <li>Once you start, you <b>cannot pause</b>. The timer runs continuously.</li>
-          <li>Do not switch/close the tab — your test will automatically end.</li>
-          <li>Copying/printing is disabled during the test.</li>
-        </ul>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-        {/* Sidebar */}
+        {/* ── Sidebar ── */}
         <aside
           id="course-sidebar"
           className={[
-            "rounded-xl bg-white border border-[color:var(--color-light)]/40 p-4 h-max lg:sticky lg:top-4 shadow-sm transition-shadow duration-200 hover:shadow-md",
-            "md:max-h-[80vh] md:overflow-auto",
-            mobileNavOpen ? "block" : "hidden md:block"
+            "flex-shrink-0 w-[17rem] xl:w-[18.5rem] bg-white border-r border-[color:var(--color-light)] flex flex-col",
+            "lg:sticky lg:top-[3.25rem] lg:h-[calc(100dvh-3.25rem-4rem)] overflow-hidden",
+            mobileNavOpen
+              ? "fixed inset-0 top-[3.25rem] z-20 w-full sm:w-80 overflow-y-auto shadow-2xl"
+              : "hidden lg:flex"
           ].join(" ")}
         >
-          <div className="text-sm">Progress</div>
-          <div className="mt-1"><ProgressBar value={pct} /></div>
-          <div className="mt-1 text-xs text-muted">{done} / {totalSlidesSafe} slides completed</div>
-
-          {isInteractive && (
-            <div className="mt-3 rounded-xl border border-blue-100/40 bg-blue-50 p-2 text-[11px] text-blue-800 shadow-sm">
-              Interactive Storyline course. Launch it in the main area, then mark it as completed to unlock the exam.
+          {/* Progress */}
+          <div className="px-4 pt-4 pb-3 border-b border-[color:var(--color-light)]">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-[color:var(--color-muted)]">Progress</span>
+              <span className="text-xs font-bold text-[color:var(--color-ink)]">{pct}%</span>
             </div>
-          )}
+            <div className="h-1.5 w-full rounded-full bg-[color:var(--color-light)]">
+              <div
+                className="h-1.5 rounded-full transition-all duration-500"
+                style={{ width: `${pct}%`, background: BRAND }}
+              />
+            </div>
+            <div className="mt-1.5 text-[11px] text-[color:var(--color-muted)]">
+              {done} of {totalSlidesSafe} slides completed
+            </div>
 
-          <div className="mt-4">
-            {chapters.map((ch) => (
-              <div key={ch.id} className="mb-3">
-                <div className="font-semibold text-sm flex items-center justify-between">
-                  <span>{ch.title}</span>
-                  {(quizByChapter[ch.id]?.length ?? 0) > 0 && (
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${completedQuizzes.includes(ch.id) ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}>
-                      {completedQuizzes.includes(ch.id) ? "Quiz done" : "Quiz"}
-                    </span>
-                  )}
-                </div>
-                <ul className="mt-2 grid gap-1">
-                  {(slidesByChapter[ch.id] ?? []).map((s) => {
-                    const isActive = activeSlide?.id === s.id;
-                    const isDone = completed.includes(s.id);
-                    const isLocked = !canAccessById(s.id);
-                    return (
-                      <li key={s.id}>
-                        <button
-                          type="button"
-                          disabled={isLocked}
-                          className={[
-                            "w-full text-left text-sm md:text-xs px-3 md:px-2 py-2 md:py-1.5 rounded-md",
-                            isActive ? "bg-[color:var(--color-light)]" : "hover:bg-[color:var(--color-light)]/70",
-                            isLocked ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
-                          ].join(" ")}
-                          onClick={() => trySelectSlide(s)}
-                          onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && !isLocked) trySelectSlide(s); }}
-                          aria-disabled={isLocked}
-                        >
-                          {isDone ? "✅ " : (isLocked ? "🔒 " : "")}{s.title}
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            ))}
-            {chapters.length === 0 && (
-              <div className="text-sm text-muted">
-                No content yet. {isInteractive ? "Interactive courses need one placeholder slide." : ""}
+            {isInteractive && (
+              <div className="mt-3 rounded-xl border border-sky-100 bg-sky-50 px-3 py-2 text-[11px] text-sky-800">
+                Interactive course — launch below, then mark complete to unlock the exam.
               </div>
             )}
           </div>
-        </aside>
 
-        {/* Main */}
-        <main className="rounded-xl bg-white border border-[color:var(--color-light)]/40 p-4 pb-24 md:pb-4 shadow-sm transition-shadow duration-200 hover:shadow-md">
-          {isInteractive ? (
-            <div className="grid gap-4">
-              <div className="text-base md:text-lg font-semibold">{course?.title}</div>
-              <div className="text-xs text-muted">
-                Status: {interactiveStatus === "completed" ? "Completed" : interactiveStatus === "in_progress" ? "In progress" : "Not started"}
-                {interactiveLastSeen ? ` · Last seen ${new Date(interactiveLastSeen).toLocaleString()}` : ""}
-              </div>
-              {course?.interactive_path ? (
-                <>
-                  <InteractivePlayer src={course.interactive_path} title="Interactive course player" />
-                  <div className="text-xs text-muted">
-                    If it does not load,{" "}
-                    <a className="underline" href={course.interactive_path} target="_blank" rel="noreferrer">
-                      open in a new tab
-                    </a>.
+          {/* Chapter + slide list */}
+          <div className="flex-1 overflow-y-auto py-2">
+            {chapters.map((ch) => {
+              const hasQuiz = (quizByChapter[ch.id]?.length ?? 0) > 0;
+              const quizDone = completedQuizzes.includes(ch.id);
+              const chSlides = slidesByChapter[ch.id] ?? [];
+              const chDoneCount = chSlides.filter(s => completed.includes(s.id)).length;
+              const chPct = chSlides.length > 0 ? Math.round((chDoneCount / chSlides.length) * 100) : 0;
+
+              return (
+                <div key={ch.id} className="mb-1">
+                  {/* Chapter header */}
+                  <div className="px-4 pt-3 pb-1 flex items-start justify-between gap-2">
+                    <span className="text-[12px] font-semibold text-[color:var(--color-ink)] leading-snug flex-1">{ch.title}</span>
+                    <div className="flex flex-shrink-0 items-center gap-1.5 mt-0.5">
+                      <span className="text-[10px] text-[color:var(--color-muted)]">{chPct}%</span>
+                      {hasQuiz && (
+                        <span
+                          className={`rounded text-[9px] px-1.5 py-0.5 font-bold uppercase tracking-wide ${
+                            quizDone ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+                          }`}
+                        >
+                          {quizDone ? "Quiz" : "Quiz"}
+                          {quizDone && <span className="ml-0.5">✓</span>}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </>
-              ) : (
-                <div className="text-sm text-red-700">Interactive entry path is not configured for this course.</div>
-              )}
 
-              <div className="mt-2 flex flex-wrap gap-3">
+                  {/* Slides */}
+                  <ul>
+                    {chSlides.map((s) => {
+                      const isActive = activeSlide?.id === s.id;
+                      const isDone = completed.includes(s.id);
+                      const isLocked = !canAccessById(s.id);
+                      return (
+                        <li key={s.id}>
+                          <button
+                            type="button"
+                            disabled={isLocked}
+                            onClick={() => trySelectSlide(s)}
+                            onKeyDown={(e) => {
+                              if ((e.key === "Enter" || e.key === " ") && !isLocked) trySelectSlide(s);
+                            }}
+                            aria-disabled={isLocked}
+                            className={[
+                              "w-full flex items-center gap-2.5 py-1.5 pr-4 text-left transition",
+                              isActive
+                                ? "bg-[color:var(--color-bg)] border-r-2"
+                                : "hover:bg-[color:var(--color-bg)]/60",
+                              isLocked ? "opacity-40 cursor-not-allowed" : "cursor-pointer",
+                            ].join(" ")}
+                            style={isActive ? { paddingLeft: "0.875rem", borderRightColor: BRAND } : { paddingLeft: "0.875rem" }}
+                          >
+                            <span
+                              className="flex-shrink-0"
+                              style={{
+                                color: isDone ? "#059669" : isActive ? BRAND : "var(--color-muted)",
+                              }}
+                            >
+                              {isDone ? <IconCheckCircle /> : isLocked ? <IconLock /> : isActive ? <IconPlay /> : <IconCircle />}
+                            </span>
+                            <span
+                              className={`text-[12px] leading-snug line-clamp-2 ${
+                                isActive
+                                  ? "font-semibold text-[color:var(--color-ink)]"
+                                  : isDone
+                                  ? "text-[color:var(--color-ink)]/60 line-through decoration-1"
+                                  : "text-[color:var(--color-ink)]/75"
+                              }`}
+                            >
+                              {s.title}
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              );
+            })}
+
+            {chapters.length === 0 && (
+              <div className="px-4 py-6 text-sm text-[color:var(--color-muted)]">
+                No content yet.
+              </div>
+            )}
+          </div>
+
+          {/* Bottom: final exam CTA in sidebar */}
+          {finalExam && finalExamQuestions.length > 0 && (
+            <div className="border-t border-[color:var(--color-light)] p-4">
+              {!finalAttemptExists ? (
                 <button
                   type="button"
-                  onClick={() => completeInteractiveModule()}
-                  disabled={!activeSlide || completed.includes(activeSlide.id)}
-                  className="rounded-xl bg-[color:#0a1156] text-white px-5 py-2.5 font-semibold hover:opacity-90 disabled:opacity-60"
+                  onClick={openFinalConfirm}
+                  disabled={!canTakeFinal}
+                  className={`w-full rounded-xl py-2.5 text-sm font-semibold transition ${
+                    canTakeFinal
+                      ? "text-white hover:opacity-90 shadow-sm"
+                      : "border border-[color:var(--color-light)] bg-[color:var(--color-bg)] text-[color:var(--color-muted)] cursor-not-allowed"
+                  }`}
+                  style={canTakeFinal ? { background: BRAND } : {}}
                 >
-                  {activeSlide && completed.includes(activeSlide.id) ? "Module marked completed" : "Mark interactive course as completed"}
+                  {canTakeFinal ? "Take Final Exam" : "Complete all slides first"}
                 </button>
-                {course?.interactive_path && (
-                  <a
-                    href={course.interactive_path}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-xl px-5 py-2.5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
-                  >
-                    Open in new tab
-                  </a>
-                )}
-              </div>
-
-              {!!notice && (
-                <div role="status" aria-live="polite" className="mt-3 text-xs md:text-sm text-[#0a1156]">
-                  {notice}
+              ) : (
+                <div className="flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-2.5 text-sm font-semibold text-green-800">
+                  <IconCheck /> Final Exam completed
                 </div>
+              )}
+              {!canTakeFinal && !finalAttemptExists && (
+                <p className="mt-2 text-[10px] text-[color:var(--color-muted)] text-center">
+                  All slides + chapter quizzes required
+                </p>
               )}
             </div>
-          ) : activeSlide ? (
-            <>
-              <div className="flex items-start justify-between gap-3">
-                <div className="text-base md:text-lg font-semibold">{activeSlide.title}</div>
-                <div className="hidden sm:flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => { if (canGoPrev) setActiveSlide(orderedSlides[activeIndex - 1]); }}
-                    disabled={!canGoPrev}
-                    className={`rounded-xl px-3 py-1.5 text-sm bg-white shadow-sm transition-shadow duration-200 ${canGoPrev ? "hover:shadow-md" : "opacity-50 cursor-not-allowed"} focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30`}
-                    aria-label="Previous slide"
-                  >
-                    Prev
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (canGoNext) setActiveSlide(orderedSlides[activeIndex + 1]);
-                      else setNotice("Complete this slide or the chapter quiz first.");
-                    }}
-                    disabled={!canGoNext}
-                    className={`rounded-xl px-3 py-1.5 text-sm bg-white shadow-sm transition-shadow duration-200 ${canGoNext ? "hover:shadow-md" : "opacity-50 cursor-not-allowed"} focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30`}
-                    aria-label="Next slide"
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
-
-              {renderMedia(activeSlide)}
-
-              {(activeSlide.body ?? activeSlide.content) && (
-                <div
-                  className="prose max-w-none mt-4 text-[0.95rem] leading-relaxed"
-                  dangerouslySetInnerHTML={{ __html: activeSlide.body ?? activeSlide.content ?? "" }}
-                />
-              )}
-
-              <div className="mt-4 flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={() => markDone(activeSlide)}
-                  className="rounded-xl bg-[color:#0a1156] text-white px-5 py-2.5 font-semibold hover:opacity-90"
-                >
-                  Mark as Done
-                </button>
-
-                {/* chapter-quiz CTA */}
-                {isLastSlideOfChapter &&
-                  completed.includes(activeSlide.id) &&
-                  quizExistsForActiveChapter &&
-                  !quizDoneForActiveChapter && (
-                  <button
-                    type="button"
-                    onClick={() => beginQuiz(activeSlide.chapter_id)}
-                    className="rounded-xl px-5 py-2.5 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
-                  >
-                    Take Chapter Quiz
-                  </button>
-                )}
-
-                {isLastSlideOfChapter && quizExistsForActiveChapter && quizDoneForActiveChapter && (
-                  <span className="inline-flex items-center text-xs px-2 py-1 rounded-lg bg-green-100 text-green-800">
-                    Chapter quiz completed
-                  </span>
-                )}
-              </div>
-
-              {!!notice && (
-                <div role="status" aria-live="polite" className="mt-3 text-xs md:text-sm text-[#0a1156]">
-                  {notice}
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="text-muted">Select a slide to begin.</div>
           )}
+        </aside>
+
+        {/* Mobile overlay backdrop */}
+        {mobileNavOpen && (
+          <div
+            className="lg:hidden fixed inset-0 z-10 bg-black/30"
+            onClick={() => setMobileNavOpen(false)}
+            aria-hidden
+          />
+        )}
+
+        {/* ── Main content ── */}
+        <main className="flex-1 min-w-0 flex flex-col pb-20 sm:pb-6">
+
+          {/* Included e-books banner */}
+          {includedEbooks.length > 0 && (
+            <div className="mx-4 sm:mx-6 mt-4 grid gap-3 sm:grid-cols-2">
+              {includedEbooks.map((eb) => (
+                <div
+                  key={eb.ebook_id}
+                  className="flex items-center gap-3 rounded-2xl border border-[color:var(--color-light)] bg-white p-4 shadow-sm"
+                >
+                  <div className="h-16 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-[color:var(--color-light)]">
+                    {eb.cover_url ? (
+                      <Image src={eb.cover_url} alt={eb.title} width={96} height={120} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-[10px] text-[color:var(--color-muted)]">Book</div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[10px] font-semibold uppercase tracking-wide text-[color:var(--color-muted)]">Included E-Book</div>
+                    <div className="text-sm font-semibold text-[color:var(--color-ink)] leading-snug line-clamp-1">{eb.title}</div>
+                    <div className="mt-2 flex gap-2">
+                      <Link
+                        href={`/ebooks/${eb.slug}`}
+                        className="rounded-lg px-3 py-1 text-xs font-semibold text-white hover:opacity-90 transition"
+                        style={{ background: BRAND }}
+                      >
+                        {eb.owned ? "Open" : "View"}
+                      </Link>
+                      <Link href="/dashboard" className="rounded-lg border border-[color:var(--color-light)] px-3 py-1 text-xs font-medium hover:bg-[color:var(--color-bg)] transition">
+                        Library
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Pre-test notice */}
+          <div className="mx-4 sm:mx-6 mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-amber-600"><IconWarning /></span>
+              <span className="text-xs font-semibold text-amber-800">Before starting any test</span>
+              <span
+                className={`ml-auto flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                  isOnline ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                }`}
+              >
+                {isOnline ? <IconWifi /> : <IconWifiOff />}
+                {isOnline ? "Online" : "Offline"}
+              </span>
+            </div>
+            <ul className="grid gap-1 text-[11px] text-amber-800">
+              <li className="flex items-start gap-1.5"><span className="flex-shrink-0 mt-0.5"><IconCheck /></span>Use a stable internet connection. Close heavy apps/tabs; disable VPNs.</li>
+              <li className="flex items-start gap-1.5"><span className="flex-shrink-0 mt-0.5"><IconCheck /></span>Once you start, you <strong>cannot pause</strong>. The timer runs continuously.</li>
+              <li className="flex items-start gap-1.5"><span className="flex-shrink-0 mt-0.5"><IconCheck /></span>Do not switch/close the tab — your test will automatically end.</li>
+              <li className="flex items-start gap-1.5"><span className="flex-shrink-0 mt-0.5"><IconCheck /></span>Copying and printing are disabled during the test.</li>
+            </ul>
+          </div>
+
+          {/* Slide content */}
+          <div className="flex-1 mx-4 sm:mx-6 mt-4">
+            {isInteractive ? (
+              <div className="rounded-2xl border border-[color:var(--color-light)] bg-white p-5 sm:p-7 shadow-sm space-y-4">
+                <div>
+                  <h2 className="text-lg font-bold text-[color:var(--color-ink)]">{course.title}</h2>
+                  <p className="mt-1 text-sm text-[color:var(--color-muted)]">
+                    Status:{" "}
+                    <span className="font-medium text-[color:var(--color-ink)]">
+                      {interactiveStatus === "completed" ? "Completed" : interactiveStatus === "in_progress" ? "In progress" : "Not started"}
+                    </span>
+                    {interactiveLastSeen && ` · Last seen ${new Date(interactiveLastSeen).toLocaleString()}`}
+                  </p>
+                </div>
+
+                {course.interactive_path ? (
+                  <>
+                    <InteractivePlayer src={course.interactive_path} title="Interactive course player" />
+                    <p className="text-xs text-[color:var(--color-muted)]">
+                      If it does not load,{" "}
+                      <a className="underline decoration-dotted" href={course.interactive_path} target="_blank" rel="noreferrer">
+                        open in a new tab
+                      </a>.
+                    </p>
+                  </>
+                ) : (
+                  <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                    Interactive path is not configured for this course.
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => completeInteractiveModule()}
+                    disabled={!activeSlide || completed.includes(activeSlide.id)}
+                    className="rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+                    style={{ background: BRAND }}
+                  >
+                    {activeSlide && completed.includes(activeSlide.id) ? "Module completed" : "Mark as completed"}
+                  </button>
+                  {course.interactive_path && (
+                    <a
+                      href={course.interactive_path}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-xl border border-[color:var(--color-light)] bg-white px-5 py-2.5 text-sm font-medium hover:bg-[color:var(--color-bg)] transition"
+                    >
+                      Open in new tab
+                    </a>
+                  )}
+                </div>
+
+                {!!notice && (
+                  <div role="status" aria-live="polite" className="text-sm font-medium" style={{ color: BRAND }}>
+                    {notice}
+                  </div>
+                )}
+              </div>
+            ) : activeSlide ? (
+              <div className="rounded-2xl border border-[color:var(--color-light)] bg-white shadow-sm overflow-hidden">
+                {/* Slide header */}
+                <div className="flex items-center justify-between gap-3 border-b border-[color:var(--color-light)] px-5 py-4">
+                  <h2 className="font-bold text-[16px] sm:text-[18px] text-[color:var(--color-ink)] leading-snug flex-1 min-w-0">
+                    {activeSlide.title}
+                  </h2>
+                  {/* Desktop prev/next */}
+                  <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => { if (canGoPrev) setActiveSlide(orderedSlides[activeIndex - 1]); }}
+                      disabled={!canGoPrev}
+                      aria-label="Previous slide"
+                      className={`flex items-center gap-1.5 rounded-xl border border-[color:var(--color-light)] px-3 py-1.5 text-sm font-medium transition ${
+                        canGoPrev ? "hover:bg-[color:var(--color-bg)] text-[color:var(--color-ink)]" : "opacity-35 cursor-not-allowed text-[color:var(--color-muted)]"
+                      }`}
+                    >
+                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden><path d="M15.41 16.59 10.83 12l4.58-4.59L14 6l-6 6 6 6z"/></svg>
+                      Prev
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (canGoNext) setActiveSlide(orderedSlides[activeIndex + 1]);
+                        else setNotice("Complete this slide or the chapter quiz first.");
+                      }}
+                      disabled={!canGoNext}
+                      aria-label="Next slide"
+                      className={`flex items-center gap-1.5 rounded-xl border border-[color:var(--color-light)] px-3 py-1.5 text-sm font-medium transition ${
+                        canGoNext ? "hover:bg-[color:var(--color-bg)] text-[color:var(--color-ink)]" : "opacity-35 cursor-not-allowed text-[color:var(--color-muted)]"
+                      }`}
+                    >
+                      Next
+                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden><path d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Slide body */}
+                <div className="p-5 sm:p-7">
+                  {renderMedia(activeSlide)}
+
+                  {(activeSlide.body ?? activeSlide.content) && (
+                    <div
+                      className="prose max-w-none mt-5 text-[0.95rem] leading-relaxed text-[color:var(--color-ink)]"
+                      dangerouslySetInnerHTML={{ __html: activeSlide.body ?? activeSlide.content ?? "" }}
+                    />
+                  )}
+
+                  {/* Actions */}
+                  <div className="mt-6 flex flex-wrap items-center gap-3">
+                    {!completed.includes(activeSlide.id) ? (
+                      <button
+                        type="button"
+                        onClick={() => markDone(activeSlide)}
+                        className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 shadow-sm"
+                        style={{ background: BRAND }}
+                      >
+                        <IconCheck /> Mark as Done
+                      </button>
+                    ) : (
+                      <span className="flex items-center gap-1.5 rounded-xl border border-green-200 bg-green-50 px-4 py-2 text-sm font-semibold text-green-700">
+                        <IconCheckCircle /> Done
+                      </span>
+                    )}
+
+                    {isLastSlideOfChapter && completed.includes(activeSlide.id) && quizExistsForActiveChapter && !quizDoneForActiveChapter && (
+                      <button
+                        type="button"
+                        onClick={() => beginQuiz(activeSlide.chapter_id)}
+                        className="flex items-center gap-2 rounded-xl border border-[color:var(--color-light)] bg-white px-5 py-2.5 text-sm font-semibold hover:bg-[color:var(--color-bg)] transition"
+                      >
+                        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2zm1 17.93V18h-2v1.93A8.001 8.001 0 0 1 4.07 13H6v-2H4.07A8.001 8.001 0 0 1 11 4.07V6h2V4.07A8.001 8.001 0 0 1 19.93 11H18v2h1.93A8.001 8.001 0 0 1 13 19.93z"/></svg>
+                        Take Chapter Quiz
+                      </button>
+                    )}
+
+                    {isLastSlideOfChapter && quizExistsForActiveChapter && quizDoneForActiveChapter && (
+                      <span className="flex items-center gap-1.5 rounded-xl border border-green-200 bg-green-50 px-4 py-2 text-sm font-semibold text-green-700">
+                        <IconCheck /> Chapter quiz done
+                      </span>
+                    )}
+                  </div>
+
+                  {!!notice && (
+                    <div
+                      role="status"
+                      aria-live="polite"
+                      className="mt-3 text-sm font-medium"
+                      style={{ color: BRAND }}
+                    >
+                      {notice}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-[color:var(--color-light)] bg-white p-12 text-center shadow-sm">
+                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full" style={{ background: "rgba(182,84,55,0.1)", color: BRAND }}>
+                  <IconPlay />
+                </div>
+                <p className="font-semibold text-[color:var(--color-ink)]">Select a slide to begin</p>
+                <p className="mt-1 text-sm text-[color:var(--color-muted)]">Choose from the outline on the left.</p>
+              </div>
+            )}
+          </div>
         </main>
       </div>
 
-      {/* Sticky mobile action bar */}
+      {/* ── Sticky mobile bottom bar ── */}
       {activeSlide && !isInteractive && (
-        <div className="sm:hidden fixed inset-x-0 bottom-0 z-40 bg-white/95 backdrop-blur shadow-[0_-8px_24px_rgba(0,0,0,0.04)]">
-          <div className="mx-auto max-w-screen-2xl px-4 py-2 grid grid-cols-3 gap-2">
+        <div className="sm:hidden fixed inset-x-0 bottom-0 z-40 bg-white/95 backdrop-blur-sm border-t border-[color:var(--color-light)] shadow-[0_-4px_12px_rgba(44,37,34,0.06)]">
+          <div className="grid grid-cols-3 gap-2 px-4 py-3">
             <button
               type="button"
               onClick={() => { if (canGoPrev) setActiveSlide(orderedSlides[activeIndex - 1]); }}
               disabled={!canGoPrev}
-              className={`rounded-xl px-3 py-3 text-sm bg-white shadow-sm transition-shadow duration-200 ${canGoPrev ? "active:scale-[0.98] hover:shadow-md" : "opacity-50 cursor-not-allowed"} focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30`}
               aria-label="Previous slide"
+              className={`flex items-center justify-center gap-1.5 rounded-xl border border-[color:var(--color-light)] py-3 text-sm font-medium transition ${
+                canGoPrev ? "bg-white active:scale-[0.97]" : "opacity-35 cursor-not-allowed bg-white"
+              }`}
             >
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden><path d="M15.41 16.59 10.83 12l4.58-4.59L14 6l-6 6 6 6z"/></svg>
               Prev
             </button>
             <button
               type="button"
               onClick={() => markDone(activeSlide)}
-              className="rounded-lg bg-[color:#0a1156] text-white px-3 py-3 text-sm font-semibold active:scale-[0.98]"
-              aria-label="Mark current slide as done"
+              aria-label="Mark as done"
+              className="flex items-center justify-center gap-1.5 rounded-xl py-3 text-sm font-semibold text-white active:scale-[0.97] transition"
+              style={{ background: BRAND }}
             >
-              Done
+              <IconCheck /> Done
             </button>
             <button
               type="button"
               onClick={() => {
                 if (canGoNext) setActiveSlide(orderedSlides[activeIndex + 1]);
-                else setNotice("Complete this slide or the chapter quiz first.");
+                else setNotice("Complete this slide or quiz first.");
               }}
               disabled={!canGoNext}
-              className={`rounded-xl px-3 py-3 text-sm bg-white shadow-sm transition-shadow duration-200 ${canGoNext ? "active:scale-[0.98] hover:shadow-md" : "opacity-50 cursor-not-allowed"} focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30`}
               aria-label="Next slide"
+              className={`flex items-center justify-center gap-1.5 rounded-xl border border-[color:var(--color-light)] py-3 text-sm font-medium transition ${
+                canGoNext ? "bg-white active:scale-[0.97]" : "opacity-35 cursor-not-allowed bg-white"
+              }`}
             >
               Next
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden><path d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
             </button>
           </div>
         </div>
       )}
 
-      {/* Chapter Quiz Modal */}
+      {/* ── Chapter Quiz Modal ── */}
       {quizOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setQuizOpen(false)} />
-          <div className="relative z-10 w-full max-w-2xl rounded-xl bg-white border border-[color:var(--color-light)]/40 p-5 max-h-[90vh] overflow-auto shadow-sm transition-shadow duration-200 hover:shadow-md">
-            <div className="flex items-center justify-between gap-3">
-              <div className="text-lg font-semibold">Chapter Quiz</div>
-              <div className="text-sm font-medium">
-                Time left:{" "}
-                <span className={quizTimeLeft <= 10 ? "text-red-600" : ""}>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setQuizOpen(false)} />
+          <div className="relative z-10 w-full max-w-2xl rounded-t-2xl sm:rounded-2xl bg-white border border-[color:var(--color-light)] shadow-2xl max-h-[92vh] overflow-auto">
+            {/* Modal header */}
+            <div className="sticky top-0 flex items-center justify-between gap-3 border-b border-[color:var(--color-light)] bg-white px-5 py-4 rounded-t-2xl">
+              <div>
+                <div className="font-bold text-[color:var(--color-ink)]">Chapter Quiz</div>
+                <div className="text-xs text-[color:var(--color-muted)]">{quizItems.length} questions</div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-sm font-bold ${quizTimeLeft <= 10 ? "border-red-200 bg-red-50 text-red-700" : "border-[color:var(--color-light)] text-[color:var(--color-ink)]"}`}>
+                  <IconClock />
                   {secondsToClock(quizTimeLeft)}
-                </span>
+                </div>
+                <button type="button" onClick={() => setQuizOpen(false)} className="rounded-xl p-1.5 hover:bg-[color:var(--color-bg)] transition text-[color:var(--color-muted)]">
+                  <IconClose />
+                </button>
               </div>
             </div>
 
-            <div className="mt-4 grid gap-4">
+            <div className="p-5 grid gap-4">
               {quizItems.map((q, idx) => (
-                <div key={q.id} className="rounded-xl p-3 bg-white border border-[color:var(--color-light)]/40 shadow-sm">
-                  <div className="font-medium text-sm">{idx + 1}. {q.question}</div>
-                  <div className="mt-2 grid gap-2">
+                <div key={q.id} className="rounded-2xl border border-[color:var(--color-light)] bg-[color:var(--color-bg)] p-4">
+                  <div className="font-semibold text-sm text-[color:var(--color-ink)]">{idx + 1}. {q.question}</div>
+                  <div className="mt-3 grid gap-2">
                     {q.options.map((opt, i) => {
-                      const name = `q_${q.id}`;
                       const checked = quizAnswers[q.id] === i;
                       return (
-                        <label key={i} className="inline-flex items-center gap-2 text-sm">
+                        <label
+                          key={i}
+                          className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-sm cursor-pointer transition ${
+                            checked ? "border-[color:var(--color-brand)] bg-white shadow-sm" : "border-[color:var(--color-light)] bg-white hover:border-[color:var(--color-soft)]"
+                          }`}
+                        >
                           <input
                             type="radio"
-                            name={name}
+                            name={`q_${q.id}`}
                             checked={checked}
-                            onChange={() => setQuizAnswers(a => ({ ...a, [q.id]: i }))}
+                            onChange={() => setQuizAnswers((a) => ({ ...a, [q.id]: i }))}
+                            className="accent-[color:var(--color-brand)]"
                           />
                           <span>{opt}</span>
                         </label>
@@ -1602,18 +1846,19 @@ export default function CourseDashboard() {
               ))}
             </div>
 
-            <div className="mt-5 flex items-center justify-end gap-2">
+            <div className="sticky bottom-0 flex items-center justify-end gap-3 border-t border-[color:var(--color-light)] bg-white px-5 py-4">
               <button
                 type="button"
                 onClick={() => setQuizOpen(false)}
-                className="rounded-xl px-4 py-2 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+                className="rounded-xl border border-[color:var(--color-light)] px-5 py-2.5 text-sm font-medium hover:bg-[color:var(--color-bg)] transition"
               >
-                Close
+                Cancel
               </button>
               <button
                 type="button"
                 onClick={() => submitQuiz(false)}
-                className="rounded-lg bg-[color:#0a1156] text-white px-4 py-2 font-semibold hover:opacity-90"
+                className="rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+                style={{ background: BRAND }}
               >
                 Submit Quiz
               </button>
@@ -1622,40 +1867,61 @@ export default function CourseDashboard() {
         </div>
       )}
 
-      {/* Final Exam Preflight Confirmation Modal */}
+      {/* ── Final Exam Preflight Modal ── */}
       {startConfirmOpen && finalExam && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50" onClick={() => setStartConfirmOpen(false)} />
-          <div className="relative z-10 w-full max-w-xl rounded-xl bg-white border border-[color:var(--color-light)]/40 p-5 max-h-[88vh] overflow-auto shadow-sm transition-shadow duration-200 hover:shadow-md">
-            <div className="text-lg font-semibold">Before you start the Final Exam</div>
-            <div className="mt-3 text-xs md:text-sm">
-              <ul className="list-disc pl-5 grid gap-1">
-                <li>Use a stable internet connection. Status: {isOnline ? "✅ Online" : "⚠️ Offline"}</li>
-                <li>Close other heavy apps/tabs and avoid VPNs that may drop.</li>
-                <li>Once you start, you <b>cannot pause</b>. The timer runs continuously.</li>
-                <li>Do <b>not</b> close or switch the tab; the exam will auto-end.</li>
-                <li>Copying/printing is disabled during the exam.</li>
-                <li>One attempt only. To retry, you must pay the penalty via admin.</li>
-              </ul>
-              <div className="mt-3 text-xs text-muted">
-                Time limit: <b>{finalExam.time_limit_minutes ?? 60} minutes</b> • Pass mark: <b>{finalExam.pass_mark ?? 0}%</b>
+          <div className="relative z-10 w-full max-w-lg rounded-2xl bg-white border border-[color:var(--color-light)] shadow-2xl max-h-[88vh] overflow-auto">
+            <div className="flex items-start justify-between gap-3 border-b border-[color:var(--color-light)] px-5 py-4">
+              <div>
+                <div className="font-bold text-[color:var(--color-ink)]">Before you start the Final Exam</div>
+                <div className="text-xs text-[color:var(--color-muted)] mt-0.5">
+                  {finalExam.time_limit_minutes ?? 60} min · Pass mark: {finalExam.pass_mark ?? 0}% · One attempt
+                </div>
               </div>
-              <label className="mt-4 flex items-start gap-2 text-xs">
+              <button type="button" onClick={() => setStartConfirmOpen(false)} className="rounded-xl p-1.5 hover:bg-[color:var(--color-bg)] transition text-[color:var(--color-muted)] mt-0.5">
+                <IconClose />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-3">
+              {/* Connectivity */}
+              <div className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-sm ${isOnline ? "border-green-200 bg-green-50 text-green-800" : "border-red-200 bg-red-50 text-red-700"}`}>
+                {isOnline ? <IconWifi /> : <IconWifiOff />}
+                <span className="font-medium">{isOnline ? "You are online — good to go" : "You are offline — reconnect before starting"}</span>
+              </div>
+
+              <ul className="grid gap-2 text-sm text-[color:var(--color-ink)]">
+                {[
+                  "Close other heavy apps/tabs; disable VPNs that may drop your connection.",
+                  "Once you start, you cannot pause. The timer runs continuously.",
+                  "Do not close or switch the tab — the exam will auto-end.",
+                  "Copying and printing are disabled during the exam.",
+                  "One attempt only. A retry requires admin approval and a penalty fee.",
+                ].map((rule, i) => (
+                  <li key={i} className="flex items-start gap-2.5">
+                    <span className="flex-shrink-0 mt-0.5 text-amber-600"><IconWarning /></span>
+                    <span>{rule}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <label className="flex items-start gap-3 rounded-2xl border border-[color:var(--color-light)] bg-[color:var(--color-bg)] px-4 py-3 text-sm cursor-pointer">
                 <input
                   type="checkbox"
                   checked={startConfirmChecked}
                   onChange={(e) => setStartConfirmChecked(e.target.checked)}
+                  className="mt-0.5 accent-[color:var(--color-brand)] h-4 w-4 flex-shrink-0"
                 />
-                <span>
-                  I have read the rules and understand that if I close/switch the tab the exam will automatically end, and copying is disabled.
-                </span>
+                <span>I have read and understood all the rules above.</span>
               </label>
             </div>
-            <div className="mt-5 flex items-center justify-end gap-2">
+
+            <div className="flex items-center justify-end gap-3 border-t border-[color:var(--color-light)] px-5 py-4">
               <button
                 type="button"
                 onClick={() => setStartConfirmOpen(false)}
-                className="rounded-xl px-4 py-2 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+                className="rounded-xl border border-[color:var(--color-light)] px-5 py-2.5 text-sm font-medium hover:bg-[color:var(--color-bg)] transition"
               >
                 Cancel
               </button>
@@ -1663,7 +1929,12 @@ export default function CourseDashboard() {
                 type="button"
                 disabled={!startConfirmChecked || !isOnline}
                 onClick={() => { setStartConfirmOpen(false); beginFinalExam(); }}
-                className={`rounded-lg px-4 py-2 font-semibold ${(!startConfirmChecked || !isOnline) ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-[color:#0a1156] text-white hover:opacity-90"}`}
+                className={`rounded-xl px-5 py-2.5 text-sm font-semibold transition ${
+                  !startConfirmChecked || !isOnline
+                    ? "border border-[color:var(--color-light)] bg-[color:var(--color-bg)] text-[color:var(--color-muted)] cursor-not-allowed"
+                    : "text-white hover:opacity-90"
+                }`}
+                style={startConfirmChecked && isOnline ? { background: BRAND } : {}}
               >
                 I Agree — Start Exam
               </button>
@@ -1672,54 +1943,54 @@ export default function CourseDashboard() {
         </div>
       )}
 
-      {/* Final Exam Modal */}
+      {/* ── Final Exam Modal ── */}
       {finalExamOpen && finalExam && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 select-none">
-          <div className="absolute inset-0 bg-black/50" />
-          <div className="relative z-10 w-full max-w-3xl rounded-xl bg-white border border-[color:var(--color-light)]/40 p-5 max-h-[92vh] overflow-auto shadow-sm transition-shadow duration-200 hover:shadow-md">
-            <div className="flex items-center justify-between gap-3">
-              <div className="text-lg font-semibold">{finalExam.title || "Final Exam"}</div>
-              <div className="text-sm font-medium">
-                Time left:{" "}
-                <span className={finalTimeLeft <= 60 ? "text-red-600" : ""}>
-                  {secondsToClock(finalTimeLeft)}
-                </span>
+          <div className="absolute inset-0 bg-black/60" />
+          <div className="relative z-10 w-full max-w-3xl rounded-2xl bg-white border border-[color:var(--color-light)] shadow-2xl max-h-[92vh] overflow-auto">
+            {/* Exam header */}
+            <div className="sticky top-0 flex items-center justify-between gap-3 border-b border-[color:var(--color-light)] bg-white px-5 py-4 rounded-t-2xl z-10">
+              <div>
+                <div className="font-bold text-[color:var(--color-ink)]">{finalExam.title || "Final Exam"}</div>
+                <div className="text-xs text-[color:var(--color-muted)]">{activeExamQuestions.length} questions · pass {finalExam.pass_mark ?? 0}%</div>
               </div>
-            </div>
-
-            <div className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200/40 rounded-md p-2 shadow-sm">
-              <ul className="list-disc pl-5 grid gap-1">
-                <li>Timer cannot be paused.</li>
-                <li>Do not close or switch this tab. Doing so will auto-end the exam.</li>
-                <li>Copying/printing is disabled during the exam.</li>
-                <li>One attempt only. To retry, pay the penalty via admin.</li>
-              </ul>
+              <div className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-sm font-bold ${finalTimeLeft <= 60 ? "border-red-200 bg-red-50 text-red-700" : "border-[color:var(--color-light)] text-[color:var(--color-ink)]"}`}>
+                <IconClock />
+                {secondsToClock(finalTimeLeft)}
+              </div>
             </div>
 
             {!isOnline && (
-              <div className="mt-3 text-xs text-red-700 bg-red-50 border border-red-200/40 rounded-md p-2 shadow-sm">
-                You are offline. Stay online to ensure your answers are saved.
+              <div className="mx-5 mt-4 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                <IconWifiOff /> You are offline. Reconnect to ensure answers are saved.
               </div>
             )}
 
-            <div className="mt-4 grid gap-4">
+            <div className="p-5 grid gap-4">
               {activeExamQuestions.length === 0 ? (
-                <div className="rounded-xl p-3 bg-white border border-[color:var(--color-light)]/40 text-sm text-muted shadow-sm">Preparing questions…</div>
+                <div className="rounded-2xl border border-[color:var(--color-light)] bg-[color:var(--color-bg)] p-6 text-center text-sm text-[color:var(--color-muted)]">
+                  Preparing questions…
+                </div>
               ) : (
                 activeExamQuestions.map((q, idx) => (
-                  <div key={q.id} className="rounded-xl p-3 bg-white border border-[color:var(--color-light)]/40 shadow-sm">
-                    <div className="font-medium text-sm">{idx + 1}. {q.prompt}</div>
-                    <div className="mt-2 grid gap-2">
+                  <div key={q.id} className="rounded-2xl border border-[color:var(--color-light)] bg-[color:var(--color-bg)] p-4">
+                    <div className="font-semibold text-sm text-[color:var(--color-ink)]">{idx + 1}. {q.prompt}</div>
+                    <div className="mt-3 grid gap-2">
                       {q.options.map((opt, i) => {
-                        const name = `f_${q.id}`;
                         const checked = finalAnswers[q.id] === i;
                         return (
-                          <label key={i} className="inline-flex items-center gap-2 text-sm">
+                          <label
+                            key={i}
+                            className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-sm cursor-pointer transition ${
+                              checked ? "border-[color:var(--color-brand)] bg-white shadow-sm" : "border-[color:var(--color-light)] bg-white hover:border-[color:var(--color-soft)]"
+                            }`}
+                          >
                             <input
                               type="radio"
-                              name={name}
+                              name={`f_${q.id}`}
                               checked={checked}
                               onChange={() => setFinalAnswers((a) => ({ ...a, [q.id]: i }))}
+                              className="accent-[color:var(--color-brand)] h-4 w-4 flex-shrink-0"
                             />
                             <span>{opt}</span>
                           </label>
@@ -1731,11 +2002,12 @@ export default function CourseDashboard() {
               )}
             </div>
 
-            <div className="mt-5 flex items-center justify-end gap-2">
+            <div className="sticky bottom-0 flex items-center justify-end border-t border-[color:var(--color-light)] bg-white px-5 py-4">
               <button
                 type="button"
                 onClick={() => submitFinalExam(false)}
-                className="rounded-lg bg-[color:#0a1156] text-white px-4 py-2 font-semibold hover:opacity-90"
+                className="rounded-xl px-6 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+                style={{ background: BRAND }}
               >
                 Submit Final Exam
               </button>
@@ -1744,80 +2016,102 @@ export default function CourseDashboard() {
         </div>
       )}
 
-      {/* Results Modal */}
+      {/* ── Results Modal ── */}
       {resultOpen && finalResult && finalExam && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50" onClick={() => setResultOpen(false)} />
-          <div className="relative z-10 w-full max-w-2xl rounded-xl bg-white border border-[color:var(--color-light)]/40 p-5 max-h-[92vh] overflow-auto shadow-sm transition-shadow duration-200 hover:shadow-md">
-            <div className="text-lg font-semibold">Results</div>
-
-            <div className="mt-3 grid gap-2 text-sm">
-              <div className="rounded-xl p-3 bg-white border border-[color:var(--color-light)]/40 shadow-sm">
-                <div className="font-medium">Final Exam</div>
-                <div className="mt-1">
-                  Score: <b>{finalResult.correct}/{finalResult.total}</b> ({finalResult.scorePct}%)
-                  {" · "}Pass mark: <b>{finalExam.pass_mark ?? 0}%</b>
-                </div>
-                <div className={`mt-1 inline-block px-2 py-0.5 rounded ${finalResult.passed ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
-                  {finalResult.passed ? "PASSED" : "NOT PASSED"}
-                </div>
-              </div>
-
-              <div className="rounded-xl p-3 bg-white border border-[color:var(--color-light)]/40 shadow-sm">
-                <div className="font-medium mb-2">Chapter Quiz Scores</div>
-                {chapterScores.length === 0 ? (
-                  <div className="text-xs text-muted">No chapter quiz submissions found.</div>
-                ) : (
-                  <div className="overflow-auto">
-                    <table className="w-full text-xs md:text-sm">
-                      <thead>
-                        <tr className="text-left">
-                          <th className="py-1 pr-2">Chapter</th>
-                          <th className="py-1 pr-2">Score</th>
-                          <th className="py-1 pr-2">Details</th>
-                          <th className="py-1 pr-2">Completed</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {chapterScores.map((r) => (
-                          <tr key={r.chapterId} className="border-t border-[color:var(--color-light)]/40">
-                            <td className="py-1 pr-2">{r.chapterTitle}</td>
-                            <td className="py-1 pr-2">{r.scorePct ?? "—"}%</td>
-                            <td className="py-1 pr-2">
-                              {r.correctCount ?? "—"}/{r.totalCount ?? "—"}
-                            </td>
-                            <td className="py-1 pr-2">{r.completedAt ? new Date(r.completedAt).toLocaleString() : "—"}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
+          <div className="relative z-10 w-full max-w-xl rounded-2xl bg-white border border-[color:var(--color-light)] shadow-2xl max-h-[92vh] overflow-auto">
+            <div className="flex items-center justify-between gap-3 border-b border-[color:var(--color-light)] px-5 py-4">
+              <div className="font-bold text-[color:var(--color-ink)]">Exam Results</div>
+              <button type="button" onClick={() => setResultOpen(false)} className="rounded-xl p-1.5 hover:bg-[color:var(--color-bg)] transition text-[color:var(--color-muted)]">
+                <IconClose />
+              </button>
             </div>
 
-            {finalResult.passed && (
-              <div
-                className={`mt-4 rounded-xl p-3 text-sm shadow-sm ${
-                  certificateNotice?.type === "error"
-                    ? "bg-red-50 text-red-800"
-                    : certificateNotice?.type === "success"
-                      ? "bg-green-50 text-green-800"
-                      : "bg-blue-50 text-blue-900"
-                }`}
-              >
-                {certificateNotice?.message ?? "Visit your Dashboard to download your certificate."}
-                <div className="mt-1 text-xs text-muted">
-                  Need to edit the name on the certificate? Update it via the Dashboard before downloading.
+            <div className="p-5 space-y-4">
+              {/* Score card */}
+              <div className={`rounded-2xl border p-5 text-center ${finalResult.passed ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}`}>
+                <div className={`text-4xl font-extrabold ${finalResult.passed ? "text-green-700" : "text-red-700"}`}>
+                  {finalResult.scorePct}%
+                </div>
+                <div className={`mt-1 text-sm font-semibold ${finalResult.passed ? "text-green-700" : "text-red-700"}`}>
+                  {finalResult.passed ? "PASSED" : "NOT PASSED"}
+                </div>
+                <div className="mt-2 text-xs text-[color:var(--color-muted)]">
+                  {finalResult.correct} / {finalResult.total} correct · Pass mark: {finalExam.pass_mark ?? 0}%
                 </div>
               </div>
-            )}
 
-            <div className="mt-5 flex items-center justify-end">
+              {/* Certificate notice */}
+              {finalResult.passed && certificateNotice && (
+                <div
+                  className={`flex items-start gap-3 rounded-xl border px-4 py-3 text-sm ${
+                    certificateNotice.type === "error"
+                      ? "border-red-200 bg-red-50 text-red-800"
+                      : certificateNotice.type === "success"
+                      ? "border-green-200 bg-green-50 text-green-800"
+                      : "border-sky-200 bg-sky-50 text-sky-900"
+                  }`}
+                >
+                  {certificateNotice.type === "success" ? <IconCheck /> : <IconWarning />}
+                  <div>
+                    <div className="font-semibold">{certificateNotice.message}</div>
+                    <div className="mt-0.5 text-xs opacity-75">
+                      Need to edit the name on your certificate? Update it in the Dashboard before downloading.
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Chapter quiz scores */}
+              {chapterScores.length > 0 && (
+                <div className="rounded-2xl border border-[color:var(--color-light)] bg-[color:var(--color-bg)] overflow-hidden">
+                  <div className="px-4 py-3 border-b border-[color:var(--color-light)] text-xs font-semibold uppercase tracking-wide text-[color:var(--color-muted)]">
+                    Chapter Quiz Scores
+                  </div>
+                  <table className="w-full text-xs sm:text-sm">
+                    <thead className="border-b border-[color:var(--color-light)]">
+                      <tr className="text-left">
+                        <th className="px-4 py-2 font-semibold text-[color:var(--color-muted)]">Chapter</th>
+                        <th className="px-4 py-2 font-semibold text-[color:var(--color-muted)]">Score</th>
+                        <th className="px-4 py-2 font-semibold text-[color:var(--color-muted)] hidden sm:table-cell">Correct</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[color:var(--color-light)]">
+                      {chapterScores.map((r) => (
+                        <tr key={r.chapterId}>
+                          <td className="px-4 py-2.5 text-[color:var(--color-ink)]">{r.chapterTitle}</td>
+                          <td className="px-4 py-2.5">
+                            <span
+                              className="rounded-full px-2 py-0.5 text-[11px] font-bold text-white"
+                              style={{ background: (r.scorePct ?? 0) >= 70 ? "#059669" : BRAND }}
+                            >
+                              {r.scorePct ?? "—"}%
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5 text-[color:var(--color-muted)] hidden sm:table-cell">
+                            {r.correctCount ?? "—"}/{r.totalCount ?? "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between gap-3 border-t border-[color:var(--color-light)] px-5 py-4">
+              <Link
+                href="/dashboard"
+                className="rounded-xl border border-[color:var(--color-light)] px-4 py-2.5 text-sm font-medium hover:bg-[color:var(--color-bg)] transition"
+              >
+                My Dashboard
+              </Link>
               <button
                 type="button"
                 onClick={() => setResultOpen(false)}
-                className="rounded-xl px-4 py-2 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+                className="rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+                style={{ background: BRAND }}
               >
                 Close
               </button>

@@ -195,7 +195,7 @@ export default function CoursePreview() {
         <aside className="rounded-xl bg-white border border-[color:var(--color-light)]/40 shadow-sm transition-shadow duration-200 hover:shadow-md p-5 h-max">
           <div className="text-lg">
             {freeWithLogin ? (
-              <span className="font-semibold text-[#0a1156]">Free with login</span>
+              <span className="font-semibold text-[color:var(--color-brand)]">Free with login</span>
             ) : (
               <span className="font-semibold">
                 {currency} {priceLabel}
@@ -206,7 +206,7 @@ export default function CoursePreview() {
 
           {bundledEbooks.length > 0 && (
             <div className="mt-4 rounded-xl bg-[color:var(--color-light)]/30 border border-[color:var(--color-light)]/40 p-3 shadow-sm">
-              <div className="text-xs font-semibold text-[#0a1156] uppercase tracking-wide">Includes e-book</div>
+              <div className="text-xs font-semibold text-[color:var(--color-brand)] uppercase tracking-wide">Includes e-book</div>
               <div className="mt-2 grid gap-2">
                 {bundledEbooks.map((b) => (
                   <Link
@@ -245,7 +245,7 @@ export default function CoursePreview() {
                   <>
                     <Link
                       href={`/auth/sign-in?redirect=${encodeURIComponent(`/knowledge/${course.slug}`)}`}
-                      className="inline-flex items-center justify-center rounded-lg bg-[#0a1156] text-white px-4 py-2 font-semibold hover:opacity-90"
+                      className="inline-flex items-center justify-center rounded-lg bg-[color:var(--color-brand)] text-white px-4 py-2 font-semibold hover:opacity-90"
                     >
                       {freeWithLogin ? "Sign in to start" : "Sign in to enroll"}
                     </Link>
@@ -263,7 +263,7 @@ export default function CoursePreview() {
                   <>
                     <Link
                       href={enrollHref}
-                      className="inline-flex items-center justify-center rounded-lg bg-[#0a1156] text-white px-4 py-2 font-semibold hover:opacity-90"
+                      className="inline-flex items-center justify-center rounded-lg bg-[color:var(--color-brand)] text-white px-4 py-2 font-semibold hover:opacity-90"
                     >
                       Enroll (Mobile Money/Card)
                     </Link>
@@ -280,7 +280,7 @@ export default function CoursePreview() {
                 {userId && !showEnroll && (
                   <Link
                     href={dashboardHref}
-                    className="inline-flex items-center justify-center rounded-lg bg-[#0a1156] text-white px-4 py-2 font-semibold hover:opacity-90"
+                    className="inline-flex items-center justify-center rounded-lg bg-[color:var(--color-brand)] text-white px-4 py-2 font-semibold hover:opacity-90"
                   >
                     {primaryPaidText}
                   </Link>

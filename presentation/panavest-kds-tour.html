@@ -1,0 +1,655 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PanAvest KDS Website Walkthrough</title>
+    <style>
+      :root {
+        --bg: #f4eee4;
+        --paper: #fbf7f1;
+        --card: #ffffff;
+        --soft: #f6f1e8;
+        --ink: #111827;
+        --muted: #5f6b7f;
+        --brand: #0a1156;
+        --gold: #d2a756;
+        --line: #ddd4c7;
+      }
+
+      * {
+        box-sizing: border-box;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: #ede6da;
+        color: var(--ink);
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      body {
+        width: 13.333in;
+        margin: 0 auto;
+      }
+
+      @page {
+        size: 13.333in 7.5in;
+        margin: 0;
+      }
+
+      .slide {
+        position: relative;
+        width: 13.333in;
+        height: 7.5in;
+        padding: 0.42in 0.5in 0.38in;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        gap: 0.16in;
+        background: linear-gradient(180deg, #fbf7f1 0%, #f2ebe0 100%);
+        break-after: page;
+        page-break-after: always;
+        page-break-inside: avoid;
+        overflow: hidden;
+      }
+
+      .slide::after {
+        content: "";
+        position: absolute;
+        inset: 0.18in;
+        border: 1px solid rgba(210, 167, 86, 0.38);
+        border-radius: 0.24in;
+        pointer-events: none;
+      }
+
+      .slide:last-child {
+        break-after: auto;
+        page-break-after: auto;
+      }
+
+      .eyebrow {
+        font-size: 12px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--brand);
+        font-weight: 800;
+      }
+
+      h1,
+      h2,
+      h3,
+      h4,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        margin-top: 10px;
+        font-size: 48px;
+        line-height: 1.02;
+      }
+
+      h2 {
+        margin-top: 10px;
+        font-size: 40px;
+        line-height: 1.04;
+      }
+
+      .sub {
+        margin-top: 12px;
+        max-width: 9in;
+        font-size: 18px;
+        line-height: 1.42;
+        color: var(--muted);
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: 0.92fr 1.08fr;
+        gap: 0.24in;
+        align-items: stretch;
+      }
+
+      .split {
+        display: grid;
+        grid-template-columns: 0.72fr 1.28fr;
+        gap: 0.22in;
+        align-items: start;
+      }
+
+      .duo {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.16in;
+      }
+
+      .card,
+      .panel,
+      .steps {
+        position: relative;
+        z-index: 1;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 0.22in;
+      }
+
+      .card,
+      .steps {
+        padding: 0.24in;
+      }
+
+      .panel {
+        padding: 0.14in;
+      }
+
+      .logo {
+        display: block;
+        width: 2.3in;
+        height: auto;
+      }
+
+      .badge-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 18px;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        min-height: 34px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(10, 17, 86, 0.12);
+        background: #f8f4ec;
+        color: var(--brand);
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .highlight-grid {
+        margin-top: 22px;
+        display: grid;
+        gap: 14px;
+      }
+
+      .mini-card {
+        padding: 16px 18px;
+        border-radius: 18px;
+        background: var(--soft);
+        border: 1px solid #ebe1d2;
+      }
+
+      .mini-label {
+        margin-bottom: 6px;
+        font-size: 11px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--brand);
+        font-weight: 800;
+      }
+
+      .mini-card p {
+        font-size: 16px;
+        line-height: 1.5;
+        color: var(--muted);
+      }
+
+      .panel-title {
+        margin: 2px 4px 10px;
+        font-size: 18px;
+        font-weight: 800;
+      }
+
+      .frame {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 0.18in;
+        overflow: hidden;
+        background: #fff;
+      }
+
+      .frame img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: top center;
+      }
+
+      .frame.contain img {
+        object-fit: contain;
+        background: #fffaf2;
+      }
+
+      .frame.dashboard-real img {
+        object-position: top center;
+      }
+
+      .frame.certificate-real img {
+        object-position: center 34%;
+      }
+
+      .shot-hero {
+        height: 4.18in;
+      }
+
+      .shot-wide {
+        height: 3.52in;
+      }
+
+      .shot-portrait {
+        height: 4.05in;
+      }
+
+      .shot-feature {
+        height: 3.42in;
+      }
+
+      .shot-mock {
+        height: 3.62in;
+      }
+
+      .steps h3 {
+        margin-bottom: 16px;
+        font-size: 28px;
+        line-height: 1.05;
+      }
+
+      .steps ol {
+        margin: 0;
+        padding-left: 24px;
+        display: grid;
+        gap: 12px;
+      }
+
+      .steps li {
+        font-size: 19px;
+        line-height: 1.52;
+      }
+
+      .steps li::marker {
+        color: var(--brand);
+        font-weight: 800;
+      }
+
+      .caption {
+        margin-top: 18px;
+        font-size: 15px;
+        line-height: 1.5;
+        color: var(--muted);
+      }
+
+      .callout {
+        margin-top: 16px;
+        padding: 14px 16px;
+        border-radius: 18px;
+        background: #f8f4ec;
+        border: 1px solid #ebe1d2;
+      }
+
+      .callout strong {
+        color: var(--brand);
+      }
+
+      .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.18in;
+        align-items: stretch;
+      }
+
+      .summary-grid .panel {
+        padding: 0.22in;
+      }
+
+      .summary-grid h3 {
+        margin-bottom: 10px;
+        font-size: 24px;
+        line-height: 1.1;
+      }
+
+      .summary-grid p {
+        font-size: 17px;
+        line-height: 1.52;
+        color: var(--muted);
+      }
+
+      .footer {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 14px;
+        color: var(--muted);
+      }
+
+      .page-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 34px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: #f8f4ec;
+        border: 1px solid rgba(10, 17, 86, 0.12);
+        color: var(--brand);
+        font-size: 13px;
+        font-weight: 800;
+      }
+    </style>
+  </head>
+  <body>
+    <section class="slide">
+      <div>
+        <div class="eyebrow">PanAvest KDS</div>
+        <h1>Short Website Walkthrough</h1>
+        <div class="sub">
+          Short step-by-step overview of login, knowledge programs, Mobile Money and card payments, e-books, dashboard access, and certificates.
+        </div>
+      </div>
+
+      <div class="hero">
+        <div class="card">
+          <img class="logo" src="../public/logo.png" alt="PanAvest KDS logo" />
+          <div class="highlight-grid">
+            <div class="mini-card">
+              <div class="mini-label">ISO Standards</div>
+              <p>ISO 9001 Quality Management aligned, ISO 21001 Educational Organizations informed, and ISO/IEC 27001 Information Security aligned.</p>
+            </div>
+            <div class="mini-card">
+              <div class="mini-label">Payments</div>
+              <p>Course enrollment supports <strong>Mobile Money</strong> and <strong>card payments</strong>, while e-books follow a simple in-app checkout flow.</p>
+            </div>
+          </div>
+          <div class="badge-row">
+            <span class="badge">ISO 9001</span>
+            <span class="badge">ISO 21001</span>
+            <span class="badge">ISO/IEC 27001</span>
+            <span class="badge">Mobile Money</span>
+            <span class="badge">Card Payments</span>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">Homepage</div>
+          <div class="frame shot-hero">
+            <img src="assets/screens/home.png" alt="PanAvest KDS homepage screenshot" />
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <span>Captured from the local site on April 21, 2026</span>
+        <span class="page-chip">1 / 8</span>
+      </div>
+    </section>
+
+    <section class="slide">
+      <div>
+        <div class="eyebrow">Step 1</div>
+        <h2>Login Or Create An Account</h2>
+        <div class="sub">The platform gives returning learners a direct sign-in path and gives new users a short guided registration flow.</div>
+      </div>
+
+      <div class="split">
+        <div class="steps">
+          <h3>How to use it</h3>
+          <ol>
+            <li>Open the website and click <strong>Sign in</strong>.</li>
+            <li>Choose Google sign-in or use email and password.</li>
+            <li>New users can switch to <strong>Create your account</strong> and complete the guided sign-up steps.</li>
+          </ol>
+          <div class="caption">The sign-up flow collects full name, date of birth, education level, country, email, and password before account activation.</div>
+        </div>
+
+        <div class="duo">
+          <div class="panel">
+            <div class="panel-title">Sign in</div>
+            <div class="frame shot-portrait contain">
+              <img src="assets/screens/sign-in.png" alt="Sign-in page screenshot" />
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">Sign up</div>
+            <div class="frame shot-portrait contain">
+              <img src="assets/screens/sign-up.png" alt="Sign-up page screenshot" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <span>Feature highlight: Google auth plus guided email registration</span>
+        <span class="page-chip">2 / 8</span>
+      </div>
+    </section>
+
+    <section class="slide">
+      <div>
+        <div class="eyebrow">Step 2</div>
+        <h2>Browse Knowledge Programs</h2>
+        <div class="sub">Learners browse the Knowledge catalog, open a course page, and see the description, pricing, CPPD points, and the <strong>Enroll (Mobile Money/Card)</strong> action.</div>
+      </div>
+
+      <div class="split">
+        <div class="steps">
+          <h3>How to use it</h3>
+          <ol>
+            <li>Open <strong>Knowledge</strong> from the main navigation.</li>
+            <li>Browse the available programs and choose one.</li>
+            <li>Open the course detail page to review the summary and decide whether to sign in, enroll, or start learning.</li>
+          </ol>
+          <div class="callout"><strong>Note:</strong> Course detail pages show pricing, bundled access context, and the enrollment action before checkout.</div>
+        </div>
+
+        <div class="duo">
+          <div class="panel">
+            <div class="panel-title">Knowledge catalog</div>
+            <div class="frame shot-feature">
+              <img src="assets/screens/knowledge.png" alt="Knowledge page screenshot" />
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">Course detail</div>
+            <div class="frame shot-feature">
+              <img src="assets/screens/course-detail.png" alt="Course detail screenshot" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <span>Feature highlight: Clear course cards, pricing, CPPD points, and enroll/start actions</span>
+        <span class="page-chip">3 / 8</span>
+      </div>
+    </section>
+
+    <section class="slide">
+      <div>
+        <div class="eyebrow">Step 3</div>
+        <h2>Payment Flow</h2>
+        <div class="sub">Paid course enrollment supports <strong>Mobile Money</strong> and <strong>card payments</strong>. E-book purchases use the in-app checkout flow shown here.</div>
+      </div>
+
+      <div class="split">
+        <div class="steps">
+          <h3>How to use it</h3>
+          <ol>
+            <li>Select a paid course or e-book after signing in.</li>
+            <li>Review the item, amount, and payment method.</li>
+            <li>Complete payment and return to the product page or dashboard with access unlocked.</li>
+          </ol>
+          <div class="badge-row">
+            <span class="badge">Mobile Money</span>
+            <span class="badge">Card Payments</span>
+            <span class="badge">Fast Access Unlock</span>
+          </div>
+          <div class="caption">Courses are positioned for Mobile Money and card-based enrollment. E-books use a simple on-site checkout handoff for quick confirmation.</div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">Payment confirmation view</div>
+          <div class="frame shot-mock contain">
+            <img src="assets/screens/mock-payment.png" alt="Mock payment screen" />
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <span>Feature highlight: Straightforward payment confirmation and content unlocking</span>
+        <span class="page-chip">4 / 8</span>
+      </div>
+    </section>
+
+    <section class="slide">
+      <div>
+        <div class="eyebrow">Step 4</div>
+        <h2>E-Books Catalog And Reader Access</h2>
+        <div class="sub">The e-book flow is direct: browse the catalog, open a title, review the price, and sign in to buy or unlock reading access.</div>
+      </div>
+
+      <div class="split">
+        <div class="steps">
+          <h3>How to use it</h3>
+          <ol>
+            <li>Open <strong>E-Books</strong> from the top navigation.</li>
+            <li>Select a title to view the cover, summary, and access controls.</li>
+            <li>Buy the title or open the reader when access is available.</li>
+          </ol>
+          <div class="caption">The detail page keeps reading and purchase actions in the same place so the learner does not need extra steps.</div>
+        </div>
+
+        <div class="duo">
+          <div class="panel">
+            <div class="panel-title">E-books catalog</div>
+            <div class="frame shot-feature">
+              <img src="assets/screens/ebooks.png" alt="E-books page screenshot" />
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">E-book detail</div>
+            <div class="frame shot-feature">
+              <img src="assets/screens/ebook-detail.png" alt="E-book detail screenshot" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <span>Feature highlight: Catalog search, product detail view, and reader access in one flow</span>
+        <span class="page-chip">5 / 8</span>
+      </div>
+    </section>
+
+    <section class="slide">
+      <div>
+        <div class="eyebrow">Step 5</div>
+        <h2>Dashboard</h2>
+        <div class="sub">Once the learner is signed in, the dashboard becomes the control center for progress, purchased content, and certificate access.</div>
+      </div>
+
+      <div class="split">
+        <div class="steps">
+          <h3>How to use it</h3>
+          <ol>
+            <li>Sign in and open <strong>Dashboard</strong>.</li>
+            <li>Review enrolled knowledge programs and progress updates.</li>
+            <li>Open purchased e-books and reach certificates from the same page.</li>
+          </ol>
+          <div class="caption">The dashboard also stores the learner name used on certificates and keeps course and e-book access in one place.</div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">Dashboard overview</div>
+          <div class="frame shot-mock dashboard-real">
+            <img src="assets/screens/dashboard-auth.png" alt="Authenticated dashboard screenshot" />
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <span>Feature highlight: One place for courses, e-books, progress, and certificates</span>
+        <span class="page-chip">6 / 8</span>
+      </div>
+    </section>
+
+    <section class="slide">
+      <div>
+        <div class="eyebrow">Step 6</div>
+        <h2>Certificates And Verification</h2>
+        <div class="sub">After course completion and assessment success, the learner can preview, download, and verify a certificate with a reference number and QR area.</div>
+      </div>
+
+      <div class="split">
+        <div class="steps">
+          <h3>How to use it</h3>
+          <ol>
+            <li>Complete the course and pass the final assessment.</li>
+            <li>Open the certificates area from the dashboard.</li>
+            <li>Preview, download, or share the verification link and certificate number.</li>
+          </ol>
+          <div class="caption">The certificate preview includes the learner name, course title, issue date, certificate number, and a verification QR section.</div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">Certificate preview</div>
+          <div class="frame shot-mock certificate-real">
+            <img src="assets/screens/certificate-auth.png" alt="Authenticated certificate screenshot" />
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <span>Feature highlight: Downloadable certificates with verification support</span>
+        <span class="page-chip">7 / 8</span>
+      </div>
+    </section>
+
+    <section class="slide">
+      <div>
+        <div class="eyebrow">Summary</div>
+        <h2>Platform Highlights</h2>
+        <div class="sub">This short deck follows the learner path from first visit to proof of completion and highlights the standards and payment options you asked to include.</div>
+      </div>
+
+      <div class="summary-grid">
+        <div class="panel">
+          <h3>ISO Standards</h3>
+          <p>ISO 9001 Quality Management aligned, ISO 21001 Educational Organizations informed, and ISO/IEC 27001 Information Security aligned.</p>
+        </div>
+        <div class="panel">
+          <h3>Login</h3>
+          <p>Returning learners can sign in quickly, while new users complete a short guided registration flow.</p>
+        </div>
+        <div class="panel">
+          <h3>Courses</h3>
+          <p>The Knowledge catalog leads into course detail pages with pricing, CPPD points, and clear enroll or start actions.</p>
+        </div>
+        <div class="panel">
+          <h3>E-Books</h3>
+          <p>The e-book catalog supports browsing, reviewing a title, buying it, and opening the reader from the same journey.</p>
+        </div>
+        <div class="panel">
+          <h3>Payments</h3>
+          <p>Paid access is presented with Mobile Money and card payment paths so learners can complete checkout without unnecessary steps.</p>
+        </div>
+        <div class="panel">
+          <h3>Dashboard And Certificates</h3>
+          <p>The dashboard consolidates progress, purchased content, and certificate preview or download after completion.</p>
+        </div>
+      </div>
+
+      <div class="footer">
+        <span>Files: HTML deck plus generated screenshots</span>
+        <span class="page-chip">8 / 8</span>
+      </div>
+    </section>
+  </body>
+</html>

@@ -6,18 +6,19 @@ type PartnerLogo = { src: string; alt: string };
 
 type Props = {
   partners: PartnerLogo[];
-  animate?: boolean;
 };
 
 export function PartnersMarquee({ partners }: Props) {
   if (!partners.length) return null;
 
   return (
-    <section className="py-8 sm:py-10">
+    <section className="py-12 sm:py-16">
       <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
-        <div className="text-center text-[11px] tracking-[0.25em] text-ink/50">PARTNERS</div>
+        <div className="text-center text-[11px] font-semibold tracking-[0.25em] uppercase text-[color:var(--color-ink)]/40">
+          Partners
+        </div>
 
-        <div className="partners-marquee mt-5">
+        <div className="partners-marquee mt-6">
           <div className="partners-marquee-track">
             {[0, 1].map((dup) => (
               <div
@@ -35,9 +36,8 @@ export function PartnersMarquee({ partners }: Props) {
                       alt={partner.alt}
                       width={320}
                       height={160}
-                      priority={dup === 0}
-                      decoding="async"
-                      sizes="(max-width: 640px) 120px, (max-width: 1024px) 140px, 150px"
+                      priority
+                      sizes="(max-width: 640px) 144px, (max-width: 1024px) 176px, 184px"
                       className="partners-logo-mark"
                     />
                   </span>

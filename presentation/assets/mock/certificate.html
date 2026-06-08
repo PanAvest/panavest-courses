@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PanAvest KDS Mock Certificate</title>
+    <style>
+      :root {
+        --bg: #f6f1e7;
+        --ink: #111827;
+        --muted: #6b7280;
+        --brand: #0a1156;
+        --gold: #d2a756;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: Georgia, "Times New Roman", serif;
+        background:
+          radial-gradient(circle at top left, rgba(210, 167, 86, 0.20), transparent 32%),
+          linear-gradient(180deg, #fbf8f3, var(--bg));
+        color: var(--ink);
+      }
+      .frame {
+        width: 1600px;
+        height: 1200px;
+        padding: 70px;
+      }
+      .cert {
+        width: 1120px;
+        margin: 0 auto;
+        background: white;
+        border: 8px solid var(--brand);
+        border-radius: 30px;
+        overflow: hidden;
+        box-shadow: 0 28px 80px rgba(10, 17, 86, 0.10);
+      }
+      .banner {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 24px;
+        padding: 28px 36px;
+        color: white;
+        background: linear-gradient(135deg, #0a1156 0%, #0a1156 62%, #d2a756 62%, #f1d48f 100%);
+      }
+      .banner small {
+        display: block;
+        text-transform: uppercase;
+        letter-spacing: 0.28em;
+        font-size: 12px;
+      }
+      .badge {
+        padding: 12px 18px;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.16);
+        font-family: ui-sans-serif, system-ui, sans-serif;
+        font-size: 15px;
+        font-weight: 700;
+      }
+      .body {
+        padding: 64px 72px 54px;
+        text-align: center;
+      }
+      .kicker {
+        font-family: ui-sans-serif, system-ui, sans-serif;
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.22em;
+        color: var(--muted);
+      }
+      h1 {
+        margin: 24px 0 6px;
+        font-size: 62px;
+      }
+      h2 {
+        margin: 12px 0 0;
+        font-size: 36px;
+        font-style: italic;
+        color: #242938;
+      }
+      p {
+        max-width: 760px;
+        margin: 22px auto 0;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+        font-size: 22px;
+        line-height: 1.6;
+        color: #4b5563;
+      }
+      .meta {
+        margin-top: 22px;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+        color: var(--muted);
+        font-size: 18px;
+      }
+      .footer {
+        margin-top: 54px;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 30px;
+        align-items: end;
+      }
+      .sign {
+        text-align: left;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+      }
+      .signature {
+        font-size: 44px;
+        color: var(--brand);
+        font-family: "Snell Roundhand", "Brush Script MT", cursive;
+      }
+      .line {
+        margin-top: 10px;
+        width: 280px;
+        height: 2px;
+        background: #d7d1c7;
+      }
+      .qr {
+        width: 124px;
+        height: 124px;
+        border-radius: 14px;
+        background:
+          linear-gradient(90deg, #111 10%, transparent 10% 20%, #111 20% 30%, transparent 30% 40%, #111 40% 50%, transparent 50% 60%, #111 60% 70%, transparent 70% 80%, #111 80% 90%, transparent 90%),
+          linear-gradient(#111 10%, transparent 10% 20%, #111 20% 30%, transparent 30% 40%, #111 40% 50%, transparent 50% 60%, #111 60% 70%, transparent 70% 80%, #111 80% 90%, transparent 90%);
+        border: 10px solid white;
+        box-shadow: 0 0 0 1px #ddd6ca;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="frame">
+      <div class="cert">
+        <div class="banner">
+          <div>
+            <small>Certificate</small>
+            <small>of Appreciation</small>
+          </div>
+          <div class="badge">PanAvest KDS</div>
+        </div>
+        <div class="body">
+          <div class="kicker">Proudly Presented To</div>
+          <h1>Ama Mensah</h1>
+          <div style="font-family: ui-sans-serif, system-ui, sans-serif; color: #4b5563; font-size: 20px;">for successfully completing</div>
+          <h2>GhIE Business Ethics</h2>
+          <p>
+            For successfully completing the prescribed curriculum and assessments.
+          </p>
+          <div class="meta">Certificate No: PV-20260421-004281</div>
+          <div class="meta">Issued: April 21, 2026</div>
+
+          <div class="footer">
+            <div class="sign">
+              <div class="signature">Douglas Boateng</div>
+              <div class="line"></div>
+              <div style="margin-top: 10px; font-weight: 700;">Prof. Douglas Boateng</div>
+              <div style="color: var(--muted);">Executive Chairman, PanAvest International &amp; KDS</div>
+            </div>
+            <div>
+              <div style="font-family: ui-sans-serif, system-ui, sans-serif; color: var(--muted); margin-bottom: 10px;">Scan to verify</div>
+              <div class="qr"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+  </html>
+

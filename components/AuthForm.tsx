@@ -1,7 +1,6 @@
 "use client";
 
 import { type FormEvent, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabaseClient";
@@ -30,7 +29,6 @@ const signUpSteps = ["Full name", "Date of birth", "Education", "Country", "Acco
 const supabase: SupabaseClient | null = typeof window !== "undefined" ? getSupabaseClient() : null;
 
 export default function AuthForm({ mode }: { mode: Mode }) {
-  const router = useRouter();
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   // Sign-up only fields
@@ -115,7 +113,7 @@ export default function AuthForm({ mode }: { mode: Mode }) {
       if (mode === "sign-in") {
         const { error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
         if (error) throw error;
-        router.push("/dashboard");
+        window.location.assign("/");
       } else {
         const validationError = validateSignUp({
           fullName,
@@ -161,21 +159,30 @@ export default function AuthForm({ mode }: { mode: Mode }) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-md rounded-xl bg-white p-6 border border-[color:var(--color-light)]/40 shadow-sm transition-shadow duration-200 hover:shadow-md">
-      <h1 className="text-2xl font-semibold">{title}</h1>
-      <p className="mt-1 text-sm text-[color:var(--color-text-muted)]">
-        {mode === "sign-in" ? "Welcome back!" : "Start your PanAvest journey."}
+    <div className="w-full rounded-2xl bg-white p-7 shadow-[0_4px_24px_rgba(44,37,34,0.08)] border border-[color:var(--color-light)]">
+      <h1 className="text-[22px] font-bold text-[color:var(--color-ink)]">{title}</h1>
+      <p className="mt-1 text-sm text-[color:var(--color-muted)]">
+        {mode === "sign-in" ? "Welcome back to KDS." : "Start your PanAvest journey."}
       </p>
 
-      <div className="mt-4 space-y-3">
+      <div className="mt-5 space-y-3">
+        {/* Google button */}
         <button
           type="button"
           onClick={handleGoogleAuth}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-2 font-semibold text-[color:var(--color-brand)] shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+          className="flex w-full items-center justify-center gap-3 rounded-xl border border-[color:var(--color-light)] bg-white px-4 py-2.5 text-sm font-semibold text-[color:var(--color-ink)] shadow-sm transition hover:bg-[color:var(--color-bg)] hover:shadow-md focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
         >
+          {/* Google G logo */}
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+          </svg>
           Continue with Google
         </button>
-        <div className="flex items-center gap-3 text-xs text-[color:var(--color-text-muted)]">
+
+        <div className="flex items-center gap-3 text-xs text-[color:var(--color-muted)]">
           <div className="h-px flex-1 bg-[color:var(--color-light)]" />
           <span>{mode === "sign-up" ? "or create with email" : "or sign in with email"}</span>
           <div className="h-px flex-1 bg-[color:var(--color-light)]" />
@@ -216,7 +223,7 @@ export default function AuthForm({ mode }: { mode: Mode }) {
                 <input
                   type="text"
                   autoComplete="name"
-                  className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 border border-[color:var(--color-light)]/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+                  className="mt-1 w-full rounded-xl border border-[color:var(--color-light)] bg-white px-3 py-2.5 text-sm shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 placeholder:text-[color:var(--color-muted)]/60"
                   value={fullName}
                   onChange={(ev) => setFullName(ev.target.value)}
                   placeholder="Ama Mensah"
@@ -238,7 +245,7 @@ export default function AuthForm({ mode }: { mode: Mode }) {
             )}
 
             {step === 2 && (
-              <fieldset className="mt-1 rounded-xl border border-[color:var(--color-light)]/40 bg-[color:var(--color-light)]/40 px-3 py-3 shadow-sm">
+              <fieldset className="mt-1 rounded-xl border border-[color:var(--color-light)] bg-white px-4 py-3 shadow-sm">
                 <legend className="px-1 text-sm font-medium">Highest educational qualification</legend>
                 <div className="mt-2 grid gap-2">
                   {educationOptions.map((option) => (
@@ -267,7 +274,7 @@ export default function AuthForm({ mode }: { mode: Mode }) {
                 <select
                   name="country"
                   autoComplete="country-name"
-                  className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 border border-[color:var(--color-light)]/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+                  className="mt-1 w-full rounded-xl border border-[color:var(--color-light)] bg-white px-3 py-2.5 text-sm shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 placeholder:text-[color:var(--color-muted)]/60"
                   value={country}
                   onChange={(ev) => setCountry(ev.target.value)}
                 >
@@ -288,7 +295,7 @@ export default function AuthForm({ mode }: { mode: Mode }) {
                   <input
                     type="email"
                     autoComplete="email"
-                    className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 border border-[color:var(--color-light)]/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+                    className="mt-1 w-full rounded-xl border border-[color:var(--color-light)] bg-white px-3 py-2.5 text-sm shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 placeholder:text-[color:var(--color-muted)]/60"
                     value={email}
                     onChange={(ev) => setEmail(ev.target.value)}
                     placeholder="you@example.com"
@@ -297,12 +304,12 @@ export default function AuthForm({ mode }: { mode: Mode }) {
 
                 <label className="block">
                   <span className="text-sm">Password</span>
-                  <div className="mt-1 flex w-full items-center gap-2 rounded-xl bg-[color:var(--color-light)]/40 border border-[color:var(--color-light)]/40 shadow-sm focus-within:ring-2 focus-within:ring-[color:var(--color-brand)]/30">
+                  <div className="mt-1 flex w-full items-center rounded-xl border border-[color:var(--color-light)] bg-white shadow-sm focus-within:ring-2 focus-within:ring-[color:var(--color-brand)]/30">
                     <input
                       type={showPassword ? "text" : "password"}
                       autoComplete="new-password"
                       minLength={6}
-                      className="w-full rounded-xl bg-transparent px-3 py-2 focus:outline-none"
+                      className="w-full rounded-xl bg-transparent px-3 py-2.5 text-sm focus:outline-none placeholder:text-[color:var(--color-muted)]/60"
                       value={password}
                       onChange={(ev) => setPassword(ev.target.value)}
                       placeholder="Use 6+ characters"
@@ -319,12 +326,12 @@ export default function AuthForm({ mode }: { mode: Mode }) {
 
                 <label className="block">
                   <span className="text-sm">Confirm password</span>
-                  <div className="mt-1 flex w-full items-center gap-2 rounded-xl bg-[color:var(--color-light)]/40 border border-[color:var(--color-light)]/40 shadow-sm focus-within:ring-2 focus-within:ring-[color:var(--color-brand)]/30">
+                  <div className="mt-1 flex w-full items-center rounded-xl border border-[color:var(--color-light)] bg-white shadow-sm focus-within:ring-2 focus-within:ring-[color:var(--color-brand)]/30">
                     <input
                       type={showConfirm ? "text" : "password"}
                       autoComplete="new-password"
                       minLength={6}
-                      className="w-full rounded-xl bg-transparent px-3 py-2 focus:outline-none"
+                      className="w-full rounded-xl bg-transparent px-3 py-2.5 text-sm focus:outline-none placeholder:text-[color:var(--color-muted)]/60"
                       value={confirmPassword}
                       onChange={(ev) => setConfirmPassword(ev.target.value)}
                       placeholder="Re-enter password"
@@ -351,7 +358,7 @@ export default function AuthForm({ mode }: { mode: Mode }) {
                 type="email"
                 autoComplete="email"
                 required
-                className="mt-1 w-full rounded-xl bg-[color:var(--color-light)]/40 px-3 py-2 border border-[color:var(--color-light)]/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+                className="mt-1 w-full rounded-xl border border-[color:var(--color-light)] bg-white px-3 py-2.5 text-sm shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 placeholder:text-[color:var(--color-muted)]/60"
                 value={email}
                 onChange={(ev) => setEmail(ev.target.value)}
                 placeholder="you@example.com"
@@ -360,13 +367,13 @@ export default function AuthForm({ mode }: { mode: Mode }) {
 
             <label className="block">
               <span className="text-sm">Password</span>
-              <div className="mt-1 flex w-full items-center gap-2 rounded-xl bg-[color:var(--color-light)]/40 border border-[color:var(--color-light)]/40 shadow-sm focus-within:ring-2 focus-within:ring-[color:var(--color-brand)]/30">
+              <div className="mt-1 flex w-full items-center rounded-xl border border-[color:var(--color-light)] bg-white shadow-sm focus-within:ring-2 focus-within:ring-[color:var(--color-brand)]/30">
                 <input
                   type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
                   required
                   minLength={6}
-                  className="w-full rounded-xl bg-transparent px-3 py-2 focus:outline-none"
+                  className="w-full rounded-xl bg-transparent px-3 py-2.5 text-sm focus:outline-none placeholder:text-[color:var(--color-muted)]/60"
                   value={password}
                   onChange={(ev) => setPassword(ev.target.value)}
                   placeholder="Use 6+ characters"
@@ -394,17 +401,17 @@ export default function AuthForm({ mode }: { mode: Mode }) {
             <button
               type="button"
               onClick={() => setStep((s) => Math.max(0, s - 1))}
-              className="w-full rounded-xl bg-white px-4 py-2 font-semibold text-[color:var(--color-brand)] shadow-sm transition-shadow duration-200 hover:shadow-md sm:w-auto focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+              className="w-full rounded-xl border border-[color:var(--color-light)] bg-white px-5 py-2.5 text-sm font-semibold text-[color:var(--color-ink)] hover:bg-[color:var(--color-bg)] transition sm:w-auto focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
             >
-              Back
+              ← Back
             </button>
           )}
           <button
             type="submit"
             disabled={busy}
-            className="w-full rounded-xl bg-[color:var(--color-brand)] px-4 py-2 font-semibold text-white hover:opacity-90 disabled:opacity-50 sm:w-auto"
+            className="w-full rounded-xl bg-[color:var(--color-brand)] px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-90 disabled:opacity-50 transition sm:w-auto"
           >
-            {busy ? "Please wait..." : mode === "sign-up" && step < signUpSteps.length - 1 ? "Next" : cta}
+            {busy ? "Please wait…" : mode === "sign-up" && step < signUpSteps.length - 1 ? "Continue →" : cta}
           </button>
         </div>
       </form>
@@ -489,20 +496,25 @@ function calcAgeFromDob(dob: string): number | null {
 }
 
 function StepHeader({ current, total, label }: { current: number; total: number; label: string }) {
-  const pct = Math.round(((current + 1) / total) * 100);
-
   return (
-    <div className="rounded-xl bg-[color:var(--color-light)]/60 px-3 py-2">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="text-sm font-medium">
-          Step {current + 1} of {total}: <span className="text-[color:var(--color-brand)]">{label}</span>
-        </div>
-        <div className="w-full rounded-full bg-[color:var(--color-light)] sm:w-40">
-          <div
-            className="h-2 rounded-full bg-[color:var(--color-brand)] transition-all"
-            style={{ width: `${pct}%` }}
+    <div className="space-y-3">
+      {/* Dot steps */}
+      <div className="flex items-center gap-1.5">
+        {Array.from({ length: total }).map((_, i) => (
+          <span
+            key={i}
+            className="h-1.5 rounded-full transition-all duration-300"
+            style={{
+              background: i <= current ? "var(--color-brand)" : "var(--color-light)",
+              width: i === current ? "1.75rem" : "0.375rem",
+            }}
           />
-        </div>
+        ))}
+      </div>
+      {/* Label */}
+      <div className="text-xs font-semibold uppercase tracking-wide text-[color:var(--color-muted)]">
+        Step {current + 1} of {total} &mdash;{" "}
+        <span className="text-[color:var(--color-brand)]">{label}</span>
       </div>
     </div>
   );

@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PanAvest KDS Mock Payment</title>
+    <style>
+      :root {
+        --bg: #f6f1e7;
+        --card: #ffffff;
+        --ink: #111827;
+        --muted: #6b7280;
+        --brand: #0a1156;
+        --gold: #d2a756;
+        --line: #e6dfd3;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background:
+          radial-gradient(circle at top left, rgba(210, 167, 86, 0.22), transparent 32%),
+          linear-gradient(180deg, #fbf8f3, var(--bg));
+        color: var(--ink);
+      }
+      .frame {
+        width: 1600px;
+        height: 1200px;
+        padding: 72px;
+      }
+      .title {
+        font-size: 24px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--brand);
+        margin-bottom: 18px;
+      }
+      .wrap {
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        gap: 28px;
+        align-items: start;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 28px;
+        padding: 36px;
+        box-shadow: 0 24px 70px rgba(10, 17, 86, 0.08);
+      }
+      .product {
+        display: grid;
+        grid-template-columns: 220px 1fr;
+        gap: 28px;
+      }
+      .cover {
+        border-radius: 20px;
+        background: linear-gradient(135deg, #0a1156, #20329b);
+        min-height: 300px;
+        position: relative;
+        overflow: hidden;
+      }
+      .cover::after {
+        content: "E-Book";
+        position: absolute;
+        left: 24px;
+        bottom: 24px;
+        color: rgba(255,255,255,0.88);
+        font-size: 34px;
+        font-weight: 700;
+      }
+      .eyebrow {
+        display: inline-block;
+        background: rgba(210, 167, 86, 0.18);
+        color: var(--brand);
+        padding: 8px 14px;
+        border-radius: 999px;
+        font-size: 14px;
+        font-weight: 700;
+        margin-bottom: 18px;
+      }
+      h1 {
+        margin: 0 0 10px;
+        font-size: 44px;
+        line-height: 1.08;
+      }
+      p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 21px;
+        line-height: 1.55;
+      }
+      .price {
+        margin-top: 26px;
+        font-size: 34px;
+        font-weight: 800;
+        color: var(--brand);
+      }
+      .meta {
+        margin-top: 22px;
+        display: grid;
+        gap: 14px;
+      }
+      .row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 19px;
+        padding-bottom: 14px;
+        border-bottom: 1px solid var(--line);
+      }
+      .checkout-title {
+        font-size: 38px;
+        margin: 0 0 12px;
+      }
+      .pay-button {
+        margin-top: 22px;
+        width: 100%;
+        border: 0;
+        border-radius: 18px;
+        background: var(--brand);
+        color: white;
+        font-size: 24px;
+        font-weight: 700;
+        padding: 20px 22px;
+      }
+      .hint {
+        margin-top: 20px;
+        font-size: 16px;
+        color: var(--muted);
+      }
+      .badges {
+        display: flex;
+        gap: 12px;
+        margin-top: 22px;
+        flex-wrap: wrap;
+      }
+      .badge {
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        padding: 10px 14px;
+        font-size: 16px;
+        color: var(--brand);
+        background: #faf7f1;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="frame">
+      <div class="title">Payment Walkthrough</div>
+      <div class="wrap">
+        <section class="card">
+          <div class="product">
+            <div class="cover"></div>
+            <div>
+              <div class="eyebrow">After login</div>
+              <h1>Demo Checkout</h1>
+              <p>
+                The user confirms the selected item, checks the amount, and completes payment.
+                Course enrollment supports Mobile Money and card payments, while e-books use the in-app checkout flow before access is unlocked.
+              </p>
+              <div class="price">GHS 120.00</div>
+              <div class="badges">
+                <span class="badge">Mobile Money</span>
+                <span class="badge">Card Payments</span>
+                <span class="badge">Quick confirmation</span>
+                <span class="badge">Unlocks dashboard access</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <aside class="card">
+          <h2 class="checkout-title">Confirm Payment</h2>
+          <div class="meta">
+            <div class="row"><span>Item</span><strong>SingleSoleBook</strong></div>
+            <div class="row"><span>Reference</span><strong>DEMO-PAY-24021</strong></div>
+            <div class="row"><span>Amount</span><strong>GHS 120.00</strong></div>
+            <div class="row"><span>Methods</span><strong>MoMo / Card</strong></div>
+            <div class="row"><span>Status</span><strong>Ready to pay</strong></div>
+          </div>
+          <button class="pay-button">Pay Now</button>
+          <div class="hint">
+            Short step: select the title, confirm the amount, pay with Mobile Money or card, then return to the product and dashboard.
+          </div>
+        </aside>
+      </div>
+    </div>
+  </body>
+  </html>

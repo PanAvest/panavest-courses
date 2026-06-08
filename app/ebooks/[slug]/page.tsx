@@ -120,6 +120,8 @@ export default function EbookDetailPage() {
   const [incomingFlipSpread, setIncomingFlipSpread] = useState<FlipSpread | null>(null);
   const [flipDirection, setFlipDirection] = useState<FlipDirection | null>(null);
   const [flipAnimating, setFlipAnimating] = useState(false);
+  const [bookmarks, setBookmarks] = useState<number[]>([]);
+  const [showBookmarks, setShowBookmarks] = useState(false);
 
   const readerWrapRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -138,6 +140,8 @@ export default function EbookDetailPage() {
   const scrollRenderSeqRef = useRef(0);
   const scrollSyncRunningRef = useRef(false);
   const scrollSyncPendingRef = useRef(false);
+  const hasRestoredScrollRef = useRef(false);
+  const hasRestoredFlipRef = useRef(false);
   const pinchStateRef = useRef({
     active: false,
     startDistance: 0,
@@ -266,6 +270,10 @@ export default function EbookDetailPage() {
     setIncomingFlipSpread(null);
     setFlipDirection(null);
     setFlipAnimating(false);
+    setBookmarks([]);
+    setShowBookmarks(false);
+    hasRestoredScrollRef.current = false;
+    hasRestoredFlipRef.current = false;
   }, [ebook?.id]);
 
   useEffect(() => {
@@ -707,8 +715,25 @@ export default function EbookDetailPage() {
 
       const nextVerticalRange = Math.max(scroller.scrollHeight - scroller.clientHeight, 0);
       const nextHorizontalRange = Math.max(scroller.scrollWidth - scroller.clientWidth, 0);
-      scroller.scrollTop = nextVerticalRange > 0 ? previousTopRatio * nextVerticalRange : 0;
-      scroller.scrollLeft = nextHorizontalRange > 0 ? previousLeftRatio * nextHorizontalRange : 0;
+
+      if (!hasRestoredScrollRef.current) {
+        // First render for this ebook — jump to last-read page if saved
+        hasRestoredScrollRef.current = true;
+        const savedKey = `pv.ebook.lastpage.${userId || "anon"}.${ebook?.id}`;
+        const savedPage = parseInt(localStorage.getItem(savedKey) ?? "1", 10);
+        if (savedPage > 1) {
+          const target = pagesEl.querySelector<HTMLDivElement>(`[data-page="${savedPage}"]`);
+          if (target) {
+            scroller.scrollTop = (target as HTMLElement).offsetTop;
+          }
+        } else {
+          scroller.scrollTop = nextVerticalRange > 0 ? previousTopRatio * nextVerticalRange : 0;
+          scroller.scrollLeft = nextHorizontalRange > 0 ? previousLeftRatio * nextHorizontalRange : 0;
+        }
+      } else {
+        scroller.scrollTop = nextVerticalRange > 0 ? previousTopRatio * nextVerticalRange : 0;
+        scroller.scrollLeft = nextHorizontalRange > 0 ? previousLeftRatio * nextHorizontalRange : 0;
+      }
       await syncVisibleScrollPages();
     } catch (e) {
       setRenderError((e as Error).message || "Failed to load PDF");
@@ -716,7 +741,7 @@ export default function EbookDetailPage() {
       setRendering(false);
       renderingRef.current = false;
     }
-  }, [ensurePdfDoc, getScrollPageWidth, syncVisibleScrollPages]);
+  }, [ebook?.id, ensurePdfDoc, getScrollPageWidth, syncVisibleScrollPages, userId]);
 
   const loadCurrentFlipSpread = useCallback(async (startPage: number) => {
     setFlipLoading(true);
@@ -866,6 +891,21 @@ export default function EbookDetailPage() {
     }
   }, [clearFlipTransition, isFullscreen, readerMode]);
 
+  /* ── Persist last-read page ── */
+  useEffect(() => {
+    if (!showReader || !ebook?.id) return;
+    const key = `pv.ebook.lastpage.${userId || "anon"}.${ebook.id}`;
+    localStorage.setItem(key, String(currentPage));
+  }, [currentPage, ebook?.id, showReader, userId]);
+
+  /* ── Load bookmarks for this ebook ── */
+  useEffect(() => {
+    if (!ebook?.id) return;
+    const key = `pv.ebook.bookmarks.${userId || "anon"}.${ebook.id}`;
+    const saved = JSON.parse(localStorage.getItem(key) ?? "[]") as number[];
+    setBookmarks(saved);
+  }, [ebook?.id, userId]);
+
   useEffect(() => {
     if (!showReader || !pdfReady || !ebook?.id || readerMode !== "scroll") return;
     void renderScrollPdf();
@@ -879,7 +919,14 @@ export default function EbookDetailPage() {
       return;
     }
     if (!flipAnimatingRef.current) {
-      void loadCurrentFlipSpread(flipSpreadStart);
+      let startPage = flipSpreadStart;
+      if (!hasRestoredFlipRef.current) {
+        hasRestoredFlipRef.current = true;
+        const savedKey = `pv.ebook.lastpage.${userId || "anon"}.${ebook.id}`;
+        const savedPage = parseInt(localStorage.getItem(savedKey) ?? "1", 10);
+        if (savedPage > 1) startPage = normalizeFlipSpreadStart(savedPage);
+      }
+      void loadCurrentFlipSpread(startPage);
     }
   }, [
     ebook?.id,
@@ -888,9 +935,11 @@ export default function EbookDetailPage() {
     getFlipPageWidth,
     isFullscreen,
     loadCurrentFlipSpread,
+    normalizeFlipSpreadStart,
     pdfReady,
     readerMode,
     showReader,
+    userId,
   ]);
 
   useEffect(() => {
@@ -1134,7 +1183,50 @@ export default function EbookDetailPage() {
     };
   }, []);
 
+  function toggleBookmark(page: number) {
+    if (!ebook?.id) return;
+    const key = `pv.ebook.bookmarks.${userId || "anon"}.${ebook.id}`;
+    setBookmarks((prev) => {
+      const next = prev.includes(page)
+        ? prev.filter((p) => p !== page)
+        : [...prev, page].sort((a, b) => a - b);
+      localStorage.setItem(key, JSON.stringify(next));
+      return next;
+    });
+  }
+
+  function goToPage(page: number) {
+    setShowBookmarks(false);
+    if (readerMode === "flip" && isFullscreen) {
+      void goToFlipSpread(normalizeFlipSpreadStart(page));
+    } else {
+      const pagesEl = pagesRef.current;
+      const scroller = scrollRef.current;
+      if (!pagesEl || !scroller) return;
+      const target = pagesEl.querySelector<HTMLDivElement>(`[data-page="${page}"]`);
+      if (target) scroller.scrollTop = (target as HTMLElement).offsetTop;
+    }
+  }
+
   const readerBusy = rendering || flipLoading || flipAnimating;
+
+  /* Cycling loading messages while PDF renders */
+  const LOADING_QUOTES = [
+    "Rendering your pages…",
+    "Preparing a secure reading environment…",
+    "Good things come to those who read…",
+    "Loading your knowledge…",
+    "Optimising for your screen…",
+    "One moment — almost ready…",
+    "Knowledge is power. Loading both…",
+  ];
+  const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
+  useEffect(() => {
+    if (!readerBusy) return;
+    const t = setInterval(() => setLoadingMsgIdx((i) => (i + 1) % LOADING_QUOTES.length), 2500);
+    return () => clearInterval(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readerBusy]);
   const currentLabel = readerMode === "flip" && flipSpread
     ? flipSpread.startPage === flipSpread.endPage
       ? `Page ${flipSpread.startPage} of ${pageCount}`
@@ -1204,27 +1296,45 @@ export default function EbookDetailPage() {
     </div>
   );
 
+  const BRAND = "#b65437";
+
   if (err) {
     return (
-      <main className="mx-auto max-w-screen-xl px-4 py-10 sm:px-6 lg:px-8 animate-fade-up">
-        <h1 className="text-2xl font-bold">E-Book</h1>
-        <p className="mt-3 text-sm text-red-600">Error: {err}</p>
-        <Link href="/ebooks" className="mt-4 inline-block underline">Back to E-Books</Link>
+      <main className="mx-auto max-w-screen-xl px-4 py-16 sm:px-6 lg:px-8 text-center">
+        <div className="mx-auto max-w-md rounded-2xl border border-red-200 bg-red-50 p-8">
+          <div className="text-2xl font-bold text-red-700 mb-2">Something went wrong</div>
+          <p className="text-sm text-red-600">{err}</p>
+          <Link
+            href="/ebooks"
+            className="mt-5 inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white"
+            style={{ background: BRAND }}
+          >
+            ← Back to E-Books
+          </Link>
+        </div>
       </main>
     );
   }
 
   if (!ebook) {
     return (
-      <main className="mx-auto max-w-screen-xl px-4 py-10 sm:px-6 lg:px-8 animate-fade-up">
-        <div className="h-[320px] animate-pulse rounded-xl border border-[color:var(--color-light)]/40 bg-white p-6 shadow-sm transition-shadow duration-200 hover:shadow-md" />
+      <main className="mx-auto max-w-screen-xl px-4 py-10 sm:px-6 lg:px-8">
+        <div className="grid gap-6 lg:grid-cols-[2fr_3fr]">
+          {/* Cover skeleton */}
+          <div className="space-y-4">
+            <div className="animate-pulse rounded-2xl bg-[color:var(--color-light)] aspect-[4/3]" />
+            <div className="animate-pulse rounded-2xl bg-[color:var(--color-light)] h-48" />
+          </div>
+          {/* Reader skeleton */}
+          <div className="animate-pulse rounded-2xl bg-[color:var(--color-light)] h-[70vh]" />
+        </div>
       </main>
     );
   }
 
   return (
     <main
-      className="mx-auto max-w-screen-xl px-4 py-10 sm:px-6 lg:px-8 animate-fade-up select-none"
+      className="bg-[color:var(--color-bg)] min-h-screen select-none"
       onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
       onDragStart={(e) => { e.preventDefault(); }}
     >
@@ -1237,28 +1347,36 @@ export default function EbookDetailPage() {
         .flip-sheet.incoming-next { transform-origin: right center; animation: flip-in-next ${FLIP_ANIMATION_MS}ms cubic-bezier(0.22, 1, 0.36, 1) forwards; }
         .flip-sheet.outgoing-prev { transform-origin: right center; animation: flip-out-prev ${FLIP_ANIMATION_MS}ms cubic-bezier(0.22, 1, 0.36, 1) forwards; }
         .flip-sheet.incoming-prev { transform-origin: left center; animation: flip-in-prev ${FLIP_ANIMATION_MS}ms cubic-bezier(0.22, 1, 0.36, 1) forwards; }
-        @keyframes flip-out-next {
-          from { opacity: 1; transform: rotateY(0deg) translateX(0); }
-          to { opacity: 0.22; transform: rotateY(-70deg) translateX(-8%); }
+        @keyframes flip-out-next { from { opacity:1; transform:rotateY(0deg) translateX(0); } to { opacity:0.22; transform:rotateY(-70deg) translateX(-8%); } }
+        @keyframes flip-in-next  { from { opacity:0.22; transform:rotateY(70deg) translateX(8%); } to { opacity:1; transform:rotateY(0deg) translateX(0); } }
+        @keyframes flip-out-prev { from { opacity:1; transform:rotateY(0deg) translateX(0); } to { opacity:0.22; transform:rotateY(70deg) translateX(8%); } }
+        @keyframes flip-in-prev  { from { opacity:0.22; transform:rotateY(-70deg) translateX(-8%); } to { opacity:1; transform:rotateY(0deg) translateX(0); } }
+        /* Page placeholder shimmer while PDF renders */
+        [data-page][data-state="idle"],
+        [data-page][data-state="rendering"] {
+          background: linear-gradient(90deg, #f3e9e0 25%, #fdf8f5 50%, #f3e9e0 75%);
+          background-size: 200% 100%;
+          animation: page-shimmer 1.6s ease-in-out infinite;
+          border-radius: 12px;
         }
-        @keyframes flip-in-next {
-          from { opacity: 0.22; transform: rotateY(70deg) translateX(8%); }
-          to { opacity: 1; transform: rotateY(0deg) translateX(0); }
+        [data-page][data-state="rendering"] { animation-duration: 1.05s; }
+        @keyframes page-shimmer {
+          0%   { background-position: -200% 0; }
+          100% { background-position:  200% 0; }
         }
-        @keyframes flip-out-prev {
-          from { opacity: 1; transform: rotateY(0deg) translateX(0); }
-          to { opacity: 0.22; transform: rotateY(70deg) translateX(8%); }
-        }
-        @keyframes flip-in-prev {
-          from { opacity: 0.22; transform: rotateY(-70deg) translateX(-8%); }
-          to { opacity: 1; transform: rotateY(0deg) translateX(0); }
+        @keyframes loading-bar {
+          0%   { margin-left: 0;   width: 40%; }
+          100% { margin-left: 60%; width: 40%; }
         }
       `}</style>
 
-      <div className="grid grid-cols-1 gap-8 md:grid-cols-12">
-        <aside className="md:col-span-4">
-          <div className="space-y-4 md:sticky md:top-20">
-            <div className="overflow-hidden rounded-xl border border-[color:var(--color-light)]/40 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md animate-fade-up">
+      <div className="mx-auto max-w-screen-xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="grid gap-6 lg:grid-cols-[2fr_3fr] lg:items-start">
+
+          {/* ── Left: cover + info ── */}
+          <aside className="lg:sticky lg:top-20 space-y-4">
+            {/* Cover */}
+            <div className="overflow-hidden rounded-2xl border border-[color:var(--color-light)] bg-white shadow-md">
               {ebook.cover_url ? (
                 <Image
                   src={ebook.cover_url}
@@ -1270,43 +1388,65 @@ export default function EbookDetailPage() {
                   draggable={false}
                 />
               ) : (
-                <div className="flex h-[260px] w-full items-center justify-center bg-[color:var(--color-light)]/40 text-muted">
-                  No cover
+                <div className="flex h-64 w-full items-center justify-center bg-[color:var(--color-light)]/40 text-[color:var(--color-muted)]">
+                  No cover available
                 </div>
               )}
             </div>
 
-            <div
-              className="rounded-xl border border-[color:var(--color-light)]/40 bg-white p-4 shadow-sm transition-shadow duration-200 hover:shadow-md animate-fade-up"
-              style={{ animationDelay: "60ms" }}
-            >
-              <h1 className="text-2xl font-bold">{ebook.title}</h1>
-              <div className="mt-2 text-sm text-muted">Price</div>
-              <div className="text-xl font-semibold">{price}</div>
+            {/* Info card */}
+            <div className="rounded-2xl border border-[color:var(--color-light)] bg-white p-5 shadow-sm space-y-4">
+              {/* Title + badges */}
+              <div>
+                <h1 className="text-xl font-bold text-[color:var(--color-ink)] leading-snug">{ebook.title}</h1>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span
+                    className="rounded-lg px-2.5 py-1 text-sm font-bold text-white"
+                    style={{ background: BRAND }}
+                  >
+                    {price}
+                  </span>
+                  <span className="rounded-lg border border-[color:var(--color-light)] bg-[color:var(--color-bg)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-[color:var(--color-muted)]">
+                    NaCCA credited
+                  </span>
+                </div>
+              </div>
 
-              <div className="mt-4 grid gap-3">
-                {own.kind === "loading" && <div className="text-sm text-muted">Checking access…</div>}
+              {/* Verification banner */}
+              {verifying && (
+                <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+                  <svg viewBox="0 0 24 24" className="h-4 w-4 flex-shrink-0 mt-0.5" fill="currentColor" aria-hidden>
+                    <path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2zm.5 5v5.25l4.5 2.67-.75 1.23L11 13V7h1.5z"/>
+                  </svg>
+                  <span>Verifying payment… You&apos;ll be unlocked automatically once confirmed.</span>
+                </div>
+              )}
 
-                {verifying && (
-                  <div className="rounded-md border border-amber-200/40 bg-amber-50 p-2 text-xs text-amber-700 shadow-sm">
-                    Verifying payment (ref: {verifying})… You’ll be unlocked automatically once confirmed.
-                  </div>
-                )}
+              {/* Access check */}
+              {own.kind === "loading" && (
+                <div className="h-10 animate-pulse rounded-xl bg-[color:var(--color-light)]" />
+              )}
 
+              {/* Actions */}
+              <div className="grid gap-2">
                 {own.kind === "signed_out" && (
                   <>
                     <Link
                       href={`/auth/sign-in?redirect=${encodeURIComponent(`/ebooks/${slug}`)}`}
-                      className="inline-flex w-full items-center justify-center rounded-lg bg-brand px-5 py-3 font-semibold text-white hover:opacity-90 sm:w-auto"
+                      className="flex w-full items-center justify-center rounded-xl py-3 text-sm font-semibold text-white transition hover:opacity-90"
+                      style={{ background: BRAND }}
                     >
                       {ebook.free_for_logged_in ? "Sign in to read" : "Sign in to buy"}
                     </Link>
                     <Link
                       href={dashboardHref}
-                      className="inline-flex w-full items-center justify-center rounded-xl bg-white px-5 py-3 shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 sm:w-auto"
+                      className="flex w-full items-center justify-center rounded-xl border border-[color:var(--color-light)] bg-white py-3 text-sm font-medium hover:bg-[color:var(--color-bg)] transition"
                     >
                       Go to Dashboard
                     </Link>
+                    <p className="text-xs text-[color:var(--color-muted)] text-center">
+                      {ebook.free_for_logged_in ? "Sign in to unlock reading." : "Sign in and purchase to unlock reading."}
+                    </p>
                   </>
                 )}
 
@@ -1315,13 +1455,22 @@ export default function EbookDetailPage() {
                     <button
                       onClick={handleBuy}
                       disabled={buying}
-                      className="w-full rounded-lg bg-brand px-5 py-3 font-semibold text-white hover:opacity-90 disabled:opacity-60 sm:w-auto"
+                      className="flex w-full items-center justify-center rounded-xl py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60 shadow-sm"
+                      style={{ background: BRAND }}
                     >
-                      {buying ? "Redirecting…" : `Buy • ${price}`}
+                      {buying ? (
+                        <span className="flex items-center gap-2">
+                          <svg viewBox="0 0 24 24" className="h-4 w-4 animate-spin" fill="none" stroke="currentColor" aria-hidden>
+                            <circle cx="12" cy="12" r="10" strokeWidth="3" className="opacity-25" />
+                            <path d="M4 12a8 8 0 018-8" strokeWidth="3" className="opacity-75" />
+                          </svg>
+                          Redirecting to payment…
+                        </span>
+                      ) : `Buy · ${price}`}
                     </button>
                     <Link
                       href={dashboardHref}
-                      className="inline-flex w-full items-center justify-center rounded-xl bg-white px-5 py-3 shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 sm:w-auto"
+                      className="flex w-full items-center justify-center rounded-xl border border-[color:var(--color-light)] bg-white py-3 text-sm font-medium hover:bg-[color:var(--color-bg)] transition"
                     >
                       Go to Dashboard
                     </Link>
@@ -1332,299 +1481,424 @@ export default function EbookDetailPage() {
                   <>
                     <button
                       onClick={() => openReader(false)}
-                      className="w-full rounded-lg bg-brand px-5 py-3 font-semibold text-white hover:opacity-90 sm:w-auto"
+                      className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white transition hover:opacity-90 shadow-sm"
+                      style={{ background: BRAND }}
                     >
-                      {showReader ? "Resume reader" : "Read now"}
+                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
+                        <path d="M4 3h6a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4V3zm10 0h6v16h-6a2 2 0 0 0-2 2V5a2 2 0 0 1 2-2z"/>
+                      </svg>
+                      {showReader ? "Resume reading" : "Read now"}
                     </button>
                     <button
                       onClick={() => openReader(true)}
-                      className="w-full rounded-xl border border-[color:var(--color-light)]/50 bg-white px-5 py-3 font-semibold text-[color:var(--color-ink)] shadow-sm transition-shadow duration-200 hover:shadow-md sm:w-auto"
+                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-[color:var(--color-light)] bg-white py-3 text-sm font-semibold hover:bg-[color:var(--color-bg)] transition"
                     >
+                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
+                        <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+                      </svg>
                       Full screen reader
                     </button>
                     <Link
                       href={dashboardHref}
-                      className="inline-flex w-full items-center justify-center rounded-xl bg-white px-5 py-3 shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 sm:w-auto"
+                      className="flex w-full items-center justify-center rounded-xl border border-[color:var(--color-light)] bg-white py-3 text-sm font-medium hover:bg-[color:var(--color-bg)] transition"
                     >
-                      Go to Dashboard
+                      Dashboard
                     </Link>
+                    <p className="text-xs text-[color:var(--color-muted)] text-center">
+                      Pinch to zoom in full screen. Drag when zoomed.
+                    </p>
                   </>
                 )}
               </div>
-
-              {own.kind !== "owner" && (
-                <p className="mt-3 text-xs text-muted">
-                  {ebook.free_for_logged_in
-                    ? "Sign in to unlock reading."
-                    : "Sign in and purchase to unlock reading."}
-                </p>
-              )}
-
-              {own.kind === "owner" && (
-                <p className="mt-3 text-xs text-muted">
-                  Zoom with buttons or pinch in full screen. When zoomed in, click and drag to move around the page.
-                </p>
-              )}
             </div>
-          </div>
-        </aside>
+          </aside>
 
-        <section className={`md:col-span-8 ${isFullscreen ? "contents" : ""}`}>
-          <div
-            ref={readerWrapRef}
-            className={
-              isFullscreen
-                ? "fixed inset-0 z-[120] secure-viewer bg-[rgba(247,244,239,0.98)] backdrop-blur-sm"
-                : "secure-viewer animate-fade-up rounded-xl border border-[color:var(--color-light)]/40 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md"
-            }
-            style={isFullscreen ? undefined : { animationDelay: "80ms" }}
-          >
-            {own.kind !== "owner" ? (
-              <div className="grid h-[70vh] w-full place-items-center bg-[color:var(--color-light)]/40 px-6 text-center md:h-[80vh]">
-                <div>
-                  <div className="text-lg font-semibold">Access locked</div>
-                  <p className="mt-1 text-sm text-muted">
-                    {own.kind === "signed_out"
-                      ? ebook.free_for_logged_in
-                        ? "Sign in to read the full e-book."
-                        : "Sign in and purchase to read the full e-book."
-                      : ebook.free_for_logged_in
-                        ? "Sign in to read the full e-book."
-                        : "Purchase to read the full e-book."}
-                  </p>
+          {/* ── Right: reader ── */}
+          <section className={isFullscreen ? "contents" : ""}>
+            <div
+              ref={readerWrapRef}
+              className={
+                isFullscreen
+                  ? "fixed inset-0 z-[120] secure-viewer bg-[rgba(247,244,239,0.98)] backdrop-blur-sm"
+                  : "secure-viewer rounded-2xl border border-[color:var(--color-light)] bg-white shadow-sm overflow-hidden"
+              }
+            >
+              {/* Access locked */}
+              {own.kind !== "owner" ? (
+                <div className="flex h-[65vh] w-full flex-col items-center justify-center gap-5 px-6 text-center bg-[color:var(--color-bg)]/60">
+                  <div
+                    className="flex h-16 w-16 items-center justify-center rounded-2xl"
+                    style={{ background: "rgba(182,84,55,0.1)", color: BRAND }}
+                  >
+                    <svg viewBox="0 0 24 24" className="h-8 w-8" fill="currentColor" aria-hidden>
+                      <path d="M18 8h-1V6A5 5 0 0 0 7 6v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2zm-6 9a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm3-9H9V6a3 3 0 0 1 6 0v2z"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="text-lg font-bold text-[color:var(--color-ink)]">
+                      {own.kind === "loading" ? "Checking access…" : "Reading access locked"}
+                    </div>
+                    <p className="mt-1 text-sm text-[color:var(--color-muted)] max-w-xs">
+                      {own.kind === "loading"
+                        ? "Verifying your access rights…"
+                        : own.kind === "signed_out"
+                        ? ebook.free_for_logged_in
+                          ? "Sign in to read this e-book free."
+                          : "Sign in and purchase to unlock the full e-book."
+                        : ebook.free_for_logged_in
+                        ? "Sign in to read this e-book."
+                        : "Purchase this e-book to unlock reading."}
+                    </p>
+                  </div>
+                  {own.kind === "signed_out" && (
+                    <Link
+                      href={`/auth/sign-in?redirect=${encodeURIComponent(`/ebooks/${slug}`)}`}
+                      className="rounded-xl px-6 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+                      style={{ background: BRAND }}
+                    >
+                      {ebook.free_for_logged_in ? "Sign in to read" : "Sign in to buy"}
+                    </Link>
+                  )}
+                  {own.kind === "not_owner" && (
+                    <button
+                      onClick={handleBuy}
+                      disabled={buying}
+                      className="rounded-xl px-6 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
+                      style={{ background: BRAND }}
+                    >
+                      {buying ? "Redirecting…" : `Buy · ${price}`}
+                    </button>
+                  )}
                 </div>
-              </div>
-            ) : !showReader ? (
-              <div className="grid h-[70vh] w-full place-items-center bg-[color:var(--color-light)]/18 px-6 text-center md:h-[80vh]">
-                <div className="max-w-md">
-                  <div className="text-lg font-semibold">Ready to read</div>
-                  <p className="mt-2 text-sm text-muted">
-                    Open the secure reader inline, or use full screen for flip mode and touch zoom.
-                  </p>
-                  <div className="mt-5 flex flex-wrap justify-center gap-3">
+
+              ) : !showReader ? (
+                /* Ready to read */
+                <div className="flex h-[65vh] w-full flex-col items-center justify-center gap-6 px-6 text-center bg-[color:var(--color-bg)]/40">
+                  <div
+                    className="flex h-16 w-16 items-center justify-center rounded-2xl shadow-sm"
+                    style={{ background: "rgba(182,84,55,0.12)", color: BRAND }}
+                  >
+                    <svg viewBox="0 0 24 24" className="h-8 w-8" fill="currentColor" aria-hidden>
+                      <path d="M4 3h6a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4V3zm10 0h6v16h-6a2 2 0 0 0-2 2V5a2 2 0 0 1 2-2z"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="text-xl font-bold text-[color:var(--color-ink)]">Ready to read</div>
+                    <p className="mt-2 text-sm text-[color:var(--color-muted)] max-w-xs">
+                      Open inline to read on this page, or launch full screen for flip mode and touch zoom.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap justify-center gap-3">
                     <button
                       onClick={() => openReader(false)}
-                      className="rounded-lg bg-brand px-5 py-3 font-semibold text-white hover:opacity-90"
+                      className="flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90 shadow-sm"
+                      style={{ background: BRAND }}
                     >
+                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden><path d="M4 3h6a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4V3zm10 0h6v16h-6a2 2 0 0 0-2 2V5a2 2 0 0 1 2-2z"/></svg>
                       Read inline
                     </button>
                     <button
                       onClick={() => openReader(true)}
-                      className="rounded-xl border border-[color:var(--color-light)]/50 bg-white px-5 py-3 font-semibold text-[color:var(--color-ink)] shadow-sm transition-shadow duration-200 hover:shadow-md"
+                      className="flex items-center gap-2 rounded-xl border border-[color:var(--color-light)] bg-white px-6 py-3 text-sm font-semibold hover:bg-[color:var(--color-bg)] transition"
                     >
-                      Open full screen
+                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+                      Full screen
                     </button>
                   </div>
+                  {pageCount > 0 && (
+                    <p className="text-xs text-[color:var(--color-muted)]">{pageCount} pages</p>
+                  )}
                 </div>
-              </div>
-            ) : (
-              <div className={isFullscreen ? "flex h-[100dvh] flex-col" : "relative"}>
-                <div className="sticky top-0 z-20 flex flex-wrap items-center gap-2 border-b border-[color:var(--color-light)]/50 bg-white/95 px-3 py-3 backdrop-blur-sm sm:px-4">
-                  <div className="inline-flex items-center rounded-full border border-[color:var(--color-light)]/60 bg-white p-1 shadow-sm">
-                    <button
-                      onClick={() => {
-                        clearFlipTransition(true);
-                        setReaderMode("scroll");
-                      }}
-                      className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors sm:text-sm ${
-                        readerMode === "scroll" ? "bg-brand text-white" : "text-[color:var(--color-ink)]/70"
-                      }`}
-                    >
-                      Scroll
-                    </button>
-                    {isFullscreen ? (
+
+              ) : (
+                /* Active reader */
+                <div className={isFullscreen ? "flex h-[100dvh] flex-col" : "relative"}>
+
+                  {/* ── Toolbar ── */}
+                  <div className="sticky top-0 z-20 flex flex-wrap items-center gap-2 border-b border-[color:var(--color-light)] bg-white/96 px-3 py-2.5 backdrop-blur-sm sm:px-4">
+                    {/* Mode toggle */}
+                    <div className="inline-flex items-center rounded-xl border border-[color:var(--color-light)] bg-[color:var(--color-bg)] p-0.5">
                       <button
-                        onClick={activateFlipMode}
-                        className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors sm:text-sm ${
-                          readerMode === "flip" ? "bg-brand text-white" : "text-[color:var(--color-ink)]/70"
+                        onClick={() => { clearFlipTransition(true); setReaderMode("scroll"); }}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                          readerMode === "scroll"
+                            ? "text-white shadow-sm"
+                            : "text-[color:var(--color-ink)]/60 hover:text-[color:var(--color-ink)]"
+                        }`}
+                        style={readerMode === "scroll" ? { background: BRAND } : {}}
+                      >
+                        Scroll
+                      </button>
+                      {isFullscreen ? (
+                        <button
+                          onClick={activateFlipMode}
+                          className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                            readerMode === "flip"
+                              ? "text-white shadow-sm"
+                              : "text-[color:var(--color-ink)]/60 hover:text-[color:var(--color-ink)]"
+                          }`}
+                          style={readerMode === "flip" ? { background: BRAND } : {}}
+                        >
+                          Flip
+                        </button>
+                      ) : (
+                        <span className="px-3 py-1.5 text-xs text-[color:var(--color-muted)]">Flip (full screen)</span>
+                      )}
+                    </div>
+
+                    {/* Zoom controls */}
+                    <div className="inline-flex items-center rounded-xl border border-[color:var(--color-light)] bg-[color:var(--color-bg)] px-1 py-0.5">
+                      <button onClick={() => changeZoom(-ZOOM_STEP)} className="rounded-lg px-2.5 py-1.5 text-sm font-semibold hover:bg-[color:var(--color-light)]/60 transition" aria-label="Zoom out">−</button>
+                      <button onClick={resetZoom} className="min-w-[3.5rem] text-center text-xs font-medium text-[color:var(--color-ink)]/75 hover:text-[color:var(--color-ink)] transition">
+                        {Math.round(zoom * 100)}%
+                      </button>
+                      <button onClick={() => changeZoom(ZOOM_STEP)} className="rounded-lg px-2.5 py-1.5 text-sm font-semibold hover:bg-[color:var(--color-light)]/60 transition" aria-label="Zoom in">+</button>
+                    </div>
+
+                    {/* Page indicator */}
+                    <span className="rounded-xl border border-[color:var(--color-light)] bg-[color:var(--color-bg)] px-3 py-1.5 text-xs font-medium text-[color:var(--color-ink)]/70">
+                      {currentLabel}
+                    </span>
+
+                    {/* Bookmark toggle */}
+                    <div className="relative">
+                      <button
+                        onClick={() => toggleBookmark(currentPage)}
+                        title={bookmarks.includes(currentPage) ? "Remove bookmark" : "Bookmark this page"}
+                        className={`rounded-xl border px-2.5 py-1.5 transition flex items-center gap-1.5 text-xs font-medium ${
+                          bookmarks.includes(currentPage)
+                            ? "border-[color:var(--color-brand)] text-[color:var(--color-brand)] bg-[color:var(--color-brand)]/8"
+                            : "border-[color:var(--color-light)] bg-white text-[color:var(--color-ink)]/60 hover:text-[color:var(--color-ink)] hover:bg-[color:var(--color-bg)]"
                         }`}
                       >
-                        Flip
+                        {bookmarks.includes(currentPage) ? (
+                          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
+                            <path d="M17 3H7a2 2 0 0 0-2 2v16l7-3 7 3V5a2 2 0 0 0-2-2z"/>
+                          </svg>
+                        ) : (
+                          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                            <path d="M17 3H7a2 2 0 0 0-2 2v16l7-3 7 3V5a2 2 0 0 0-2-2z"/>
+                          </svg>
+                        )}
+                        <span className="hidden sm:inline">Bookmark</span>
                       </button>
-                    ) : (
-                      <span className="px-3 py-1.5 text-xs font-semibold text-[color:var(--color-ink)]/45 sm:text-sm">
-                        Flip in full screen
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="inline-flex items-center rounded-full border border-[color:var(--color-light)]/60 bg-white px-1 py-1 shadow-sm">
-                    <button
-                      onClick={() => changeZoom(-ZOOM_STEP)}
-                      className="rounded-full px-3 py-1 text-base font-semibold transition-colors hover:bg-[color:var(--color-light)]/40"
-                      aria-label="Zoom out"
-                    >
-                      −
-                    </button>
-                    <span className="min-w-14 text-center text-xs font-medium text-[color:var(--color-ink)]/75 sm:text-sm">
-                      {Math.round(zoom * 100)}%
-                    </span>
-                    <button
-                      onClick={() => changeZoom(ZOOM_STEP)}
-                      className="rounded-full px-3 py-1 text-base font-semibold transition-colors hover:bg-[color:var(--color-light)]/40"
-                      aria-label="Zoom in"
-                    >
-                      +
-                    </button>
-                  </div>
-
-                  <button
-                    onClick={resetZoom}
-                    className="rounded-full border border-[color:var(--color-light)]/60 bg-white px-3 py-2 text-xs font-semibold text-[color:var(--color-ink)]/75 shadow-sm transition-colors hover:bg-[color:var(--color-light)]/30 sm:text-sm"
-                  >
-                    Reset zoom
-                  </button>
-
-                  <span className="text-xs text-muted sm:text-sm">{currentLabel}</span>
-
-                  <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-                    {readerMode === "flip" ? (
-                      <>
-                        <button
-                          onClick={() => void goToFlipSpread(flipSpreadStartRef.current - 2)}
-                          disabled={!canPrevSpread || readerBusy}
-                          className="rounded-full border border-[color:var(--color-light)]/60 bg-white px-3 py-2 text-xs font-semibold text-[color:var(--color-ink)]/75 shadow-sm transition-colors hover:bg-[color:var(--color-light)]/30 disabled:opacity-50 sm:text-sm"
-                        >
-                          Prev
-                        </button>
-                        <button
-                          onClick={() => void goToFlipSpread(flipSpreadStartRef.current + 2)}
-                          disabled={!canNextSpread || readerBusy}
-                          className="rounded-full border border-[color:var(--color-light)]/60 bg-white px-3 py-2 text-xs font-semibold text-[color:var(--color-ink)]/75 shadow-sm transition-colors hover:bg-[color:var(--color-light)]/30 disabled:opacity-50 sm:text-sm"
-                        >
-                          Next
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" })}
-                          className="rounded-full border border-[color:var(--color-light)]/60 bg-white px-3 py-2 text-xs font-semibold text-[color:var(--color-ink)]/75 shadow-sm transition-colors hover:bg-[color:var(--color-light)]/30 sm:text-sm"
-                        >
-                          Top
-                        </button>
-                        <button
-                          onClick={() => {
-                            const scroller = scrollRef.current;
-                            if (scroller) scroller.scrollTo({ top: scroller.scrollHeight, behavior: "smooth" });
-                          }}
-                          className="rounded-full border border-[color:var(--color-light)]/60 bg-white px-3 py-2 text-xs font-semibold text-[color:var(--color-ink)]/75 shadow-sm transition-colors hover:bg-[color:var(--color-light)]/30 sm:text-sm"
-                        >
-                          Bottom
-                        </button>
-                      </>
-                    )}
-
-                    <button
-                      onClick={() => setIsFullscreen((value) => !value)}
-                      className="rounded-full bg-brand px-4 py-2 text-xs font-semibold text-white shadow-sm transition-opacity hover:opacity-90 sm:text-sm"
-                    >
-                      {isFullscreen ? "Exit full screen" : "Full screen"}
-                    </button>
-                  </div>
-                </div>
-
-                {readerMode === "scroll" ? (
-                  <div
-                    key="scroll-reader"
-                    ref={scrollRef}
-                    data-reader-surface="scroll"
-                    className={`relative overflow-auto bg-[color:var(--color-light)]/18 px-2 py-4 sm:px-4 ${panCursorClass} ${
-                      isFullscreen ? "flex-1" : "h-[70vh] md:h-[80vh]"
-                    }`}
-                  >
-                    <div className="mx-auto min-h-full w-fit">
-                      <div
-                        ref={pagesRef}
-                        aria-label="Secure PDF Reader"
-                        className="grid gap-4 pb-4"
-                        style={gestureStyle}
-                      />
                     </div>
 
-                    {rendering && (
-                      <div className="absolute inset-0 grid place-items-center bg-white/50">
-                        <div className="rounded-full bg-white px-4 py-2 text-sm shadow-sm">Loading pages…</div>
+                    {/* Bookmarks panel */}
+                    {bookmarks.length > 0 && (
+                      <div className="relative">
+                        <button
+                          onClick={() => setShowBookmarks((v) => !v)}
+                          className={`rounded-xl border px-2.5 py-1.5 text-xs font-medium transition flex items-center gap-1.5 ${
+                            showBookmarks
+                              ? "border-[color:var(--color-brand)] text-[color:var(--color-brand)] bg-[color:var(--color-brand)]/8"
+                              : "border-[color:var(--color-light)] bg-white text-[color:var(--color-ink)]/60 hover:bg-[color:var(--color-bg)]"
+                          }`}
+                        >
+                          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
+                            <path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/>
+                          </svg>
+                          <span>{bookmarks.length}</span>
+                        </button>
+
+                        {showBookmarks && (
+                          <div className="absolute left-0 top-full mt-1 z-50 w-48 rounded-2xl border border-[color:var(--color-light)] bg-white shadow-xl overflow-hidden">
+                            <div className="px-3 py-2 border-b border-[color:var(--color-light)] flex items-center justify-between">
+                              <span className="text-xs font-semibold text-[color:var(--color-ink)]">Bookmarks</span>
+                              <button onClick={() => setShowBookmarks(false)} className="text-[color:var(--color-muted)] hover:text-[color:var(--color-ink)] text-xs">✕</button>
+                            </div>
+                            <ul className="max-h-52 overflow-y-auto py-1">
+                              {bookmarks.map((pg) => (
+                                <li key={pg} className="flex items-center hover:bg-[color:var(--color-bg)] transition">
+                                  <button
+                                    onClick={() => goToPage(pg)}
+                                    className={`flex flex-1 items-center gap-2 px-3 py-2 text-xs text-left ${
+                                      pg === currentPage ? "text-[color:var(--color-brand)] font-semibold" : "text-[color:var(--color-ink)]"
+                                    }`}
+                                  >
+                                    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 flex-shrink-0" fill="currentColor" aria-hidden>
+                                      <path d="M17 3H7a2 2 0 0 0-2 2v16l7-3 7 3V5a2 2 0 0 0-2-2z"/>
+                                    </svg>
+                                    Page {pg}
+                                  </button>
+                                  <button
+                                    onClick={() => toggleBookmark(pg)}
+                                    className="pr-3 text-[color:var(--color-muted)] hover:text-red-500 transition text-[10px]"
+                                    title="Remove bookmark"
+                                  >
+                                    ✕
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                       </div>
                     )}
-                    {renderError && !rendering && (
-                      <div className="absolute inset-x-0 top-4 mx-auto max-w-md rounded-xl border border-red-200 bg-white/95 px-4 py-3 text-sm text-red-600 shadow-sm">
-                        Error loading PDF: {renderError}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div
-                    key="flip-reader"
-                    ref={flipViewportRef}
-                    data-reader-surface="flip"
-                    className={`relative bg-[color:var(--color-light)]/18 ${zoom > 1.01 ? "overflow-auto" : "overflow-hidden"} ${panCursorClass} ${
-                      isFullscreen ? "flex-1" : "h-[70vh] md:h-[80vh]"
-                    }`}
-                  >
-                    <div className="mx-auto flex min-h-full min-w-full items-start justify-center px-2 py-4 sm:px-4 sm:py-6 lg:px-6 lg:py-6">
-                      <div
-                        data-reader-stage="flip"
-                        data-stage-page-width={flipMetrics.pageWidth}
-                        data-stage-page-height={flipMetrics.pageHeight}
-                        data-stage-gap={flipMetrics.gap}
-                        data-stage-width={flipStageWidth}
-                        data-stage-height={flipStageHeight}
-                        className="reader-book-stage relative w-max shrink-0 overflow-hidden"
-                        style={{
-                          height: `${flipStageHeight}px`,
-                          ...gestureStyle,
-                        }}
+
+                    {/* Right controls */}
+                    <div className="ml-auto flex items-center gap-2">
+                      {readerMode === "flip" ? (
+                        <>
+                          <button
+                            onClick={() => void goToFlipSpread(flipSpreadStartRef.current - 2)}
+                            disabled={!canPrevSpread || readerBusy}
+                            className="rounded-xl border border-[color:var(--color-light)] bg-white px-3 py-1.5 text-xs font-semibold hover:bg-[color:var(--color-bg)] disabled:opacity-40 transition"
+                          >
+                            ← Prev
+                          </button>
+                          <button
+                            onClick={() => void goToFlipSpread(flipSpreadStartRef.current + 2)}
+                            disabled={!canNextSpread || readerBusy}
+                            className="rounded-xl border border-[color:var(--color-light)] bg-white px-3 py-1.5 text-xs font-semibold hover:bg-[color:var(--color-bg)] disabled:opacity-40 transition"
+                          >
+                            Next →
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" })}
+                            className="rounded-xl border border-[color:var(--color-light)] bg-white px-3 py-1.5 text-xs font-semibold hover:bg-[color:var(--color-bg)] transition"
+                          >
+                            Top
+                          </button>
+                          <button
+                            onClick={() => { const s = scrollRef.current; if (s) s.scrollTo({ top: s.scrollHeight, behavior: "smooth" }); }}
+                            className="rounded-xl border border-[color:var(--color-light)] bg-white px-3 py-1.5 text-xs font-semibold hover:bg-[color:var(--color-bg)] transition"
+                          >
+                            Bottom
+                          </button>
+                        </>
+                      )}
+                      <button
+                        onClick={() => setIsFullscreen((v) => !v)}
+                        className="rounded-xl px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90"
+                        style={{ background: BRAND }}
                       >
-                        <div
-                          aria-hidden="true"
-                          className="pointer-events-none opacity-0"
-                          style={{
-                            width: `${flipStageWidth}px`,
-                            height: `${flipStageHeight}px`,
-                          }}
-                        />
-                        {flipSpread && !outgoingFlipSpread && !incomingFlipSpread && renderSpreadLayer(flipSpread)}
-                        {outgoingFlipSpread && renderSpreadLayer(
-                          outgoingFlipSpread,
-                          `flip-sheet ${flipAnimating && flipDirection ? `outgoing-${flipDirection}` : ""}`
-                        )}
-                        {incomingFlipSpread && renderSpreadLayer(
-                          incomingFlipSpread,
-                          `flip-sheet ${flipAnimating && flipDirection ? `incoming-${flipDirection}` : ""}`
-                        )}
-                      </div>
+                        {isFullscreen ? "Exit full screen" : "Full screen"}
+                      </button>
                     </div>
-
-                    {flipLoading && (
-                      <div className="absolute inset-0 grid place-items-center bg-white/50">
-                        <div className="rounded-full bg-white px-4 py-2 text-sm shadow-sm">Preparing spread…</div>
-                      </div>
-                    )}
-                    {renderError && !flipLoading && (
-                      <div className="absolute inset-x-0 top-4 mx-auto max-w-md rounded-xl border border-red-200 bg-white/95 px-4 py-3 text-sm text-red-600 shadow-sm">
-                        Error loading PDF: {renderError}
-                      </div>
-                    )}
                   </div>
-                )}
-              </div>
-            )}
-          </div>
-        </section>
-      </div>
 
-      <section className="mt-10">
-        <div className="rounded-xl border border-[color:var(--color-light)]/40 bg-white p-6 shadow-sm transition-shadow duration-200 hover:shadow-md">
-          <h2 className="text-xl font-semibold">About this e-book</h2>
-          <p className="mt-3 whitespace-pre-line text-muted">
-            {ebook.description ?? "No description provided."}
-          </p>
-          <div className="mt-6">
-            <Link href="/ebooks" className="underline">← Back to E-Books</Link>
-          </div>
+                  {/* ── Scroll reader ── */}
+                  {readerMode === "scroll" ? (
+                    <div
+                      key="scroll-reader"
+                      ref={scrollRef}
+                      data-reader-surface="scroll"
+                      className={`relative overflow-auto bg-[color:var(--color-bg)]/60 px-3 py-4 sm:px-4 ${panCursorClass} ${
+                        isFullscreen ? "flex-1" : "h-[68vh] md:h-[78vh]"
+                      }`}
+                    >
+                      <div className="mx-auto min-h-full w-fit">
+                        <div
+                          ref={pagesRef}
+                          aria-label="Secure PDF Reader"
+                          className="grid gap-4 pb-4"
+                          style={gestureStyle}
+                        />
+                      </div>
+
+                      {/* Loading overlay with cycling quote */}
+                      {rendering && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-white/70 backdrop-blur-sm">
+                          {/* Animated progress bar */}
+                          <div className="w-48 overflow-hidden rounded-full bg-[color:var(--color-light)] h-1.5">
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                background: BRAND,
+                                width: "60%",
+                                animation: "loading-bar 1.4s ease-in-out infinite alternate",
+                              }}
+                            />
+                          </div>
+                          <p className="text-sm font-medium text-[color:var(--color-ink)]/70 text-center max-w-[200px] transition-all duration-500">
+                            {LOADING_QUOTES[loadingMsgIdx]}
+                          </p>
+                        </div>
+                      )}
+                      {renderError && !rendering && (
+                        <div className="absolute inset-x-4 top-4 rounded-2xl border border-red-200 bg-white/95 px-4 py-3 text-sm text-red-600 shadow-sm">
+                          Error loading PDF: {renderError}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    /* ── Flip reader ── */
+                    <div
+                      key="flip-reader"
+                      ref={flipViewportRef}
+                      data-reader-surface="flip"
+                      className={`relative bg-[color:var(--color-bg)]/60 ${zoom > 1.01 ? "overflow-auto" : "overflow-hidden"} ${panCursorClass} ${
+                        isFullscreen ? "flex-1" : "h-[68vh] md:h-[78vh]"
+                      }`}
+                    >
+                      <div className="mx-auto flex min-h-full min-w-full items-start justify-center px-2 py-4 sm:px-4 sm:py-6">
+                        <div
+                          data-reader-stage="flip"
+                          data-stage-page-width={flipMetrics.pageWidth}
+                          data-stage-page-height={flipMetrics.pageHeight}
+                          data-stage-gap={flipMetrics.gap}
+                          data-stage-width={flipStageWidth}
+                          data-stage-height={flipStageHeight}
+                          className="reader-book-stage relative w-max shrink-0 overflow-hidden"
+                          style={{ height: `${flipStageHeight}px`, ...gestureStyle }}
+                        >
+                          <div aria-hidden="true" className="pointer-events-none opacity-0" style={{ width: `${flipStageWidth}px`, height: `${flipStageHeight}px` }} />
+                          {flipSpread && !outgoingFlipSpread && !incomingFlipSpread && renderSpreadLayer(flipSpread)}
+                          {outgoingFlipSpread && renderSpreadLayer(outgoingFlipSpread, `flip-sheet ${flipAnimating && flipDirection ? `outgoing-${flipDirection}` : ""}`)}
+                          {incomingFlipSpread && renderSpreadLayer(incomingFlipSpread, `flip-sheet ${flipAnimating && flipDirection ? `incoming-${flipDirection}` : ""}`)}
+                        </div>
+                      </div>
+
+                      {flipLoading && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-white/70 backdrop-blur-sm">
+                          <div className="w-48 overflow-hidden rounded-full bg-[color:var(--color-light)] h-1.5">
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                background: BRAND,
+                                width: "40%",
+                                animation: "loading-bar 1.4s ease-in-out infinite alternate",
+                              }}
+                            />
+                          </div>
+                          <p className="text-sm font-medium text-[color:var(--color-ink)]/70 text-center max-w-[200px] transition-all duration-500">
+                            {LOADING_QUOTES[loadingMsgIdx]}
+                          </p>
+                        </div>
+                      )}
+                      {renderError && !flipLoading && (
+                        <div className="absolute inset-x-4 top-4 rounded-2xl border border-red-200 bg-white/95 px-4 py-3 text-sm text-red-600 shadow-sm">
+                          Error loading PDF: {renderError}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </section>
         </div>
-      </section>
+
+        {/* ── About section ── */}
+        {ebook.description && (
+          <section className="mt-6 rounded-2xl border border-[color:var(--color-light)] bg-white p-6 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: BRAND }}>About this e-book</p>
+            <p className="whitespace-pre-line text-[color:var(--color-ink)]/75 leading-relaxed">{ebook.description}</p>
+            <div className="mt-5 flex items-center gap-4">
+              <Link
+                href="/ebooks"
+                className="text-sm font-medium underline decoration-dotted underline-offset-4 text-[color:var(--color-muted)] hover:text-[color:var(--color-ink)] transition"
+              >
+                ← Back to E-Books
+              </Link>
+            </div>
+          </section>
+        )}
+      </div>
     </main>
   );
 }

@@ -86,29 +86,27 @@ body {
 
 /* ---------- Partners marquee ---------- */
 @keyframes partners-marquee-ltr {
-  from { transform: translate3d(0, 0, 0); }
-  to   { transform: translate3d(-50%, 0, 0); }
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
 }
 
 .partners-marquee {
   position: relative;
   overflow: hidden;
-  mask-image: linear-gradient(90deg, transparent 0%, #000 7%, #000 93%, transparent 100%);
-  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 7%, #000 93%, transparent 100%);
-  padding-top: 0.65rem;
-  padding-bottom: 0.8rem;
+  /* wider fade edges so the blend looks smooth at any viewport width */
+  mask-image: linear-gradient(90deg, transparent 0%, #000 10%, #000 90%, transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 10%, #000 90%, transparent 100%);
+  padding-top: 1rem;
+  padding-bottom: 1rem;
 }
 
 .partners-marquee-track {
   display: inline-flex;
   align-items: center;
   width: max-content;
-  transform: translate3d(0, 0, 0);
-  animation-fill-mode: both;
-  animation: partners-marquee-ltr 42s linear infinite;
+  /* no fill-mode: infinite animations don't need it and "both" causes a reset flash */
+  animation: partners-marquee-ltr 48s linear infinite;
   will-change: transform;
-  backface-visibility: hidden;
-  transform-style: preserve-3d;
 }
 
 .partners-marquee:hover .partners-marquee-track,
@@ -121,44 +119,40 @@ body {
   align-items: center;
   width: max-content;
   flex: 0 0 auto;
-  gap: 2.75rem;
-  padding-right: 2.75rem;
+  /* gap and padding-right must be equal so the seam is invisible */
+  gap: 3.5rem;
+  padding-right: 3.5rem;
 }
 
 .partners-logo-item {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 10rem;
-  height: 4.5rem;
+  width: 13rem;
+  height: 6rem;
   flex: 0 0 auto;
   cursor: default;
-  transform: translate3d(0, 0, 0);
-  transition:
-    transform 180ms ease;
-  will-change: transform;
+  transition: transform 180ms ease;
 }
 
 .partners-logo-mark {
   display: block;
-  max-width: 9.25rem;
-  max-height: 3.45rem;
+  max-width: 11.5rem;
+  max-height: 4.75rem;
   width: auto;
   height: auto;
-  opacity: 0.6;
-  filter: grayscale(1) drop-shadow(0 0 0 rgba(182, 84, 55, 0));
-  transform: translateZ(0);
+  opacity: 0.55;
+  filter: grayscale(1);
   backface-visibility: hidden;
   transition:
     opacity 180ms ease,
     filter 180ms ease,
     transform 180ms ease;
-  will-change: opacity, filter;
 }
 
 .partners-logo-item:hover,
 .partners-logo-item:focus-within {
-  transform: translate3d(0, -3px, 0);
+  transform: translateY(-3px);
 }
 
 .partners-logo-item:hover .partners-logo-mark,
@@ -166,23 +160,23 @@ body {
   opacity: 1;
   filter:
     grayscale(0)
-    drop-shadow(0 7px 12px rgba(44, 37, 34, 0.18))
-    drop-shadow(0 0 5px rgba(182, 84, 55, 0.16));
-  transform: translateZ(0) scale(1.04);
+    drop-shadow(0 6px 10px rgba(44, 37, 34, 0.15))
+    drop-shadow(0 0 4px rgba(182, 84, 55, 0.14));
+  transform: scale(1.04);
 }
 
 @media (max-width: 640px) {
   .partners-marquee-row {
-    gap: 1.75rem;
-    padding-right: 1.75rem;
+    gap: 2.5rem;
+    padding-right: 2.5rem;
   }
   .partners-logo-item {
-    width: 8rem;
-    height: 4.25rem;
+    width: 10rem;
+    height: 5rem;
   }
   .partners-logo-mark {
-    max-width: 7.1rem;
-    max-height: 3.2rem;
+    max-width: 9rem;
+    max-height: 3.75rem;
   }
 }
 
