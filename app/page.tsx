@@ -174,8 +174,8 @@ export default async function HomePage() {
           />
         </div>
 
-        <div className="relative z-10 mx-auto max-w-[1660px] px-4 sm:px-6 lg:px-8">
-          <div className="grid gap-7 py-7 sm:gap-9 sm:py-10 lg:py-12 xl:min-h-[790px] xl:grid-cols-[minmax(0,0.52fr)_minmax(0,0.48fr)] xl:items-center xl:py-20 2xl:min-h-[820px]">
+        <div className="relative z-10 mx-auto max-w-[1660px] px-4 sm:px-6 lg:px-8 2xl:px-20">
+          <div className="grid gap-7 py-7 sm:gap-9 sm:py-10 lg:py-12 xl:min-h-[790px] xl:grid-cols-[minmax(0,0.52fr)_minmax(0,0.48fr)] xl:items-center xl:py-20 2xl:min-h-[900px] 2xl:py-32">
             <div className="animate-fade-up text-center xl:max-w-[800px] xl:text-left 2xl:max-w-[920px]">
               <div className="mx-auto flex w-full max-w-[330px] flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[12px] leading-5 text-[color:var(--color-ink)]/70 sm:max-w-none sm:text-[14px] xl:mx-0 xl:flex-nowrap xl:justify-start xl:text-[15px]">
                 <span
@@ -271,8 +271,8 @@ export default async function HomePage() {
       </div>
 
       {/* ===== WHAT WE DO ===== */}
-      <section className="bg-white py-16 sm:py-24">
-        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
+      <section className="bg-white py-16 sm:py-24 2xl:py-36">
+        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 2xl:px-20">
           <div className="max-w-2xl">
             <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: BRAND.primary }}>
               Our Offering
@@ -285,11 +285,11 @@ export default async function HomePage() {
             </p>
           </div>
 
-          <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-12 grid gap-5 2xl:gap-8 sm:grid-cols-2 lg:grid-cols-3">
             {offerings.map((item) => (
               <div
                 key={item.title}
-                className="group rounded-2xl border border-[color:var(--color-light)] bg-white p-6 transition-all duration-200 hover:shadow-md hover:border-[color:var(--color-soft)]"
+                className="group rounded-2xl border border-[color:var(--color-light)] bg-white p-6 2xl:p-8 transition-all duration-200 hover:shadow-md hover:border-[color:var(--color-soft)]"
               >
                 <div
                   className="inline-flex h-11 w-11 items-center justify-center rounded-xl"
@@ -306,9 +306,9 @@ export default async function HomePage() {
       </section>
 
       {/* ===== KDS MOBILE ===== */}
-      <section className="bg-[color:var(--color-bg)] py-16 sm:py-24">
-        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
-          <div className="grid gap-16 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:items-center">
+      <section className="bg-[color:var(--color-bg)] py-16 sm:py-24 2xl:py-36">
+        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 2xl:px-20">
+          <div className="grid gap-16 2xl:gap-24 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:items-center">
             {/* Left copy */}
             <div className="flex flex-col text-center md:text-left">
               <span className="inline-flex w-fit items-center gap-2 self-center rounded-full border border-[color:var(--color-light)] bg-white px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase text-[color:var(--color-ink)]/70 md:self-start">
@@ -394,8 +394,8 @@ export default async function HomePage() {
       </section>
 
       {/* ===== FEATURED KNOWLEDGE ===== */}
-      <section className="bg-white py-16 sm:py-24">
-        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
+      <section className="bg-white py-16 sm:py-24 2xl:py-36">
+        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 2xl:px-20">
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
             <div>
               <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: BRAND.primary }}>
@@ -411,7 +411,7 @@ export default async function HomePage() {
             </Link>
           </div>
 
-          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-10 grid gap-6 2xl:gap-9 sm:grid-cols-2 lg:grid-cols-3">
             {featuredList.map((c, idx) => (
               <Link
                 key={c ? c.id : `s-${idx}`}
@@ -431,7 +431,7 @@ export default async function HomePage() {
                     <div className="absolute inset-0" />
                   )}
                 </div>
-                <div className="px-5 py-5">
+                <div className="px-5 py-5 2xl:px-7 2xl:py-7">
                   <div className="flex items-center justify-between gap-2">
                     <span
                       className="rounded-md px-2 py-0.5 text-[11px] font-semibold text-white"
@@ -456,8 +456,8 @@ export default async function HomePage() {
       </section>
 
       {/* ===== E-BOOKS ===== */}
-      <section className="bg-[color:var(--color-bg)] py-16 sm:py-24">
-        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
+      <section className="bg-[color:var(--color-bg)] py-16 sm:py-24 2xl:py-36">
+        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 2xl:px-20">
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
             <div>
               <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: BRAND.primary }}>
@@ -479,7 +479,7 @@ export default async function HomePage() {
             </Link>
           </div>
 
-          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-10 grid gap-6 2xl:gap-9 sm:grid-cols-2 lg:grid-cols-4">
             {ebooksList.map((b, idx) => (
               <Link
                 key={b ? b.id : `e-${idx}`}
@@ -537,8 +537,8 @@ export default async function HomePage() {
       </section>
 
       {/* ===== REVIEWS ===== */}
-      <section className="bg-white py-16 sm:py-24">
-        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
+      <section className="bg-white py-16 sm:py-24 2xl:py-36">
+        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 2xl:px-20">
           <div className="text-center max-w-xl mx-auto">
             <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: BRAND.primary }}>
               Testimonials
@@ -546,11 +546,11 @@ export default async function HomePage() {
             <h2 className="mt-3 text-3xl sm:text-4xl font-bold">What professionals say</h2>
           </div>
 
-          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-12 grid gap-6 2xl:gap-9 sm:grid-cols-2 lg:grid-cols-4">
             {reviews.map((r) => (
               <div
                 key={r.name}
-                className="relative rounded-2xl border border-[color:var(--color-light)] bg-white p-6 transition-all duration-200 hover:shadow-md hover:border-[color:var(--color-soft)]"
+                className="relative rounded-2xl border border-[color:var(--color-light)] bg-white p-6 2xl:p-8 transition-all duration-200 hover:shadow-md hover:border-[color:var(--color-soft)]"
               >
                 {/* Decorative quotation mark */}
                 <div
@@ -580,8 +580,8 @@ export default async function HomePage() {
       </section>
 
       {/* ===== FINAL CTA ===== */}
-      <section className="bg-[color:var(--color-ink)] py-16 sm:py-20">
-        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 text-center">
+      <section className="bg-[color:var(--color-ink)] py-16 sm:py-20 2xl:py-28">
+        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 2xl:px-20 text-center">
           <p className="text-xs font-semibold tracking-widest uppercase text-white/40">
             Start today
           </p>
