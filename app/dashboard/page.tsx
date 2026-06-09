@@ -805,7 +805,7 @@ export default function DashboardPage() {
 
       {/* ── Welcome header ── */}
       <div className="bg-white border-b border-[color:var(--color-light)]">
-        <div className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 py-7">
+        <div className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 2xl:px-20 py-7 2xl:py-9">
           <div className="flex flex-wrap items-start justify-between gap-4">
 
             {/* Left: avatar + name */}
@@ -876,7 +876,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 py-8 space-y-10">
+      <div className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 2xl:px-20 py-8 2xl:py-12 space-y-10 2xl:space-y-14">
 
         {/* ── Stats row ── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -928,7 +928,7 @@ export default function DashboardPage() {
                   </Link>
                 </div>
               ) : (
-                <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-5 2xl:gap-8 sm:grid-cols-2 lg:grid-cols-3">
                   {enrolled.map((c) => (
                     <div key={c.course_id} className="rounded-2xl border border-[color:var(--color-light)] bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                       <div className="relative w-full aspect-video bg-[color:var(--color-light)]/30">
@@ -987,7 +987,7 @@ export default function DashboardPage() {
                   <p className="mt-1 text-sm text-[color:var(--color-muted)]">Complete a course and pass the final exam to earn your first certificate.</p>
                 </div>
               ) : (
-                <div className="grid gap-5 sm:grid-cols-2">
+                <div className="grid gap-5 2xl:gap-8 sm:grid-cols-2">
                   {/* Real certificates */}
                   {certs.map((c) => {
                     const courseTitle = c.courses?.title ?? "Course";
@@ -1174,7 +1174,7 @@ export default function DashboardPage() {
                   </Link>
                 </div>
               ) : (
-                <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid gap-5 2xl:gap-8 sm:grid-cols-2 lg:grid-cols-4">
                   {ebooks.map((b) => (
                     <div key={b.ebook_id} className="rounded-2xl border border-[color:var(--color-light)] bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                       <div className="relative w-full h-52 bg-[color:var(--color-light)]/30">

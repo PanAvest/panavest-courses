@@ -62,8 +62,8 @@ export default async function Footer() {
   return (
     <footer className="w-full bg-[color:var(--color-bg)]">
       {/* Full width, modest side padding */}
-      <div className="w-full px-4 md:px-6 py-10">
-        <div className="grid gap-10 md:grid-cols-4">
+      <div className="w-full px-4 md:px-6 lg:px-8 2xl:px-20 py-10 2xl:py-16">
+        <div className="grid gap-10 2xl:gap-16 md:grid-cols-4">
           <div className="space-y-3">
             <Image src={logo} alt="Panavest" className="h-12 w-auto" sizes="48px" unoptimized />
             <p className="text-sm text-muted max-w-sm">

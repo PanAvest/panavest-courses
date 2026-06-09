@@ -12,8 +12,8 @@ export function PartnersMarquee({ partners }: Props) {
   if (!partners.length) return null;
 
   return (
-    <section className="py-12 sm:py-16">
-      <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
+    <section className="py-12 sm:py-16 2xl:py-20">
+      <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 2xl:px-20">
         <div className="text-center text-[11px] font-semibold tracking-[0.25em] uppercase text-[color:var(--color-ink)]/40">
           Partners
         </div>

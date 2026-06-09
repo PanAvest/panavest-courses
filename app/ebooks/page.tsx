@@ -52,7 +52,7 @@ export default function EbooksPage() {
   }, []);
 
   return (
-    <main className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 py-10 animate-fade-up">
+    <main className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 2xl:px-20 py-10 2xl:py-16 animate-fade-up">
       <h1 className="text-3xl font-bold">E-Books</h1>
       <p className="mt-2 text-muted max-w-2xl">
         Browse our growing library. Preview PDFs are available; purchases add the title to your dashboard.
@@ -96,7 +96,7 @@ export default function EbooksPage() {
       {err && <div className="mt-6 text-red-600 text-sm">Error: {err}</div>}
 
       {!items && !err && (
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-8 grid gap-4 2xl:gap-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
@@ -107,7 +107,7 @@ export default function EbooksPage() {
       )}
 
       {items && visibleItems && (
-        <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-8 grid gap-6 2xl:gap-9 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {visibleItems.map((b, idx) => (
             <Link
               key={b.id}

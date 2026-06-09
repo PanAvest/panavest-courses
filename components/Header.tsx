@@ -105,7 +105,7 @@ export default function Header() {
 
       {/* ── Main navigation ── */}
       <header className="w-full bg-white border-b border-[color:var(--color-light)] shadow-[0_1px_4px_rgba(44,37,34,0.06)]">
-        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 h-[4.75rem] sm:h-20 lg:h-[5rem] flex items-center justify-between gap-4">
+        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 2xl:px-20 h-[4.75rem] sm:h-20 lg:h-[5rem] flex items-center justify-between gap-4">
 
           {/* Brand block */}
           <Link
@@ -215,7 +215,7 @@ export default function Header() {
       {/* ── Mobile menu ── */}
       {open && (
         <div className="lg:hidden border-b border-[color:var(--color-light)] bg-white shadow-md">
-          <div className="mx-auto max-w-screen-2xl px-4 py-4 flex flex-col gap-1">
+          <div className="mx-auto max-w-screen-2xl px-4 2xl:px-20 py-4 flex flex-col gap-1">
 
             {/* Nav links */}
             <Link href="/knowledge" onClick={() => setOpen(false)} className="rounded-lg px-3 py-2.5 text-sm font-medium text-[color:var(--color-ink)] hover:bg-[color:var(--color-light)]/50 transition">

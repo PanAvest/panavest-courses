@@ -44,7 +44,7 @@ export default async function KnowledgeIndex() {
   const items = await getPublicCoursesCatalog();
 
   return (
-    <div className="mx-auto max-w-screen-2xl px-4 md:px-6 py-10">
+    <div className="mx-auto max-w-screen-2xl px-4 md:px-6 lg:px-8 2xl:px-20 py-10 2xl:py-16">
       <h1 className="text-3xl font-bold">Knowledge</h1>
       <p className="text-muted mt-1">Browse PanAvest knowledge programs.</p>
 

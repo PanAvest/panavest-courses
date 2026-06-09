@@ -88,7 +88,7 @@ export default function AboutPage() {
           />
         </div>
 
-        <div className="animate-fade-up mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 py-20 sm:py-28 lg:py-32">
+        <div className="animate-fade-up mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 2xl:px-20 py-20 sm:py-28 lg:py-32 2xl:py-40">
           <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-white/80 backdrop-blur-sm">
             <span className="h-1.5 w-1.5 rounded-full" style={{ background: BRAND }} />
             PanAvest International &amp; Partners
@@ -122,9 +122,9 @@ export default function AboutPage() {
       </section>
 
       {/* ── ORIGIN STORY ── */}
-      <section className="bg-white py-16 sm:py-24">
-        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
-          <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
+      <section className="bg-white py-16 sm:py-24 2xl:py-36">
+        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 2xl:px-20">
+          <div className="grid gap-12 2xl:gap-20 lg:grid-cols-2 lg:items-center">
             <div className="animate-fade-up">
               <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: BRAND }}>
                 Our Story
@@ -191,8 +191,8 @@ export default function AboutPage() {
       </section>
 
       {/* ── VISION & MISSION ── */}
-      <section className="bg-[color:var(--color-bg)] py-16 sm:py-24">
-        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
+      <section className="bg-[color:var(--color-bg)] py-16 sm:py-24 2xl:py-36">
+        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 2xl:px-20">
           <div className="animate-fade-up text-center max-w-xl mx-auto">
             <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: BRAND }}>
               Direction
@@ -200,7 +200,7 @@ export default function AboutPage() {
             <h2 className="mt-3 text-3xl sm:text-4xl font-bold">Vision &amp; Mission</h2>
           </div>
 
-          <div className="mt-12 grid gap-6 sm:grid-cols-2">
+          <div className="mt-12 grid gap-6 2xl:gap-10 sm:grid-cols-2">
             {[
               {
                 label: "Vision",
@@ -253,8 +253,8 @@ export default function AboutPage() {
       </section>
 
       {/* ── GUIDING PRINCIPLES ── */}
-      <section className="bg-white py-16 sm:py-24">
-        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
+      <section className="bg-white py-16 sm:py-24 2xl:py-36">
+        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 2xl:px-20">
           <div className="animate-fade-up max-w-2xl">
             <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: BRAND }}>
               How We Work
@@ -265,7 +265,7 @@ export default function AboutPage() {
             </p>
           </div>
 
-          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-10 grid gap-5 2xl:gap-8 sm:grid-cols-2 lg:grid-cols-3">
             {principles.map((p, i) => (
               <div
                 key={p.title}
@@ -287,8 +287,8 @@ export default function AboutPage() {
       </section>
 
       {/* ── WHO THIS IS FOR ── */}
-      <section className="bg-[color:var(--color-bg)] py-16 sm:py-24">
-        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
+      <section className="bg-[color:var(--color-bg)] py-16 sm:py-24 2xl:py-36">
+        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 2xl:px-20">
           <div className="animate-fade-up text-center max-w-xl mx-auto">
             <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: BRAND }}>
               Audience
@@ -312,7 +312,7 @@ export default function AboutPage() {
           </div>
 
           {/* Certification overview */}
-          <div className="mt-12 grid gap-5 sm:grid-cols-2">
+          <div className="mt-12 grid gap-5 2xl:gap-8 sm:grid-cols-2">
             {[
               {
                 title: "Certification",
@@ -347,8 +347,8 @@ export default function AboutPage() {
       </section>
 
       {/* ── 10 REASONS ── */}
-      <section className="bg-white py-16 sm:py-24">
-        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
+      <section className="bg-white py-16 sm:py-24 2xl:py-36">
+        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 2xl:px-20">
           <div className="animate-fade-up text-center max-w-xl mx-auto">
             <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: BRAND }}>
               Why Enrol
@@ -356,7 +356,7 @@ export default function AboutPage() {
             <h2 className="mt-3 text-3xl sm:text-4xl font-bold">10 Reasons to Choose KDS</h2>
           </div>
 
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="mt-10 grid gap-4 2xl:gap-7 sm:grid-cols-2 lg:grid-cols-5">
             {reasons.map((r, i) => (
               <div
                 key={r}
@@ -378,8 +378,8 @@ export default function AboutPage() {
       </section>
 
       {/* ── FAQ ── */}
-      <section className="bg-[color:var(--color-bg)] py-16 sm:py-24">
-        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
+      <section className="bg-[color:var(--color-bg)] py-16 sm:py-24 2xl:py-36">
+        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 2xl:px-20">
           <div className="animate-fade-up text-center max-w-xl mx-auto">
             <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: BRAND }}>
               FAQ
@@ -387,7 +387,7 @@ export default function AboutPage() {
             <h2 className="mt-3 text-3xl sm:text-4xl font-bold">Common Questions</h2>
           </div>
 
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-10 grid gap-4 2xl:gap-7 sm:grid-cols-2 lg:grid-cols-4">
             {faqs.map((f, i) => (
               <div
                 key={f.q}
@@ -403,8 +403,8 @@ export default function AboutPage() {
       </section>
 
       {/* ── CTA ── */}
-      <section className="bg-[color:var(--color-ink)] py-16 sm:py-20">
-        <div className="animate-fade-up mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 text-center">
+      <section className="bg-[color:var(--color-ink)] py-16 sm:py-20 2xl:py-28">
+        <div className="animate-fade-up mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 2xl:px-20 text-center">
           <p className="text-xs font-semibold tracking-widest uppercase text-white/40">
             Start today
           </p>
