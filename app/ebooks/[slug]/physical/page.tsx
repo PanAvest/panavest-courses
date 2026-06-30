@@ -15,6 +15,7 @@ type Ebook = {
   description?: string | null;
   cover_url?: string | null;
   price_cents: number;
+  physical_price_cents?: number | null;
   stock_quantity?: number | null;
   show_stock?: boolean | null;
 };
@@ -72,7 +73,10 @@ export default function PhysicalOrderPage() {
 
   const cities = useMemo(() => citiesForRegion(region), [region]);
 
-  const unitPrice = ebook?.price_cents ?? 0;
+  const unitPrice =
+    ebook?.physical_price_cents != null && ebook.physical_price_cents > 0
+      ? ebook.physical_price_cents
+      : ebook?.price_cents ?? 0;
   const subtotal = unitPrice * Math.max(1, quantity);
   const discountCents = voucher.kind === "applied" ? Math.min(subtotal, voucher.discountCents) : 0;
   const total = Math.max(0, subtotal - discountCents);

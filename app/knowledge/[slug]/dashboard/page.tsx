@@ -1070,7 +1070,16 @@ export default function CourseDashboard() {
         });
         attemptId = result.attemptId ?? null;
         setFinalAttemptExists(true);
-        setCertificateNotice({ type: "success", message: "Certificate issued! Visit your Dashboard to download it." });
+        // Email the certificate to the student (idempotent server-side; fire-and-forget).
+        const certId = (result.certificate as { id?: string } | null)?.id;
+        if (certId) {
+          void fetch("/api/certificates/email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ certificate_id: certId }),
+          }).catch(() => {});
+        }
+        setCertificateNotice({ type: "success", message: "Certificate issued! We've emailed it to you — also available on your Dashboard." });
       } catch (err) {
         const code = err instanceof IssueCertificateError ? err.code : (err as { code?: string } | null)?.code ?? null;
         if (code === "NOT_AUTHENTICATED") {

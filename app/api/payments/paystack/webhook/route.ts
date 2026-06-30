@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { grantBundledEbooks } from "@/lib/grantBundledEbooks";
+import { sendPurchaseReceipt } from "@/lib/purchaseEmails";
 
 type ChargeSuccessData = {
   status: string;                 // "success"
@@ -9,6 +10,8 @@ type ChargeSuccessData = {
   amount: number;                 // minor units
   currency: string;
   paid_at?: string | null;
+  channel?: string | null;
+  customer?: { email?: string | null } | null;
   metadata?: {
     user_id?: string;
     course_id?: string;
@@ -17,6 +20,7 @@ type ChargeSuccessData = {
     ebook_id?: string;
     book_slug?: string;
     kind?: "course" | "ebook";          // may exist if you mirror init metadata
+    voucher_code?: string;
   } | null;
 };
 
@@ -59,6 +63,19 @@ export async function POST(req: NextRequest) {
         reference: payload.data?.reference ?? null,
       });
       if (bundle.error) console.warn("[bundles] webhook failed", bundle.error);
+
+      await sendPurchaseReceipt(admin, {
+        kind: "course",
+        userId,
+        itemId: courseId,
+        reference: payload.data.reference,
+        amountMinor: typeof payload.data.amount === "number" ? payload.data.amount : null,
+        currency: payload.data.currency,
+        paidAt: payload.data.paid_at,
+        channel: payload.data.channel,
+        email: payload.data.customer?.email,
+        voucherCode: md.voucher_code,
+      });
     }
 
     // EBOOKS
@@ -69,6 +86,19 @@ export async function POST(req: NextRequest) {
         { user_id: userId, ebook_id: ebookId, status: "paid", paid_at: new Date().toISOString() },
         { onConflict: "user_id,ebook_id" },
       );
+
+      await sendPurchaseReceipt(admin, {
+        kind: "ebook",
+        userId,
+        itemId: ebookId,
+        reference: payload.data.reference,
+        amountMinor: typeof payload.data.amount === "number" ? payload.data.amount : null,
+        currency: payload.data.currency,
+        paidAt: payload.data.paid_at,
+        channel: payload.data.channel,
+        email: payload.data.customer?.email,
+        voucherCode: md.voucher_code,
+      });
     }
   }
 

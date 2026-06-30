@@ -17,10 +17,11 @@ const EbookSchema = z.object({
   sku: z.string().nullable().optional(),
   stock_quantity: z.number().int().nonnegative().optional(),
   show_stock: z.boolean().optional(),
+  physical_price_cents: z.number().int().nonnegative().nullable().optional(),
 });
 
 // Columns that may not exist yet on older databases (before the physical-store migration).
-const OPTIONAL_COLUMNS = ["free_for_logged_in", "sku", "stock_quantity", "show_stock"];
+const OPTIONAL_COLUMNS = ["free_for_logged_in", "sku", "stock_quantity", "show_stock", "physical_price_cents"];
 
 function isMissingFreeColumnError(err: unknown): boolean {
   if (!err || typeof err !== "object") return false;

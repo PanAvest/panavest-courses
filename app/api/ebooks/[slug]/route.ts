@@ -17,6 +17,7 @@ const Ebook = z.object({
   sku: z.string().nullable().optional(),
   stock_quantity: z.number().int().nullable().optional(),
   show_stock: z.boolean().nullable().optional(),
+  physical_price_cents: z.number().int().nullable().optional(),
 });
 
 export async function GET(

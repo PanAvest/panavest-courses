@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { grantBundledEbooks } from "@/lib/grantBundledEbooks";
+import { sendPurchaseReceipt } from "@/lib/purchaseEmails";
 
 type PaystackVerifyOk = {
   status: true;
@@ -12,12 +13,15 @@ type PaystackVerifyOk = {
     currency: string;
     amount: number;
     paid_at: string | null;
+    channel?: string | null;
+    customer?: { email?: string | null } | null;
     metadata?: {
       kind?: "course" | "ebook";
       user_id?: string;
       course_id?: string;
       ebook_id?: string;
       slug?: string;
+      voucher_code?: string;
     };
   };
 };
@@ -94,6 +98,21 @@ export async function GET(request: Request) {
       });
       if (bundle.error) console.warn("[bundles] callback failed", bundle.error);
 
+      if (isPaid) {
+        await sendPurchaseReceipt(sb, {
+          kind: "course",
+          userId: meta.user_id,
+          itemId: meta.course_id,
+          reference: d.reference,
+          amountMinor,
+          currency,
+          paidAt: d.paid_at,
+          channel: d.channel,
+          email: d.customer?.email,
+          voucherCode: meta.voucher_code,
+        });
+      }
+
       // Redirect to course dashboard WITH reference so your page logic can react if needed
       return NextResponse.redirect(
         new URL(`/knowledge/${encodeURIComponent(meta.slug)}/dashboard?reference=${encodeURIComponent(reference)}&paid=${isPaid ? "1" : "0"}`, url.origin)
@@ -115,6 +134,21 @@ export async function GET(request: Request) {
           } as Record<string, unknown>,
           { onConflict: "user_id,ebook_id" }
         );
+
+      if (isPaid) {
+        await sendPurchaseReceipt(sb, {
+          kind: "ebook",
+          userId: meta.user_id,
+          itemId: meta.ebook_id,
+          reference: d.reference,
+          amountMinor,
+          currency,
+          paidAt: d.paid_at,
+          channel: d.channel,
+          email: d.customer?.email,
+          voucherCode: meta.voucher_code,
+        });
+      }
 
       // Redirect back to the ebook page WITH reference to trigger your polling
       return NextResponse.redirect(

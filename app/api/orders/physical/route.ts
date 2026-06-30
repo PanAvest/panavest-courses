@@ -4,6 +4,8 @@ import { z } from "zod";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { validateVoucher, redeemVoucher, normalizeVoucherCode } from "@/lib/vouchers";
 import { decrementStock, incrementStock } from "@/lib/stock";
+import { sendEmailOnce } from "@/lib/email";
+import { physicalOrderInvoiceEmail } from "@/lib/emailTemplates";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +28,7 @@ type EbookRow = {
   slug: string;
   title: string | null;
   price_cents: number | null;
+  physical_price_cents?: number | null;
   stock_quantity?: number | null;
 };
 
@@ -71,7 +74,12 @@ export async function POST(req: Request) {
   }
   const ebook = ebookData as EbookRow;
 
-  const unitPrice = Math.max(0, Math.round(Number(ebook.price_cents ?? 0)));
+  // Physical copies use the dedicated physical price, falling back to the digital price.
+  const physical = ebook.physical_price_cents;
+  const unitPrice =
+    typeof physical === "number" && physical > 0
+      ? Math.round(physical)
+      : Math.max(0, Math.round(Number(ebook.price_cents ?? 0)));
   const subtotal = unitPrice * body.quantity;
 
   // 2) Stock enforcement (only when the column exists in the row).
@@ -153,6 +161,33 @@ export async function POST(req: Request) {
   // 6) Redeem the voucher now that the order is committed (best-effort).
   if (appliedVoucher) {
     await redeemVoucher(admin, appliedVoucher);
+  }
+
+  // 7) Email the customer their order confirmation / invoice (best-effort, once per order).
+  try {
+    await sendEmailOnce(
+      admin,
+      { ref: orderRef, kind: "order_invoice", to: body.email.trim() },
+      () =>
+        physicalOrderInvoiceEmail({
+          orderRef,
+          customerName: body.customer_name,
+          itemTitle: ebook.title || "Book",
+          quantity: body.quantity,
+          unitMinor: unitPrice,
+          subtotalMinor: subtotal,
+          discountMinor: discountCents,
+          totalMinor: total,
+          voucherCode: appliedVoucher,
+          fulfillment: body.fulfillment,
+          region: body.region,
+          city: body.city,
+          street: body.street,
+          phone: body.phone,
+        }),
+    );
+  } catch (e) {
+    console.error("[orders] invoice email failed:", (e as Error).message);
   }
 
   return NextResponse.json({

@@ -5,10 +5,12 @@
 -- so no public RLS policies are required.
 -- ============================================================================
 
--- ── 1) ebooks: stock + SKU columns ─────────────────────────────────────────
+-- ── 1) ebooks: stock + SKU + physical price columns ─────────────────────────
 alter table public.ebooks add column if not exists sku text;
 alter table public.ebooks add column if not exists stock_quantity integer not null default 0;
 alter table public.ebooks add column if not exists show_stock boolean not null default false;
+-- Price (in pesewas / minor units) for the PRINTED copy. NULL/0 → fall back to the digital price_cents.
+alter table public.ebooks add column if not exists physical_price_cents integer;
 
 -- ── 2) Discount voucher codes ──────────────────────────────────────────────
 create table if not exists public.vouchers (
@@ -57,6 +59,18 @@ create index if not exists physical_orders_created_idx on public.physical_orders
 create index if not exists physical_orders_status_idx on public.physical_orders (status);
 alter table public.physical_orders enable row level security;
 -- No public policies on purpose: all access via service role.
+
+-- ── 3b) Email log (guarantees a given email is sent at most once) ───────────
+create table if not exists public.email_log (
+  id uuid primary key default gen_random_uuid(),
+  ref text not null,        -- payment reference, order ref, or certificate id
+  kind text not null,       -- 'purchase_receipt' | 'order_invoice' | 'certificate'
+  to_email text,
+  sent_at timestamptz not null default now(),
+  unique (ref, kind)
+);
+alter table public.email_log enable row level security;
+-- No public policies: written only by service-role server routes.
 
 -- ── 4) Atomic stock decrement (used when an order is placed) ────────────────
 -- Returns the remaining stock, or NULL if there was not enough stock.

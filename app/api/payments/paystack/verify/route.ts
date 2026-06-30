@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { grantBundledEbooks } from "@/lib/grantBundledEbooks";
 import { redeemVoucher } from "@/lib/vouchers";
+import { sendPurchaseReceipt } from "@/lib/purchaseEmails";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -14,6 +15,10 @@ type VerifyPayload = {
     status?: string; // "success"
     reference?: string;
     paid_at?: string | null;
+    amount?: number;
+    currency?: string;
+    channel?: string | null;
+    customer?: { email?: string | null } | null;
     metadata?: {
       kind?: "course" | "ebook";
       user_id?: string;
@@ -94,6 +99,19 @@ export async function GET(req: NextRequest) {
       });
       if (bundle.error) console.warn("[bundles] verify failed", bundle.error);
 
+      await sendPurchaseReceipt(supabase, {
+        kind: "course",
+        userId: meta.user_id,
+        itemId: meta.course_id,
+        reference,
+        amountMinor: typeof data.amount === "number" ? data.amount : null,
+        currency: data.currency,
+        paidAt: data.paid_at,
+        channel: data.channel,
+        email: data.customer?.email,
+        voucherCode: meta.voucher_code,
+      });
+
       return Response.json({ ok: true, kind: "course", slug: meta.slug, reference }, { status: 200 });
     }
 
@@ -122,6 +140,19 @@ export async function GET(req: NextRequest) {
       if (!wasPaid && meta.voucher_code) {
         await redeemVoucher(supabase, meta.voucher_code);
       }
+
+      await sendPurchaseReceipt(supabase, {
+        kind: "ebook",
+        userId: meta.user_id,
+        itemId: meta.ebook_id,
+        reference,
+        amountMinor: typeof data.amount === "number" ? data.amount : null,
+        currency: data.currency,
+        paidAt: data.paid_at,
+        channel: data.channel,
+        email: data.customer?.email,
+        voucherCode: meta.voucher_code,
+      });
 
       return Response.json({ ok: true, kind: "ebook", slug: meta.slug, reference }, { status: 200 });
     }

@@ -75,12 +75,13 @@ type Ebook = {
   cover_url?: string | null;
   sample_url?: string | null;
   kpf_url?: string | null;
-  price_cents: number; // USD cents
+  price_cents: number; // GHS minor units (pesewas)
   published: boolean;
   free_for_logged_in?: boolean;
   sku?: string | null;
   stock_quantity?: number | null;
   show_stock?: boolean | null;
+  physical_price_cents?: number | null;
   created_at?: string | null;
 };
 type FinalExam = {
@@ -425,6 +426,8 @@ function asEbooks(x: unknown): Ebook[] {
       sku: isStr(r["sku"]) ? r["sku"] : "",
       stock_quantity: typeof r["stock_quantity"] === "number" ? (r["stock_quantity"] as number) : 0,
       show_stock: Boolean(r["show_stock"] ?? false),
+      physical_price_cents:
+        typeof r["physical_price_cents"] === "number" ? (r["physical_price_cents"] as number) : null,
       created_at: isStr(r["created_at"]) ? r["created_at"] : null,
     };
   });
@@ -1652,6 +1655,10 @@ export default function AdminPage() {
       sku: ebookForm.sku?.trim() || null,
       stock_quantity: num(ebookForm.stock_quantity, 0),
       show_stock: Boolean(ebookForm.show_stock),
+      physical_price_cents:
+        ebookForm.physical_price_cents != null && ebookForm.physical_price_cents > 0
+          ? num(ebookForm.physical_price_cents, 0)
+          : null,
     };
     const r = await fetch("/api/admin/ebooks", {
       method: "POST",
@@ -2025,38 +2032,61 @@ export default function AdminPage() {
 
   /* ── Quick Prices ── */
   const [priceSearch, setPriceSearch] = useState("");
-  const priceRows = useMemo(() => {
-    const rows: Array<{
-      kind: "course" | "ebook";
-      id: string;
-      title: string;
-      price: number;
-      currency: "GHS" | "USD";
-    }> = [];
-    knowledge.forEach((k) =>
-      rows.push({
-        kind: "course",
-        id: k.id ?? k.slug,
-        title: k.title,
-        price: k.price ?? 0,
-        currency: "GHS",
-      }),
-    );
-    ebooks.forEach((e) =>
-      rows.push({
-        kind: "ebook",
-        id: e.id ?? e.slug,
-        title: e.title,
-        price: e.price_cents / 100,
-        currency: "USD",
-      }),
-    );
-    const q = priceSearch.trim().toLowerCase();
-    return q ? rows.filter((r) => r.title.toLowerCase().includes(q)) : rows;
-  }, [knowledge, ebooks, priceSearch]);
+  type PriceField = "course" | "ebook_digital" | "ebook_physical";
+  type PriceRowData = { field: PriceField; id: string; title: string; price: number; currency: "GHS" | "USD" };
 
-  async function savePrice(row: { kind: "course" | "ebook"; id: string; price: number }) {
-    if (row.kind === "course") {
+  const priceQ = priceSearch.trim().toLowerCase();
+  const filterByQ = useCallback(
+    (rows: PriceRowData[]) => (priceQ ? rows.filter((r) => r.title.toLowerCase().includes(priceQ)) : rows),
+    [priceQ],
+  );
+
+  const coursePriceRows = useMemo<PriceRowData[]>(
+    () =>
+      filterByQ(
+        knowledge.map((k) => ({
+          field: "course" as const,
+          id: k.id ?? k.slug,
+          title: k.title,
+          price: k.price ?? 0,
+          currency: "GHS" as const,
+        })),
+      ),
+    [knowledge, filterByQ],
+  );
+  const ebookDigitalRows = useMemo<PriceRowData[]>(
+    () =>
+      filterByQ(
+        ebooks.map((e) => ({
+          field: "ebook_digital" as const,
+          id: e.id ?? e.slug,
+          title: e.title,
+          price: e.price_cents / 100,
+          currency: "GHS" as const,
+        })),
+      ),
+    [ebooks, filterByQ],
+  );
+  const ebookPhysicalRows = useMemo<PriceRowData[]>(
+    () =>
+      filterByQ(
+        ebooks.map((e) => ({
+          field: "ebook_physical" as const,
+          id: e.id ?? e.slug,
+          title: e.title,
+          // Falls back to the digital price when no dedicated physical price is set.
+          price:
+            e.physical_price_cents != null && e.physical_price_cents > 0
+              ? e.physical_price_cents / 100
+              : e.price_cents / 100,
+          currency: "GHS" as const,
+        })),
+      ),
+    [ebooks, filterByQ],
+  );
+
+  async function savePrice(row: { field: PriceField; id: string; price: number }) {
+    if (row.field === "course") {
       const item = knowledge.find((k) => (k.id ?? k.slug) === row.id);
       if (!item) return;
       const payload = { ...item, price: row.price };
@@ -2067,18 +2097,21 @@ export default function AdminPage() {
       });
       if (!r.ok) return alert("Save course price failed");
       await refreshKnowledge();
-    } else {
-      const item = ebooks.find((e) => (e.id ?? e.slug) === row.id);
-      if (!item) return;
-      const payload = { ...item, price_cents: Math.round(row.price * 100) };
-      const r = await fetch("/api/admin/ebooks", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!r.ok) return alert("Save e-book price failed");
-      await refreshEbooks();
+      return;
     }
+    const item = ebooks.find((e) => (e.id ?? e.slug) === row.id);
+    if (!item) return;
+    const payload =
+      row.field === "ebook_physical"
+        ? { ...item, physical_price_cents: Math.round(row.price * 100) }
+        : { ...item, price_cents: Math.round(row.price * 100) };
+    const r = await fetch("/api/admin/ebooks", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!r.ok) return alert("Save e-book price failed");
+    await refreshEbooks();
   }
 
   /* ── Deploy ── */
@@ -2350,7 +2383,7 @@ export default function AdminPage() {
               </label>
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="grid gap-1">
-                  <span className="text-xs text-slate-500">Price (USD)</span>
+                  <span className="text-xs text-slate-500">Price (GH₵)</span>
                   <input
                     type="number"
                     step="0.01"
@@ -2393,6 +2426,30 @@ export default function AdminPage() {
               <div className="rounded-lg border border-[color:var(--color-light)]/40 p-3">
                 <div className="text-xs font-semibold text-slate-600">Physical copies (inventory)</div>
                 <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                  <label className="grid gap-1">
+                    <span className="text-xs text-slate-500">Physical copy price (GH₵)</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      placeholder="Defaults to digital price"
+                      value={
+                        ebookForm.physical_price_cents != null
+                          ? (ebookForm.physical_price_cents / 100).toString()
+                          : ""
+                      }
+                      onChange={(e) => {
+                        const raw = (e.target as HTMLInputElement).value;
+                        if (raw.trim() === "") {
+                          setEbookForm((f) => ({ ...f, physical_price_cents: null }));
+                          return;
+                        }
+                        const cents = Math.round(Number(raw || 0) * 100);
+                        setEbookForm((f) => ({ ...f, physical_price_cents: Number.isFinite(cents) ? cents : null }));
+                      }}
+                      className="h-10 rounded-lg bg-white px-3 border border-[color:var(--color-light)]/40 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+                    />
+                  </label>
                   <label className="grid gap-1">
                     <span className="text-xs text-slate-500">SKU (optional)</span>
                     <input
@@ -2510,7 +2567,7 @@ export default function AdminPage() {
                         /{e.slug} ·{" "}
                         {e.free_for_logged_in
                           ? "Free with login"
-                          : (e.price_cents / 100).toLocaleString(undefined, { style: "currency", currency: "USD" })} ·{" "}
+                          : `GH₵ ${(e.price_cents / 100).toFixed(2)}`} ·{" "}
                         {e.published ? "Published" : "Draft"} · Stock: {e.stock_quantity ?? 0}
                         {e.show_stock ? " (shown)" : ""}
                       </div>
@@ -3363,39 +3420,40 @@ export default function AdminPage() {
       {/* ───────────── Prices ───────────── */}
       {tab === "prices" && (
         <div className="mt-6 grid gap-6">
-          <Section title="Quick Price Editor" right={<span className="text-xs text-slate-500">Courses in GH₵ · E-books in USD</span>}>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <input
-                placeholder="Search by title…"
-                value={priceSearch}
-                onChange={(e) => setPriceSearch((e.target as HTMLInputElement).value)}
-                className="h-10 rounded-lg bg-white px-3 border border-[color:var(--color-light)]/40 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 w-full sm:w-80"
-              />
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Prices</h2>
+              <p className="text-xs text-slate-500">
+                Edit every paid item in one place. All prices are charged in GH₵.
+              </p>
             </div>
-            <div className="mt-4 overflow-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left">
-                    <th className="py-2 pr-3">Type</th>
-                    <th className="py-2 pr-3">Title</th>
-                    <th className="py-2 pr-3">Price</th>
-                    <th className="py-2 pr-3 w-32">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {priceRows.map((r) => (
-                    <PriceRow key={`${r.kind}-${r.id}`} row={r} onSave={savePrice} />
-                  ))}
-                  {priceRows.length === 0 && (
-                    <tr>
-                      <td colSpan={4} className="py-3 text-sm text-slate-500">
-                        No items.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <input
+              placeholder="Search by title…"
+              value={priceSearch}
+              onChange={(e) => setPriceSearch((e.target as HTMLInputElement).value)}
+              className="h-10 rounded-lg bg-white px-3 border border-[color:var(--color-light)]/40 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30 w-full sm:w-80"
+            />
+          </div>
+
+          <Section
+            title="Courses"
+            right={<span className="text-xs text-slate-500">{coursePriceRows.length} item(s)</span>}
+          >
+            <PriceTable rows={coursePriceRows} onSave={savePrice} emptyLabel="No courses." />
+          </Section>
+
+          <Section
+            title="E-books (digital)"
+            right={<span className="text-xs text-slate-500">{ebookDigitalRows.length} item(s)</span>}
+          >
+            <PriceTable rows={ebookDigitalRows} onSave={savePrice} emptyLabel="No e-books." />
+          </Section>
+
+          <Section
+            title="Physical books (printed copies)"
+            right={<span className="text-xs text-slate-500">Blank/0 uses the digital price</span>}
+          >
+            <PriceTable rows={ebookPhysicalRows} onSave={savePrice} emptyLabel="No e-books." />
           </Section>
         </div>
       )}
@@ -4244,13 +4302,51 @@ export default function AdminPage() {
   );
 }
 
+/* ───────────────────── Subcomponent: PriceTable ───────────────────── */
+type PriceFieldKind = "course" | "ebook_digital" | "ebook_physical";
+function PriceTable({
+  rows,
+  onSave,
+  emptyLabel,
+}: {
+  rows: Array<{ field: PriceFieldKind; id: string; title: string; price: number; currency: "GHS" | "USD" }>;
+  onSave: (r: { field: PriceFieldKind; id: string; price: number }) => Promise<void>;
+  emptyLabel: string;
+}) {
+  return (
+    <div className="overflow-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-left">
+            <th className="py-2 pr-3">Title</th>
+            <th className="py-2 pr-3">Price</th>
+            <th className="py-2 pr-3 w-32">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <PriceRow key={`${r.field}-${r.id}`} row={r} onSave={onSave} />
+          ))}
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={3} className="py-3 text-sm text-slate-500">
+                {emptyLabel}
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 /* ───────────────────── Subcomponent: PriceRow ───────────────────── */
 function PriceRow({
   row,
   onSave,
 }: {
-  row: { kind: "course" | "ebook"; id: string; title: string; price: number; currency: "GHS" | "USD" };
-  onSave: (r: { kind: "course" | "ebook"; id: string; price: number }) => Promise<void>;
+  row: { field: "course" | "ebook_digital" | "ebook_physical"; id: string; title: string; price: number; currency: "GHS" | "USD" };
+  onSave: (r: { field: "course" | "ebook_digital" | "ebook_physical"; id: string; price: number }) => Promise<void>;
 }) {
   const [val, setVal] = useState<string>(row.price.toString());
   const [saving, setSaving] = useState(false);
@@ -4262,13 +4358,12 @@ function PriceRow({
     const p = Number(val);
     if (!Number.isFinite(p) || p < 0) return alert("Enter a valid price");
     setSaving(true);
-    await onSave({ kind: row.kind, id: row.id, price: p });
+    await onSave({ field: row.field, id: row.id, price: p });
     setSaving(false);
   }
 
   return (
     <tr className="border-t border-[color:var(--color-light)]/40">
-      <td className="py-2 pr-3 capitalize">{row.kind}</td>
       <td className="py-2 pr-3">{row.title}</td>
       <td className="py-2 pr-3">
         <div className="flex items-center gap-2">
