@@ -14,13 +14,19 @@ const EbookSchema = z.object({
   price_cents: z.number().int().nonnegative().default(0),
   published: z.boolean().default(true),
   free_for_logged_in: z.boolean().default(false),
+  sku: z.string().nullable().optional(),
+  stock_quantity: z.number().int().nonnegative().optional(),
+  show_stock: z.boolean().optional(),
 });
+
+// Columns that may not exist yet on older databases (before the physical-store migration).
+const OPTIONAL_COLUMNS = ["free_for_logged_in", "sku", "stock_quantity", "show_stock"];
 
 function isMissingFreeColumnError(err: unknown): boolean {
   if (!err || typeof err !== "object") return false;
   const rec = err as { code?: string; message?: string; details?: string; hint?: string };
   const text = `${rec.message ?? ""} ${rec.details ?? ""} ${rec.hint ?? ""}`.toLowerCase();
-  if (!text.includes("free_for_logged_in")) return false;
+  if (!OPTIONAL_COLUMNS.some((c) => text.includes(c))) return false;
   if (rec.code === "42703" || rec.code === "PGRST204") return true;
   return text.includes("does not exist") || text.includes("schema cache") || text.includes("could not find");
 }
@@ -56,43 +62,28 @@ export async function POST(req: Request) {
     );
   }
 
-  const payload = parsed.data;
+  const payload: Record<string, unknown> = { ...parsed.data };
 
-  // Upsert a SINGLE row (by id if present, otherwise by unique slug)
-  // Important: request a single row back without throwing if zero/multi rows
- // ✅ works with a single object payload
-let { data, error } = await supabase
-  .from("ebooks")
-  .upsert(payload, {
-    onConflict: "slug",        // slug must be UNIQUE in the table
-    ignoreDuplicates: false,
-  })
-  .select("*")
-  .single();                   // exactly one row expected after upsert
-
-if (error && isMissingFreeColumnError(error)) {
-  const legacyPayload = {
-    id: payload.id,
-    slug: payload.slug,
-    title: payload.title,
-    description: payload.description,
-    cover_url: payload.cover_url,
-    sample_url: payload.sample_url,
-    kpf_url: payload.kpf_url,
-    price_cents: payload.price_cents,
-    published: payload.published,
-  };
-  const fallback = await supabase
-    .from("ebooks")
-    .upsert(legacyPayload, {
-      onConflict: "slug",
-      ignoreDuplicates: false,
-    })
-    .select("*")
-    .single();
-  data = fallback.data;
-  error = fallback.error;
-}
+  // Upsert a SINGLE row (by id if present, otherwise by unique slug).
+  // If the DB predates the physical-store migration, progressively drop the
+  // optional columns named in the error and retry, so saves still succeed.
+  let data: unknown = null;
+  let error: { message?: string; details?: string; hint?: string; code?: string } | null = null;
+  const attemptPayload: Record<string, unknown> = { ...payload };
+  for (let attempt = 0; attempt < OPTIONAL_COLUMNS.length + 1; attempt++) {
+    const res = await supabase
+      .from("ebooks")
+      .upsert(attemptPayload, { onConflict: "slug", ignoreDuplicates: false })
+      .select("*")
+      .single();
+    data = res.data;
+    error = res.error;
+    if (!error || !isMissingFreeColumnError(error)) break;
+    const text = `${error.message ?? ""} ${error.details ?? ""} ${error.hint ?? ""}`.toLowerCase();
+    const offending = OPTIONAL_COLUMNS.filter((c) => text.includes(c) && c in attemptPayload);
+    if (offending.length === 0) break;
+    offending.forEach((c) => delete attemptPayload[c]);
+  }
 
 
   if (error) {

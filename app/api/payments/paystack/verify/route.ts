@@ -2,6 +2,7 @@
 import { NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { grantBundledEbooks } from "@/lib/grantBundledEbooks";
+import { redeemVoucher } from "@/lib/vouchers";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -19,6 +20,7 @@ type VerifyPayload = {
       course_id?: string;
       ebook_id?: string;
       slug?: string;
+      voucher_code?: string;
     } | null;
   };
 };
@@ -58,6 +60,15 @@ export async function GET(req: NextRequest) {
 
     // 2) Minimal schema-safe writes: ONLY columns guaranteed to exist in your app logic
     if (meta?.kind === "course" && meta.user_id && meta.course_id) {
+      // Check prior state so a voucher is only consumed once (verify can run more than once).
+      const priorEnr = await supabase
+        .from("enrollments")
+        .select("paid")
+        .eq("user_id", meta.user_id)
+        .eq("course_id", meta.course_id)
+        .maybeSingle();
+      const wasPaid = Boolean((priorEnr.data as { paid?: boolean } | null)?.paid);
+
       const up = await supabase
         .from("enrollments")
         .upsert(
@@ -69,6 +80,10 @@ export async function GET(req: NextRequest) {
           { onConflict: "user_id,course_id" }
         );
       if (up.error) return Response.json({ ok: false, error: up.error.message }, { status: 500 });
+
+      if (!wasPaid && meta.voucher_code) {
+        await redeemVoucher(supabase, meta.voucher_code);
+      }
 
       // Grant bundled ebooks (if any) alongside the course
       const bundle = await grantBundledEbooks(supabase, {
@@ -83,6 +98,15 @@ export async function GET(req: NextRequest) {
     }
 
     if (meta?.kind === "ebook" && meta.user_id && meta.ebook_id) {
+      // Check prior state so a voucher is only consumed once (verify can run more than once).
+      const prior = await supabase
+        .from("ebook_purchases")
+        .select("status")
+        .eq("user_id", meta.user_id)
+        .eq("ebook_id", meta.ebook_id)
+        .maybeSingle();
+      const wasPaid = (prior.data as { status?: string } | null)?.status === "paid";
+
       const up = await supabase
         .from("ebook_purchases")
         .upsert(
@@ -94,6 +118,10 @@ export async function GET(req: NextRequest) {
           { onConflict: "user_id,ebook_id" }
         );
       if (up.error) return Response.json({ ok: false, error: up.error.message }, { status: 500 });
+
+      if (!wasPaid && meta.voucher_code) {
+        await redeemVoucher(supabase, meta.voucher_code);
+      }
 
       return Response.json({ ok: true, kind: "ebook", slug: meta.slug, reference }, { status: 200 });
     }

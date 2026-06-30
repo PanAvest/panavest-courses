@@ -36,7 +36,15 @@ type Ebook = {
   price_cents: number;
   published: boolean;
   free_for_logged_in?: boolean;
+  stock_quantity?: number | null;
+  show_stock?: boolean | null;
 };
+
+type DigitalVoucher =
+  | { kind: "idle" }
+  | { kind: "checking" }
+  | { kind: "applied"; code: string; discountCents: number; label: string }
+  | { kind: "error"; message: string };
 
 type OwnershipState =
   | { kind: "loading" }
@@ -101,6 +109,8 @@ export default function EbookDetailPage() {
   const [email, setEmail] = useState("");
   const [buying, setBuying] = useState(false);
   const [verifying, setVerifying] = useState<string | null>(null);
+  const [voucherInput, setVoucherInput] = useState("");
+  const [digitalVoucher, setDigitalVoucher] = useState<DigitalVoucher>({ kind: "idle" });
 
   const [pdfReady, setPdfReady] = useState(false);
   const [showReader, setShowReader] = useState(false);
@@ -352,6 +362,15 @@ export default function EbookDetailPage() {
     if (ebook.free_for_logged_in) return "Free with login";
     return `GH₵ ${(ebook.price_cents / 100).toFixed(2)}`;
   }, [ebook]);
+
+  const digitalDiscountCents =
+    digitalVoucher.kind === "applied" && ebook
+      ? Math.min(Math.round(Number(ebook.price_cents)), digitalVoucher.discountCents)
+      : 0;
+  const digitalTotalCents = ebook
+    ? Math.max(0, Math.round(Number(ebook.price_cents)) - digitalDiscountCents)
+    : 0;
+  const digitalTotalLabel = `GH₵ ${(digitalTotalCents / 100).toFixed(2)}`;
 
   const normalizeFlipSpreadStart = useCallback((page: number) => {
     if (pageCount <= 1) return 1;
@@ -775,6 +794,32 @@ export default function EbookDetailPage() {
     setZoom(1);
   }, []);
 
+  async function applyDigitalVoucher() {
+    const code = voucherInput.trim();
+    if (!code || !ebook) return;
+    setDigitalVoucher({ kind: "checking" });
+    try {
+      const r = await fetch("/api/vouchers/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, subtotal_cents: Math.round(Number(ebook.price_cents)) }),
+      });
+      const j = await r.json();
+      if (j?.ok) {
+        setDigitalVoucher({ kind: "applied", code: j.code, discountCents: j.discount_cents, label: j.label });
+      } else {
+        setDigitalVoucher({ kind: "error", message: j?.error || "Invalid voucher code." });
+      }
+    } catch {
+      setDigitalVoucher({ kind: "error", message: "Could not check voucher. Try again." });
+    }
+  }
+
+  function clearDigitalVoucher() {
+    setDigitalVoucher({ kind: "idle" });
+    setVoucherInput("");
+  }
+
   async function handleBuy() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -796,6 +841,7 @@ export default function EbookDetailPage() {
         body: JSON.stringify({
           email,
           amountMinor,
+          voucherCode: digitalVoucher.kind === "applied" ? digitalVoucher.code : undefined,
           meta: { kind: "ebook", user_id: user.id, ebook_id: ebook.id, slug: ebook.slug },
         }),
       });
@@ -1409,6 +1455,17 @@ export default function EbookDetailPage() {
                   <span className="rounded-lg border border-[color:var(--color-light)] bg-[color:var(--color-bg)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-[color:var(--color-muted)]">
                     NaCCA credited
                   </span>
+                  {ebook.show_stock && typeof ebook.stock_quantity === "number" && (
+                    <span
+                      className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${
+                        ebook.stock_quantity > 0
+                          ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
+                          : "border border-red-200 bg-red-50 text-red-700"
+                      }`}
+                    >
+                      {ebook.stock_quantity > 0 ? `${ebook.stock_quantity} copies left` : "Out of stock"}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -1452,6 +1509,45 @@ export default function EbookDetailPage() {
 
                 {own.kind === "not_owner" && (
                   <>
+                    {!ebook.free_for_logged_in && (
+                      <div className="rounded-xl border border-[color:var(--color-light)] bg-[color:var(--color-bg)]/60 p-3">
+                        <div className="text-[11px] font-semibold uppercase tracking-wide text-[color:var(--color-muted)]">
+                          Discount voucher
+                        </div>
+                        {digitalVoucher.kind === "applied" ? (
+                          <div className="mt-2 flex items-center justify-between rounded-lg bg-green-50 px-3 py-2 text-xs text-green-800 ring-1 ring-green-200">
+                            <span>
+                              <span className="font-semibold">{digitalVoucher.code}</span> · {digitalVoucher.label}
+                            </span>
+                            <button type="button" onClick={clearDigitalVoucher} className="underline">
+                              Remove
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="mt-2 flex gap-2">
+                              <input
+                                value={voucherInput}
+                                onChange={(e) => setVoucherInput((e.target as HTMLInputElement).value)}
+                                placeholder="Enter code"
+                                className="h-9 w-full rounded-lg bg-white px-3 text-xs uppercase ring-1 ring-[color:var(--color-light)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-accent-red)]"
+                              />
+                              <button
+                                type="button"
+                                onClick={applyDigitalVoucher}
+                                disabled={digitalVoucher.kind === "checking" || !voucherInput.trim()}
+                                className="shrink-0 rounded-lg border border-[color:var(--color-light)] bg-white px-3 text-xs font-medium hover:bg-white disabled:opacity-50"
+                              >
+                                {digitalVoucher.kind === "checking" ? "…" : "Apply"}
+                              </button>
+                            </div>
+                            {digitalVoucher.kind === "error" && (
+                              <div className="mt-1 text-[11px] text-red-600">{digitalVoucher.message}</div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
                     <button
                       onClick={handleBuy}
                       disabled={buying}
@@ -1466,7 +1562,11 @@ export default function EbookDetailPage() {
                           </svg>
                           Redirecting to payment…
                         </span>
-                      ) : `Buy · ${price}`}
+                      ) : digitalDiscountCents > 0 ? (
+                        `Buy · ${digitalTotalLabel}`
+                      ) : (
+                        `Buy · ${price}`
+                      )}
                     </button>
                     <Link
                       href={dashboardHref}
@@ -1508,6 +1608,25 @@ export default function EbookDetailPage() {
                       Pinch to zoom in full screen. Drag when zoomed.
                     </p>
                   </>
+                )}
+
+                {/* Physical copy — available in every state */}
+                {own.kind !== "loading" && (
+                  <div className="mt-1 border-t border-[color:var(--color-light)] pt-3">
+                    <Link
+                      href={`/ebooks/${encodeURIComponent(slug)}/physical`}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl border-2 py-3 text-sm font-semibold transition hover:bg-[color:var(--color-bg)]"
+                      style={{ borderColor: BRAND, color: BRAND }}
+                    >
+                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
+                        <path d="M4 4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v15H6a2 2 0 0 0-2 2V4zm14 13h2V4a2 2 0 0 0-2-2v15zM6 19h11v1H6a1 1 0 0 1 0-1z" />
+                      </svg>
+                      Buy a physical copy
+                    </Link>
+                    <p className="mt-1.5 text-center text-[11px] text-[color:var(--color-muted)]">
+                      Printed book delivered or for pickup · delivery paid by customer
+                    </p>
+                  </div>
                 )}
               </div>
             </div>

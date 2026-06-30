@@ -1,15 +1,17 @@
 // app/api/payments/paystack/init/route.ts
 import { NextResponse } from "next/server";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { validateVoucher, normalizeVoucherCode } from "@/lib/vouchers";
 
-type MetaCourse = { kind: "course"; user_id: string; course_id: string; slug: string };
-type MetaEbook  = { kind: "ebook";  user_id: string; ebook_id:  string; slug: string };
+type MetaCourse = { kind: "course"; user_id: string; course_id: string; slug: string; voucher_code?: string };
+type MetaEbook  = { kind: "ebook";  user_id: string; ebook_id:  string; slug: string; voucher_code?: string };
 type Meta = MetaCourse | MetaEbook;
 
 type InitBody = {
   email: string;
   amountMinor: number;          // e.g. 30000 for GHS 300.00
   currency?: string;            // default GHS
+  voucherCode?: string;         // optional discount voucher
   meta: Meta;
 };
 
@@ -77,6 +79,7 @@ export async function POST(request: Request) {
     const callback_url = `${origin}/api/payments/paystack/callback`;
     // (Optional) pre-create records so you can track pending states (safe to skip)
     const admin = getAdmin();
+    let serverPriceMinor: number | null = null; // authoritative price from the DB (ebooks)
     if (body.meta.kind === "course") {
       const { data: course, error: courseErr } = await admin
         .from("courses")
@@ -97,19 +100,30 @@ export async function POST(request: Request) {
     } else {
       const { data: ebook, error: ebookErr } = await admin
         .from("ebooks")
-        .select("free_for_logged_in")
+        .select("free_for_logged_in, price_cents")
         .eq("id", body.meta.ebook_id)
         .maybeSingle();
       if (ebookErr) {
         if (!isMissingFreeColumnError(ebookErr)) {
           return NextResponse.json({ error: ebookErr.message }, { status: 500 });
         }
-      }
-      if (ebook?.free_for_logged_in === true) {
-        return NextResponse.json(
-          { error: "This e-book is free for logged-in users. No payment is required." },
-          { status: 409 },
-        );
+        // free_for_logged_in column missing — fetch price on its own so we keep authoritative pricing.
+        const { data: priceRow } = await admin
+          .from("ebooks")
+          .select("price_cents")
+          .eq("id", body.meta.ebook_id)
+          .maybeSingle();
+        const p = (priceRow as { price_cents?: number | null } | null)?.price_cents;
+        if (typeof p === "number" && Number.isFinite(p) && p > 0) serverPriceMinor = Math.round(p);
+      } else {
+        if (ebook?.free_for_logged_in === true) {
+          return NextResponse.json(
+            { error: "This e-book is free for logged-in users. No payment is required." },
+            { status: 409 },
+          );
+        }
+        const p = (ebook as { price_cents?: number | null } | null)?.price_cents;
+        if (typeof p === "number" && Number.isFinite(p) && p > 0) serverPriceMinor = Math.round(p);
       }
     }
 
@@ -144,13 +158,38 @@ export async function POST(request: Request) {
         );
     }
 
+    // Use the authoritative server price when we have it (never trust the client amount blindly).
+    const baseAmount = Math.round(serverPriceMinor ?? body.amountMinor);
+    if (!Number.isInteger(baseAmount) || baseAmount <= 0) {
+      return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
+    }
+
+    // Apply an optional discount voucher (re-validated server-side).
+    let amountToCharge = baseAmount;
+    const metaForPaystack: Meta = { ...body.meta };
+    if (body.voucherCode && body.voucherCode.trim()) {
+      const v = await validateVoucher(admin, body.voucherCode, baseAmount);
+      if (!v.ok) {
+        return NextResponse.json({ error: v.error }, { status: 400 });
+      }
+      const discounted = Math.max(0, baseAmount - v.discountCents);
+      if (discounted <= 0) {
+        return NextResponse.json(
+          { error: "This voucher cannot be applied to this item (it would reduce the price to zero)." },
+          { status: 400 },
+        );
+      }
+      amountToCharge = discounted;
+      metaForPaystack.voucher_code = normalizeVoucherCode(body.voucherCode);
+    }
+
     // Initialize Paystack
     const initPayload = {
       email: body.email,
-      amount: body.amountMinor,                    // minor units (pesewas)
+      amount: amountToCharge,                       // minor units (pesewas)
       currency: body.currency ?? "GHS",
       callback_url,
-      metadata: body.meta,                         // we’ll read this on callback
+      metadata: metaForPaystack,                    // we’ll read this on callback
     };
 
     const ps = await fetch("https://api.paystack.co/transaction/initialize", {

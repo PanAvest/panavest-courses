@@ -14,6 +14,9 @@ const Ebook = z.object({
   price_cents: z.number().int(),
   published: z.boolean(),
   free_for_logged_in: z.boolean().optional().default(false),
+  sku: z.string().nullable().optional(),
+  stock_quantity: z.number().int().nullable().optional(),
+  show_stock: z.boolean().nullable().optional(),
 });
 
 export async function GET(

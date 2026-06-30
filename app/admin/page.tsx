@@ -78,6 +78,9 @@ type Ebook = {
   price_cents: number; // USD cents
   published: boolean;
   free_for_logged_in?: boolean;
+  sku?: string | null;
+  stock_quantity?: number | null;
+  show_stock?: boolean | null;
   created_at?: string | null;
 };
 type FinalExam = {
@@ -127,6 +130,41 @@ type PurchaseRow = {
 };
 type PurchaseRange = "all" | "week" | "month" | "quarter" | "year" | "custom";
 type PurchaseStatusFilter = "all" | "paid" | "pending" | "failed";
+type PhysicalOrder = {
+  id: string;
+  order_ref: string;
+  ebook_id: string | null;
+  ebook_slug: string | null;
+  ebook_title: string | null;
+  customer_name: string;
+  email: string;
+  phone: string;
+  quantity: number;
+  fulfillment: "delivery" | "pickup";
+  region: string | null;
+  city: string | null;
+  street: string | null;
+  unit_price_cents: number;
+  subtotal_cents: number;
+  voucher_code: string | null;
+  discount_cents: number;
+  total_cents: number;
+  status: "new" | "processing" | "fulfilled" | "cancelled";
+  notes: string | null;
+  created_at: string | null;
+};
+type Voucher = {
+  id: string;
+  code: string;
+  discount_type: "percent" | "fixed";
+  discount_value: number;
+  active: boolean;
+  max_uses: number | null;
+  used_count: number;
+  min_subtotal_cents: number;
+  expires_at: string | null;
+  created_at: string | null;
+};
 type GlossaryEntry = {
   term: string;
   definition: string;
@@ -225,7 +263,7 @@ const getRangeBounds = (range: PurchaseRange, start: string, end: string) => {
   if (endDate && Number.isNaN(endDate.getTime())) endDate = null;
   return { start: startDate, end: endDate };
 };
-const adminTabs = ["catalog", "content", "prices", "media", "users", "purchases", "deploy", "ai"] as const;
+const adminTabs = ["catalog", "content", "prices", "media", "users", "purchases", "orders", "vouchers", "deploy", "ai"] as const;
 type AdminTab = (typeof adminTabs)[number];
 const adminTabLabels: Record<AdminTab, string> = {
   catalog: "Catalog",
@@ -234,6 +272,8 @@ const adminTabLabels: Record<AdminTab, string> = {
   media: "Media",
   users: "Users",
   purchases: "Purchases",
+  orders: "Orders",
+  vouchers: "Vouchers",
   deploy: "Deploy",
   ai: "AI Admin",
 };
@@ -382,6 +422,9 @@ function asEbooks(x: unknown): Ebook[] {
       price_cents: num(r["price_cents"], 0),
       published: Boolean(r["published"] ?? true),
       free_for_logged_in: Boolean(r["free_for_logged_in"] ?? false),
+      sku: isStr(r["sku"]) ? r["sku"] : "",
+      stock_quantity: typeof r["stock_quantity"] === "number" ? (r["stock_quantity"] as number) : 0,
+      show_stock: Boolean(r["show_stock"] ?? false),
       created_at: isStr(r["created_at"]) ? r["created_at"] : null,
     };
   });
@@ -1471,6 +1514,131 @@ export default function AdminPage() {
     if (tab === "catalog") void refreshBundles();
   }, [tab, refreshBundles]);
 
+  /* ── Physical orders ── */
+  const [orders, setOrders] = useState<PhysicalOrder[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [ordersSetupRequired, setOrdersSetupRequired] = useState(false);
+  const [orderStatusFilter, setOrderStatusFilter] = useState<"all" | PhysicalOrder["status"]>("all");
+  const [orderQuery, setOrderQuery] = useState("");
+  const refreshOrders = useCallback(async () => {
+    setOrdersLoading(true);
+    try {
+      const r = await fetch("/api/admin/orders", { cache: "no-store" });
+      const d = await r.json();
+      if (r.ok) {
+        setOrders(Array.isArray(d?.orders) ? (d.orders as PhysicalOrder[]) : []);
+        setOrdersSetupRequired(Boolean(d?.setup_required));
+      }
+    } catch (err) {
+      console.error("orders fetch failed", err);
+    } finally {
+      setOrdersLoading(false);
+    }
+  }, []);
+  useEffect(() => {
+    if (tab === "orders") void refreshOrders();
+  }, [tab, refreshOrders]);
+
+  async function updateOrderStatus(id: string, status: PhysicalOrder["status"]) {
+    setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status } : o)));
+    const r = await fetch(`/api/admin/orders/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    if (!r.ok) {
+      alert("Could not update order status.");
+      await refreshOrders();
+    }
+  }
+  async function deleteOrder(id: string) {
+    if (!confirm("Delete this order? Reserved stock will be returned.")) return;
+    const r = await fetch(`/api/admin/orders/${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (!r.ok) return alert("Delete failed");
+    await refreshOrders();
+  }
+
+  /* ── Discount vouchers ── */
+  const [vouchers, setVouchers] = useState<Voucher[]>([]);
+  const [vouchersLoading, setVouchersLoading] = useState(false);
+  const [vouchersSetupRequired, setVouchersSetupRequired] = useState(false);
+  const [voucherForm, setVoucherForm] = useState<{
+    code: string;
+    discount_type: "percent" | "fixed";
+    discount_value: number;
+    max_uses: string;
+    min_subtotal: string;
+    expires_at: string;
+  }>({ code: "", discount_type: "percent", discount_value: 10, max_uses: "", min_subtotal: "", expires_at: "" });
+  const [creatingVoucher, setCreatingVoucher] = useState(false);
+  const refreshVouchers = useCallback(async () => {
+    setVouchersLoading(true);
+    try {
+      const r = await fetch("/api/admin/vouchers", { cache: "no-store" });
+      const d = await r.json();
+      if (r.ok) {
+        setVouchers(Array.isArray(d?.vouchers) ? (d.vouchers as Voucher[]) : []);
+        setVouchersSetupRequired(Boolean(d?.setup_required));
+      }
+    } catch (err) {
+      console.error("vouchers fetch failed", err);
+    } finally {
+      setVouchersLoading(false);
+    }
+  }, []);
+  useEffect(() => {
+    if (tab === "vouchers") void refreshVouchers();
+  }, [tab, refreshVouchers]);
+
+  async function createVoucher() {
+    const dv = Math.floor(Number(voucherForm.discount_value));
+    if (!Number.isFinite(dv) || dv <= 0) return alert("Enter a discount value greater than zero.");
+    if (voucherForm.discount_type === "percent" && dv > 100) return alert("Percent discount cannot exceed 100.");
+    setCreatingVoucher(true);
+    try {
+      const body: Record<string, unknown> = {
+        discount_type: voucherForm.discount_type,
+        discount_value: voucherForm.discount_type === "fixed" ? Math.round(dv * 100) : dv,
+      };
+      if (voucherForm.code.trim()) body.code = voucherForm.code.trim();
+      if (voucherForm.max_uses.trim()) body.max_uses = Math.max(1, Math.floor(Number(voucherForm.max_uses)));
+      if (voucherForm.min_subtotal.trim()) body.min_subtotal_cents = Math.max(0, Math.round(Number(voucherForm.min_subtotal) * 100));
+      if (voucherForm.expires_at.trim()) body.expires_at = new Date(voucherForm.expires_at).toISOString();
+      const r = await fetch("/api/admin/vouchers", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const d = await r.json();
+      if (!r.ok) {
+        alert(typeof d?.error === "string" ? d.error : "Could not create voucher.");
+        return;
+      }
+      setVoucherForm({ code: "", discount_type: "percent", discount_value: 10, max_uses: "", min_subtotal: "", expires_at: "" });
+      await refreshVouchers();
+    } finally {
+      setCreatingVoucher(false);
+    }
+  }
+  async function toggleVoucher(v: Voucher) {
+    setVouchers((prev) => prev.map((x) => (x.id === v.id ? { ...x, active: !x.active } : x)));
+    const r = await fetch(`/api/admin/vouchers/${encodeURIComponent(v.id)}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ active: !v.active }),
+    });
+    if (!r.ok) {
+      alert("Could not update voucher.");
+      await refreshVouchers();
+    }
+  }
+  async function deleteVoucher(id: string) {
+    if (!confirm("Delete this voucher code?")) return;
+    const r = await fetch(`/api/admin/vouchers/${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (!r.ok) return alert("Delete failed");
+    await refreshVouchers();
+  }
+
   async function saveEbook() {
     if (!ebookForm.slug.trim() || !ebookForm.title.trim())
       return alert("Slug & Title required");
@@ -1481,6 +1649,9 @@ export default function AdminPage() {
       cover_url: ebookForm.cover_url?.trim() || null,
       sample_url: ebookForm.sample_url?.trim() || null,
       kpf_url: ebookForm.kpf_url?.trim() || null,
+      sku: ebookForm.sku?.trim() || null,
+      stock_quantity: num(ebookForm.stock_quantity, 0),
+      show_stock: Boolean(ebookForm.show_stock),
     };
     const r = await fetch("/api/admin/ebooks", {
       method: "POST",
@@ -2218,6 +2389,46 @@ export default function AdminPage() {
                 </div>
               </div>
 
+              {/* Physical stock / SKU */}
+              <div className="rounded-lg border border-[color:var(--color-light)]/40 p-3">
+                <div className="text-xs font-semibold text-slate-600">Physical copies (inventory)</div>
+                <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                  <label className="grid gap-1">
+                    <span className="text-xs text-slate-500">SKU (optional)</span>
+                    <input
+                      value={ebookForm.sku ?? ""}
+                      onChange={(e) => setEbookForm((f) => ({ ...f, sku: (e.target as HTMLInputElement).value }))}
+                      placeholder="e.g. PV-BOOK-001"
+                      className="h-10 rounded-lg bg-white px-3 border border-[color:var(--color-light)]/40 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+                    />
+                  </label>
+                  <label className="grid gap-1">
+                    <span className="text-xs text-slate-500">Quantity in stock (books left)</span>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={String(ebookForm.stock_quantity ?? 0)}
+                      onChange={(e) => {
+                        const v = Math.max(0, Math.floor(Number((e.target as HTMLInputElement).value || 0)));
+                        setEbookForm((f) => ({ ...f, stock_quantity: Number.isFinite(v) ? v : 0 }));
+                      }}
+                      className="h-10 rounded-lg bg-white px-3 border border-[color:var(--color-light)]/40 shadow-sm focus-visible:ring-2 focus-visible:ring-[color:var(--color-brand)]/30"
+                    />
+                  </label>
+                </div>
+                <label className="mt-3 inline-flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(ebookForm.show_stock)}
+                    onChange={(e) =>
+                      setEbookForm((f) => ({ ...f, show_stock: (e.target as HTMLInputElement).checked }))
+                    }
+                  />
+                  <span className="text-sm">Show &quot;copies left&quot; to customers</span>
+                </label>
+              </div>
+
               {([
                 ["cover_url", "Cover URL", "image/*"] as const,
                 ["sample_url", "Sample URL (image/pdf)", "image/*,application/pdf"] as const,
@@ -2300,7 +2511,8 @@ export default function AdminPage() {
                         {e.free_for_logged_in
                           ? "Free with login"
                           : (e.price_cents / 100).toLocaleString(undefined, { style: "currency", currency: "USD" })} ·{" "}
-                        {e.published ? "Published" : "Draft"}
+                        {e.published ? "Published" : "Draft"} · Stock: {e.stock_quantity ?? 0}
+                        {e.show_stock ? " (shown)" : ""}
                       </div>
                     </div>
                   </div>
@@ -3689,6 +3901,324 @@ export default function AdminPage() {
                   )}
                 </tbody>
               </table>
+            </div>
+          </Section>
+        </div>
+      )}
+
+      {/* ───────────── Physical Orders ───────────── */}
+      {tab === "orders" && (
+        <div className="mt-6 grid gap-6">
+          <Section
+            title="Physical book orders"
+            right={
+              <button
+                onClick={refreshOrders}
+                className="px-3 py-1.5 rounded-lg border border-[color:var(--color-light)]/40 shadow-sm text-sm"
+              >
+                {ordersLoading ? "Refreshing…" : "Refresh"}
+              </button>
+            }
+          >
+            {ordersSetupRequired && (
+              <div className="mb-3 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-200">
+                The <code>physical_orders</code> table was not found. Run{" "}
+                <code>supabase/physical_store.sql</code> in your Supabase project to enable orders.
+              </div>
+            )}
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="grid gap-1">
+                <span className="text-xs text-slate-500">Search</span>
+                <input
+                  placeholder="Name, email, phone, ref…"
+                  value={orderQuery}
+                  onChange={(e) => setOrderQuery((e.target as HTMLInputElement).value)}
+                  className="h-9 w-64 rounded-lg bg-white px-3 border border-[color:var(--color-light)]/40 shadow-sm"
+                />
+              </label>
+              <label className="grid gap-1">
+                <span className="text-xs text-slate-500">Status</span>
+                <select
+                  value={orderStatusFilter}
+                  onChange={(e) => setOrderStatusFilter((e.target as HTMLSelectElement).value as typeof orderStatusFilter)}
+                  className="h-9 rounded-lg bg-white px-3 border border-[color:var(--color-light)]/40 shadow-sm"
+                >
+                  <option value="all">All</option>
+                  <option value="new">New</option>
+                  <option value="processing">Processing</option>
+                  <option value="fulfilled">Fulfilled</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </label>
+              <div className="text-xs text-slate-500">
+                {orders.filter((o) => o.status === "new").length} new ·{" "}
+                {orders.length} total
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-3">
+              {orders
+                .filter((o) => orderStatusFilter === "all" || o.status === orderStatusFilter)
+                .filter((o) => {
+                  const q = orderQuery.trim().toLowerCase();
+                  if (!q) return true;
+                  return [o.customer_name, o.email, o.phone, o.order_ref, o.ebook_title ?? ""]
+                    .join(" ")
+                    .toLowerCase()
+                    .includes(q);
+                })
+                .map((o) => {
+                  const statusClass =
+                    o.status === "fulfilled"
+                      ? "bg-green-100 text-green-800"
+                      : o.status === "cancelled"
+                        ? "bg-red-100 text-red-800"
+                        : o.status === "processing"
+                          ? "bg-blue-100 text-blue-800"
+                          : "bg-amber-100 text-amber-800";
+                  return (
+                    <div key={o.id} className="rounded-xl border border-[color:var(--color-light)]/40 p-4 shadow-sm">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold">{o.ebook_title ?? o.ebook_slug ?? "—"}</span>
+                            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs ${statusClass}`}>
+                              {o.status}
+                            </span>
+                          </div>
+                          <div className="text-xs text-slate-500">
+                            {o.order_ref} · {formatDateTime(o.created_at)}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-semibold">{formatMoney(o.total_cents, "GHS")}</div>
+                          <div className="text-xs text-slate-500">
+                            {o.quantity} × {formatMoney(o.unit_price_cents, "GHS")}
+                            {o.discount_cents > 0 && ` · −${formatMoney(o.discount_cents, "GHS")}`}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
+                        <div>
+                          <div className="text-xs text-slate-500">Customer</div>
+                          <div className="font-medium">{o.customer_name}</div>
+                          <div className="text-xs">{o.email}</div>
+                          <div className="text-xs">{o.phone}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-slate-500 capitalize">{o.fulfillment}</div>
+                          {o.fulfillment === "delivery" ? (
+                            <div className="text-xs">
+                              {o.street}
+                              <br />
+                              {o.city}
+                              {o.city && o.region ? ", " : ""}
+                              {o.region}
+                            </div>
+                          ) : (
+                            <div className="text-xs">Pickup at office</div>
+                          )}
+                        </div>
+                        <div>
+                          {o.voucher_code && (
+                            <>
+                              <div className="text-xs text-slate-500">Voucher</div>
+                              <div className="text-xs font-medium">{o.voucher_code}</div>
+                            </>
+                          )}
+                          {o.notes && (
+                            <>
+                              <div className="mt-1 text-xs text-slate-500">Notes</div>
+                              <div className="text-xs">{o.notes}</div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <select
+                          value={o.status}
+                          onChange={(e) => void updateOrderStatus(o.id, (e.target as HTMLSelectElement).value as PhysicalOrder["status"])}
+                          className="h-9 rounded-lg bg-white px-3 border border-[color:var(--color-light)]/40 shadow-sm text-sm"
+                        >
+                          <option value="new">New</option>
+                          <option value="processing">Processing</option>
+                          <option value="fulfilled">Fulfilled</option>
+                          <option value="cancelled">Cancelled</option>
+                        </select>
+                        <a
+                          href={`mailto:${o.email}`}
+                          className="px-3 py-1.5 rounded-lg border border-[color:var(--color-light)]/40 shadow-sm text-sm"
+                        >
+                          Email
+                        </a>
+                        <button
+                          onClick={() => void deleteOrder(o.id)}
+                          className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              {orders.length === 0 && !ordersLoading && (
+                <div className="text-sm text-slate-500">No orders yet.</div>
+              )}
+            </div>
+          </Section>
+        </div>
+      )}
+
+      {/* ───────────── Discount Vouchers ───────────── */}
+      {tab === "vouchers" && (
+        <div className="mt-6 grid gap-6 lg:grid-cols-2">
+          <Section title="Create voucher code">
+            {vouchersSetupRequired && (
+              <div className="mb-3 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-200">
+                The <code>vouchers</code> table was not found. Run{" "}
+                <code>supabase/physical_store.sql</code> in your Supabase project to enable vouchers.
+              </div>
+            )}
+            <div className="grid gap-3">
+              <label className="grid gap-1">
+                <span className="text-xs text-slate-500">Code (leave blank to auto-generate)</span>
+                <input
+                  value={voucherForm.code}
+                  onChange={(e) => setVoucherForm((f) => ({ ...f, code: (e.target as HTMLInputElement).value.toUpperCase() }))}
+                  placeholder="e.g. WELCOME10"
+                  className="h-10 rounded-lg bg-white px-3 border border-[color:var(--color-light)]/40 shadow-sm uppercase"
+                />
+              </label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="grid gap-1">
+                  <span className="text-xs text-slate-500">Discount type</span>
+                  <select
+                    value={voucherForm.discount_type}
+                    onChange={(e) => setVoucherForm((f) => ({ ...f, discount_type: (e.target as HTMLSelectElement).value as "percent" | "fixed" }))}
+                    className="h-10 rounded-lg bg-white px-3 border border-[color:var(--color-light)]/40 shadow-sm"
+                  >
+                    <option value="percent">Percent (%)</option>
+                    <option value="fixed">Fixed amount (GH₵)</option>
+                  </select>
+                </label>
+                <label className="grid gap-1">
+                  <span className="text-xs text-slate-500">
+                    {voucherForm.discount_type === "percent" ? "Percent off (1–100)" : "Amount off (GH₵)"}
+                  </span>
+                  <input
+                    type="number"
+                    min={1}
+                    step={voucherForm.discount_type === "percent" ? 1 : 0.01}
+                    value={String(voucherForm.discount_value)}
+                    onChange={(e) => setVoucherForm((f) => ({ ...f, discount_value: Number((e.target as HTMLInputElement).value) }))}
+                    className="h-10 rounded-lg bg-white px-3 border border-[color:var(--color-light)]/40 shadow-sm"
+                  />
+                </label>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="grid gap-1">
+                  <span className="text-xs text-slate-500">Max uses (blank = unlimited)</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={voucherForm.max_uses}
+                    onChange={(e) => setVoucherForm((f) => ({ ...f, max_uses: (e.target as HTMLInputElement).value }))}
+                    className="h-10 rounded-lg bg-white px-3 border border-[color:var(--color-light)]/40 shadow-sm"
+                  />
+                </label>
+                <label className="grid gap-1">
+                  <span className="text-xs text-slate-500">Min order subtotal (GH₵, optional)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={voucherForm.min_subtotal}
+                    onChange={(e) => setVoucherForm((f) => ({ ...f, min_subtotal: (e.target as HTMLInputElement).value }))}
+                    className="h-10 rounded-lg bg-white px-3 border border-[color:var(--color-light)]/40 shadow-sm"
+                  />
+                </label>
+              </div>
+              <label className="grid gap-1">
+                <span className="text-xs text-slate-500">Expires (optional)</span>
+                <input
+                  type="date"
+                  value={voucherForm.expires_at}
+                  onChange={(e) => setVoucherForm((f) => ({ ...f, expires_at: (e.target as HTMLInputElement).value }))}
+                  className="h-10 rounded-lg bg-white px-3 border border-[color:var(--color-light)]/40 shadow-sm"
+                />
+              </label>
+              <div>
+                <button
+                  onClick={() => void createVoucher()}
+                  disabled={creatingVoucher}
+                  className="rounded-lg bg-[#0a1156] text-white px-4 py-2 font-semibold hover:opacity-90 disabled:opacity-50"
+                >
+                  {creatingVoucher ? "Creating…" : "Generate voucher"}
+                </button>
+              </div>
+              <p className="text-xs text-slate-500">
+                Voucher codes work on the physical-copy order form and on digital e-book checkout.
+              </p>
+            </div>
+          </Section>
+
+          <Section
+            title="Voucher codes"
+            right={
+              <button
+                onClick={refreshVouchers}
+                className="px-3 py-1.5 rounded-lg border border-[color:var(--color-light)]/40 shadow-sm text-sm"
+              >
+                {vouchersLoading ? "Refreshing…" : "Refresh"}
+              </button>
+            }
+          >
+            <div className="grid gap-2">
+              {vouchers.map((v) => {
+                const expired = v.expires_at ? new Date(v.expires_at).getTime() <= Date.now() : false;
+                const exhausted = v.max_uses != null && v.used_count >= v.max_uses;
+                return (
+                  <div key={v.id} className="flex items-start justify-between gap-3 rounded-lg border border-[color:var(--color-light)]/40 p-3 shadow-sm">
+                    <div className="text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-semibold">{v.code}</span>
+                        {!v.active && <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs">Inactive</span>}
+                        {expired && <span className="rounded-full bg-red-100 text-red-800 px-2 py-0.5 text-xs">Expired</span>}
+                        {exhausted && <span className="rounded-full bg-red-100 text-red-800 px-2 py-0.5 text-xs">Used up</span>}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        {v.discount_type === "percent"
+                          ? `${v.discount_value}% off`
+                          : `${formatMoney(v.discount_value, "GHS")} off`}
+                        {" · "}
+                        {v.used_count}
+                        {v.max_uses != null ? `/${v.max_uses}` : ""} used
+                        {v.min_subtotal_cents > 0 && ` · min ${formatMoney(v.min_subtotal_cents, "GHS")}`}
+                        {v.expires_at && ` · expires ${formatDateTime(v.expires_at)}`}
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 gap-2">
+                      <button
+                        onClick={() => void toggleVoucher(v)}
+                        className="px-3 py-1.5 rounded-lg border border-[color:var(--color-light)]/40 shadow-sm text-sm"
+                      >
+                        {v.active ? "Disable" : "Enable"}
+                      </button>
+                      <button
+                        onClick={() => void deleteVoucher(v.id)}
+                        className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              {vouchers.length === 0 && !vouchersLoading && (
+                <div className="text-sm text-slate-500">No vouchers yet.</div>
+              )}
             </div>
           </Section>
         </div>
