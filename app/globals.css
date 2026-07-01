@@ -42,6 +42,20 @@ body {
 }
 .animate-float { animation: float 3s ease-in-out infinite; }
 
+/* ---------- Hero globe (premium, subtle) ---------- */
+@keyframes hv-spin { to { transform: rotate(360deg); } }
+@keyframes hv-pulse { 0%, 100% { opacity: .48; } 50% { opacity: .68; } }
+@keyframes hv-twinkle { 0%, 100% { opacity: .35; } 50% { opacity: .9; } }
+/* transform-box/​origin make rotation pivot on the globe centre in viewBox units */
+.hv-orbit   { transform-box: view-box; transform-origin: 400px 400px; animation: hv-spin 68s linear infinite; }
+.hv-orbit-2 { transform-box: view-box; transform-origin: 400px 400px; animation: hv-spin 96s linear infinite reverse; }
+.hv-glint   { transform-box: view-box; transform-origin: 400px 400px; animation: hv-spin 34s linear infinite; }
+.hv-africa  { animation: hv-pulse 6.5s ease-in-out infinite; }
+.hv-twinkle { animation: hv-twinkle 4.5s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .hv-orbit, .hv-orbit-2, .hv-glint, .hv-africa, .hv-twinkle { animation: none; }
+}
+
 @keyframes ai-glitter {
   0% { opacity: 0.35; transform: translateY(0); }
   50% { opacity: 0.6; transform: translateY(-2px); }

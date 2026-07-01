@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import PartnersMarquee from "@/components/home/PartnersMarquee";
+import HeroVisual from "@/components/home/HeroVisual";
 import RecoveryRedirect from "@/components/RecoveryRedirect";
 import { getPartnersCached, getPublicCoursesHome, getPublicEbooksHome } from "@/app/lib/public-data";
 
@@ -151,28 +152,7 @@ export default async function HomePage() {
           className="pointer-events-none absolute left-0 top-0 hidden h-full w-full bg-[radial-gradient(circle_at_72%_22%,rgba(245,183,80,0.18),transparent_32%),radial-gradient(circle_at_40%_76%,rgba(182,84,55,0.12),transparent_34%)] xl:block"
           aria-hidden
         />
-        <div
-          className="pointer-events-none absolute left-[36%] top-[-7rem] z-[1] hidden h-[62rem] w-[62rem] rounded-full border-[3px] border-[#d9ad47]/45 shadow-[0_0_0_12px_rgba(255,255,255,0.42)] xl:block 2xl:left-[38%]"
-          aria-hidden
-        />
-        <div className="pointer-events-none absolute inset-y-0 right-[-4vw] z-0 hidden w-[70vw] overflow-hidden rounded-l-[42vw] border-l border-[#d9ad47]/35 shadow-[0_42px_110px_rgba(44,37,34,0.24)] xl:block 2xl:w-[68vw]">
-          <Image
-            src="/hero.png"
-            alt=""
-            fill
-            sizes="(min-width: 1536px) 68vw, (min-width: 1280px) 70vw, 72vw"
-            className="origin-bottom scale-[1.035] object-cover object-[52%_bottom]"
-            priority
-          />
-          <div
-            className="absolute inset-y-0 left-0 w-[38%] bg-gradient-to-r from-[color:var(--color-bg)] via-[color:var(--color-bg)]/70 to-transparent"
-            aria-hidden
-          />
-          <div
-            className="absolute inset-x-0 bottom-0 h-[22%] bg-gradient-to-t from-black/12 to-transparent"
-            aria-hidden
-          />
-        </div>
+        {/* hero photo removed — decorative ISO/orbit visual now lives in the right grid column */}
 
         <div className="relative z-10 mx-auto max-w-[1660px] px-4 sm:px-6 lg:px-8 2xl:px-20">
           <div className="grid gap-7 py-7 sm:gap-9 sm:py-10 lg:py-12 xl:min-h-[790px] xl:grid-cols-[minmax(0,0.52fr)_minmax(0,0.48fr)] xl:items-center xl:py-20 2xl:min-h-[900px] 2xl:py-32">
@@ -249,17 +229,8 @@ export default async function HomePage() {
               </figure>
             </div>
 
-            <div className="animate-fade-up xl:hidden" style={{ animationDelay: "80ms" }}>
-              <div className="relative -mx-4 aspect-[4/3] overflow-hidden bg-[#efe1d4] sm:mx-auto sm:max-w-[760px]">
-                <Image
-                  src="/hero.png"
-                  alt="Professionals learning together with KDS certificates displayed below"
-                  fill
-                  sizes="(max-width: 640px) 100vw, 760px"
-                  className="object-cover object-[52%_bottom]"
-                  priority
-                />
-              </div>
+            <div className="animate-fade-up mt-2 xl:mt-0" style={{ animationDelay: "80ms" }}>
+              <HeroVisual />
             </div>
           </div>
         </div>
