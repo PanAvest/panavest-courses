@@ -89,7 +89,13 @@ export default function AboutPage() {
           />
         </div>
 
-        <DarkDecor grid={false} />
+        {/* dark scrim so the pattern reads clearly over the photo */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 -z-10"
+          style={{ background: "linear-gradient(115deg, rgba(24,18,16,0.68) 0%, rgba(24,18,16,0.42) 52%, rgba(24,18,16,0.66) 100%)" }}
+        />
+        <DarkDecor strong />
 
         <div className="relative z-10 animate-fade-up mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 2xl:px-20 py-20 sm:py-28 lg:py-32 2xl:py-40">
           <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-white/80 backdrop-blur-sm">
