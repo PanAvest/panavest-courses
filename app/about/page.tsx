@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { BOARDROOM_BLUR } from "@/app/lib/blur";
+import DarkDecor from "@/components/DarkDecor";
 
 const BRAND = "#b65437";
 
@@ -88,7 +89,9 @@ export default function AboutPage() {
           />
         </div>
 
-        <div className="animate-fade-up mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 2xl:px-20 py-20 sm:py-28 lg:py-32 2xl:py-40">
+        <DarkDecor grid={false} />
+
+        <div className="relative z-10 animate-fade-up mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 2xl:px-20 py-20 sm:py-28 lg:py-32 2xl:py-40">
           <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-white/80 backdrop-blur-sm">
             <span className="h-1.5 w-1.5 rounded-full" style={{ background: BRAND }} />
             PanAvest International &amp; Partners
@@ -403,8 +406,9 @@ export default function AboutPage() {
       </section>
 
       {/* ── CTA ── */}
-      <section className="bg-[color:var(--color-ink)] py-16 sm:py-20 2xl:py-28">
-        <div className="animate-fade-up mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 2xl:px-20 text-center">
+      <section className="relative isolate overflow-hidden bg-[color:var(--color-ink)] py-16 sm:py-20 2xl:py-28">
+        <DarkDecor />
+        <div className="relative z-10 animate-fade-up mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 2xl:px-20 text-center">
           <p className="text-xs font-semibold tracking-widest uppercase text-white/40">
             Start today
           </p>
