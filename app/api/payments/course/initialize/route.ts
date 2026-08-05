@@ -61,7 +61,9 @@ export async function POST(req: Request) {
       );
     }
 
-    const currency = b.currency || "GHS";
+    // Product prices and Paystack settlements are authoritative in Ghana cedis.
+    // Any site-wide currency selection is display-only and must never reach checkout.
+    const currency = "GHS";
     const amountMinor = Math.round(Number(b.amount) * 100);
 
     const origin =

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { GHANA_REGIONS, citiesForRegion } from "@/lib/ghana";
+import CurrencySelector from "@/components/currency/CurrencySelector";
+import Money from "@/components/currency/Money";
 
 const BRAND = "#b65437";
 
@@ -27,8 +29,6 @@ type VoucherState =
   | { kind: "checking" }
   | { kind: "applied"; code: string; discountCents: number; label: string }
   | { kind: "error"; message: string };
-
-const ghc = (cents: number) => `GH₵ ${(cents / 100).toFixed(2)}`;
 
 export default function PhysicalOrderPage() {
   const params = useParams<{ slug: string }>();
@@ -218,7 +218,7 @@ export default function PhysicalOrderPage() {
           <p className="mt-2 text-sm text-muted">
             Our team will contact you on <span className="font-medium">{phone}</span> to confirm{" "}
             {fulfillment === "pickup" ? "pickup" : "delivery"} and arrange payment of{" "}
-            <span className="font-semibold text-ink">{ghc(done.total)}</span> for the book(s).
+            <span className="font-semibold text-ink"><Money amountGhs={done.total / 100} /></span> for the book(s).
           </p>
           <div className="mt-4 rounded-lg bg-[color:var(--color-bg)] p-3 text-xs text-muted">
             Delivery charges (where applicable) are arranged separately and paid by the customer on delivery.
@@ -420,13 +420,21 @@ export default function PhysicalOrderPage() {
               )}
               <div className="min-w-0">
                 <div className="font-semibold leading-tight">{ebook?.title ?? "Loading…"}</div>
-                <div className="mt-1 text-sm text-muted">{ghc(unitPrice)} each</div>
+                <div className="mt-1 text-sm text-muted"><Money amountGhs={unitPrice / 100} /> each</div>
                 {stockTracked && ebook?.show_stock && stockLeft != null && (
                   <div className="mt-1 text-xs text-muted">
                     {stockLeft > 0 ? `${stockLeft} in stock` : "Out of stock"}
                   </div>
                 )}
               </div>
+            </div>
+
+            <div className="mt-4 flex items-center justify-between gap-3 rounded-lg bg-[color:var(--color-bg)] p-3">
+              <div>
+                <div className="text-xs font-semibold">Display currency</div>
+                <div className="text-[10px] text-muted">Order totals remain in GHS</div>
+              </div>
+              <CurrencySelector compact />
             </div>
 
             {/* Voucher */}
@@ -470,19 +478,19 @@ export default function PhysicalOrderPage() {
             <div className="mt-5 space-y-2 border-t border-[color:var(--color-light)] pt-4 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted">
-                  Subtotal ({quantity} × {ghc(unitPrice)})
+                  Subtotal ({quantity} × <Money amountGhs={unitPrice / 100} />)
                 </span>
-                <span className="font-medium">{ghc(subtotal)}</span>
+                <span className="font-medium"><Money amountGhs={subtotal / 100} /></span>
               </div>
               {discountCents > 0 && (
                 <div className="flex justify-between text-green-700">
                   <span>Discount</span>
-                  <span className="font-medium">− {ghc(discountCents)}</span>
+                  <span className="font-medium">− <Money amountGhs={discountCents / 100} /></span>
                 </div>
               )}
               <div className="flex justify-between border-t border-[color:var(--color-light)] pt-2 text-base font-bold">
                 <span>Total (books)</span>
-                <span>{ghc(total)}</span>
+                <span><Money amountGhs={total / 100} /></span>
               </div>
             </div>
 

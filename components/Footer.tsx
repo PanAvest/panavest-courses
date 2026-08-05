@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import logo from "@/public/logo.png";
 import { supabase } from "@/lib/supabaseClient";
+import CurrencySelector from "@/components/currency/CurrencySelector";
 
 function SocialLink({
   href,
@@ -109,6 +110,12 @@ export default async function Footer() {
               <SocialLink href="https://www.facebook.com/profile.php?id=61581240303633" label="Facebook">
                 <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden><path fill="currentColor" d="M13.5 21v-7H16l.5-3h-3V9.25c0-.87.24-1.47 1.5-1.47h1V5.09C15.7 5.06 14.9 5 14 5a3.6 3.6 0 0 0-3.86 3.95V11H7v3h3v7h3.5Z"/></svg>
               </SocialLink>
+            </div>
+            <div className="mt-5">
+              <CurrencySelector showStatus />
+              <p className="mt-2 max-w-xs text-[11px] leading-relaxed text-muted">
+                Converted prices are estimates. Paystack checkout is always processed in Ghana cedis (GHS).
+              </p>
             </div>
           </div>
         </div>

@@ -3,6 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import Money from "@/components/currency/Money";
+import PriceCurrencyControl from "@/components/currency/PriceCurrencyControl";
 
 type Ebook = {
   id: string;
@@ -93,6 +95,8 @@ export default function EbooksPage() {
         )}
       </div>
 
+      <PriceCurrencyControl className="mt-4 md:ml-auto md:max-w-md" />
+
       {err && <div className="mt-6 text-red-600 text-sm">Error: {err}</div>}
 
       {!items && !err && (
@@ -140,7 +144,7 @@ export default function EbooksPage() {
                 <div className="mt-auto pt-3 text-sm font-medium">
                   {b.free_for_logged_in
                     ? "Free with login"
-                    : `GH₵ ${(b.price_cents / 100).toFixed(2)}`}
+                    : <Money amountGhs={b.price_cents / 100} />}
                 </div>
               </div>
             </Link>

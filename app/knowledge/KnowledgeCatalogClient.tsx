@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import type { Database } from "@/lib/types";
+import Money from "@/components/currency/Money";
+import PriceCurrencyControl from "@/components/currency/PriceCurrencyControl";
 
 type Course = Database["public"]["Tables"]["courses"]["Row"];
 
@@ -66,6 +68,8 @@ export default function KnowledgeCatalogClient({ items }: KnowledgeCatalogClient
         <div className="text-sm text-muted">{resultCountLabel}</div>
       </div>
 
+      <PriceCurrencyControl className="mt-4 md:ml-auto md:max-w-md" />
+
       <div className="mt-6 grid gap-6 2xl:gap-9 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
         {visibleItems.map((course, idx) => (
           <Link
@@ -91,7 +95,7 @@ export default function KnowledgeCatalogClient({ items }: KnowledgeCatalogClient
                 <span className="font-semibold">
                   {course.free_for_logged_in
                     ? "Free with login"
-                    : `GH₵${Number(course.price ?? 0).toFixed(2)}`}
+                    : <Money amountGhs={Number(course.price ?? 0)} />}
                 </span>
                 <span className="ml-2 text-muted">· {course.cpd_points ?? 0} CPPD</span>
               </div>

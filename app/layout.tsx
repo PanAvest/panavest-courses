@@ -5,6 +5,7 @@ import Footer from "@/components/Footer";
 import FooterConditional from "@/components/FooterConditional";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import CurrencyProvider from "@/components/currency/CurrencyProvider";
 
 export const metadata: Metadata = {
   title: {
@@ -74,11 +75,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       {/* flex column to push footer to bottom */}
       <body className="min-h-dvh flex flex-col">
-        <Header />
-        <main className="flex-1">{children}</main>
-        <FooterConditional>
-          <Footer />
-        </FooterConditional>
+        <CurrencyProvider>
+          <Header />
+          <main className="flex-1">{children}</main>
+          <FooterConditional>
+            <Footer />
+          </FooterConditional>
+        </CurrencyProvider>
         <Analytics />
         <SpeedInsights />
       </body>
