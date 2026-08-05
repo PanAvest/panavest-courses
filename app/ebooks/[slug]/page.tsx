@@ -2,9 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import CurrencySelector from "@/components/currency/CurrencySelector";
+import Money from "@/components/currency/Money";
 
 type PdfHttpHeaders = Record<string, string>;
 interface PdfLoadingTask<TDoc> { promise: Promise<TDoc>; }
@@ -357,12 +359,6 @@ export default function EbookDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, ebook?.id, userId, slug]);
 
-  const price = useMemo(() => {
-    if (!ebook) return "";
-    if (ebook.free_for_logged_in) return "Free with login";
-    return `GH₵ ${(ebook.price_cents / 100).toFixed(2)}`;
-  }, [ebook]);
-
   const digitalDiscountCents =
     digitalVoucher.kind === "applied" && ebook
       ? Math.min(Math.round(Number(ebook.price_cents)), digitalVoucher.discountCents)
@@ -370,8 +366,6 @@ export default function EbookDetailPage() {
   const digitalTotalCents = ebook
     ? Math.max(0, Math.round(Number(ebook.price_cents)) - digitalDiscountCents)
     : 0;
-  const digitalTotalLabel = `GH₵ ${(digitalTotalCents / 100).toFixed(2)}`;
-
   const normalizeFlipSpreadStart = useCallback((page: number) => {
     if (pageCount <= 1) return 1;
     const maxStart = pageCount % 2 === 0 ? pageCount - 1 : pageCount;
@@ -1450,8 +1444,11 @@ export default function EbookDetailPage() {
                     className="rounded-lg px-2.5 py-1 text-sm font-bold text-white"
                     style={{ background: BRAND }}
                   >
-                    {price}
+                    {ebook.free_for_logged_in
+                      ? "Free with login"
+                      : <Money amountGhs={ebook.price_cents / 100} />}
                   </span>
+                  {!ebook.free_for_logged_in && <CurrencySelector compact />}
                   <span className="rounded-lg border border-[color:var(--color-light)] bg-[color:var(--color-bg)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-[color:var(--color-muted)]">
                     NaCCA credited
                   </span>
@@ -1563,9 +1560,9 @@ export default function EbookDetailPage() {
                           Redirecting to payment…
                         </span>
                       ) : digitalDiscountCents > 0 ? (
-                        `Buy · ${digitalTotalLabel}`
+                        <span>Buy · <Money amountGhs={digitalTotalCents / 100} /></span>
                       ) : (
-                        `Buy · ${price}`
+                        <span>Buy · <Money amountGhs={ebook.price_cents / 100} /></span>
                       )}
                     </button>
                     <Link
@@ -1685,7 +1682,7 @@ export default function EbookDetailPage() {
                       className="rounded-xl px-6 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
                       style={{ background: BRAND }}
                     >
-                      {buying ? "Redirecting…" : `Buy · ${price}`}
+                      {buying ? "Redirecting…" : <span>Buy · <Money amountGhs={ebook.price_cents / 100} /></span>}
                     </button>
                   )}
                 </div>

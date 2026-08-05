@@ -7,6 +7,8 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import PageSkeleton from "@/components/PageSkeleton";
 import { supabase } from "@/lib/supabaseClient";
+import CurrencySelector from "@/components/currency/CurrencySelector";
+import Money from "@/components/currency/Money";
 
 type Course = {
   id: string;
@@ -152,8 +154,6 @@ export default function CoursePreview() {
     return <div className="mx-auto max-w-screen-lg px-4 py-10">Course not found.</div>;
   }
 
-  const priceLabel = Number(course.price ?? 0).toFixed(2);
-  const currency = course.currency || "GHS";
   const freeWithLogin = course.free_for_logged_in === true;
   const hasAccess = paid || freeWithLogin;
 
@@ -193,16 +193,20 @@ export default function CoursePreview() {
 
         {/* Right: pricing + actions */}
         <aside className="rounded-xl bg-white border border-[color:var(--color-light)]/40 shadow-sm transition-shadow duration-200 hover:shadow-md p-5 h-max">
-          <div className="text-lg">
+          <div className="flex flex-wrap items-center gap-2 text-lg">
             {freeWithLogin ? (
               <span className="font-semibold text-[color:var(--color-brand)]">Free with login</span>
             ) : (
-              <span className="font-semibold">
-                {currency} {priceLabel}
-              </span>
+              <>
+                <span className="font-semibold"><Money amountGhs={Number(course.price ?? 0)} /></span>
+                <CurrencySelector compact />
+              </>
             )}
-            <span className="ml-2 text-muted">· {course.cpd_points ?? 0} CPPD</span>
+            <span className="text-muted">· {course.cpd_points ?? 0} CPPD</span>
           </div>
+          {!freeWithLogin && (
+            <p className="mt-1 text-[11px] text-muted">Converted price is an estimate. Paystack checkout is charged in GHS.</p>
+          )}
 
           {bundledEbooks.length > 0 && (
             <div className="mt-4 rounded-xl bg-[color:var(--color-light)]/30 border border-[color:var(--color-light)]/40 p-3 shadow-sm">

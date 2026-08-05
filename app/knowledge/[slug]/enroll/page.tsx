@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import PageSkeleton from "@/components/PageSkeleton";
 import { supabase } from "@/lib/supabaseClient";
+import CurrencySelector from "@/components/currency/CurrencySelector";
+import Money from "@/components/currency/Money";
 
 type Course = {
   id: string;
@@ -178,11 +180,19 @@ export default function EnrollPage() {
       </p>
 
       <div className="mt-6 rounded-xl bg-white border border-[color:var(--color-light)]/40 p-5 shadow-sm transition-shadow duration-200 hover:shadow-md">
-        <div className="text-lg font-semibold">
-          {course.free_for_logged_in
-            ? "Total: Free with login"
-            : `Total: ${course.currency || "GHS"} ${course.price.toFixed(2)}`}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="text-lg font-semibold">
+            {course.free_for_logged_in
+              ? "Total: Free with login"
+              : <span>Total: <Money amountGhs={course.price} /></span>}
+          </div>
+          {!course.free_for_logged_in && <CurrencySelector compact />}
         </div>
+        {!course.free_for_logged_in && (
+          <div className="mt-2 rounded-lg bg-[color:var(--color-bg)] px-3 py-2 text-xs text-muted">
+            Paystack will charge <span className="font-semibold text-ink">GHS {course.price.toFixed(2)}</span>. Other currencies are display estimates from Frankfurter.
+          </div>
+        )}
 
         <button
           type="button"

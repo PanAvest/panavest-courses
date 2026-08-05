@@ -10,10 +10,11 @@ type Meta = MetaCourse | MetaEbook;
 type InitBody = {
   email: string;
   amountMinor: number;          // e.g. 30000 for GHS 300.00
-  currency?: string;            // default GHS
   voucherCode?: string;         // optional discount voucher
   meta: Meta;
 };
+
+const PAYSTACK_CURRENCY = "GHS" as const;
 
 type PaystackInitOk = {
   status: true;
@@ -83,13 +84,20 @@ export async function POST(request: Request) {
     if (body.meta.kind === "course") {
       const { data: course, error: courseErr } = await admin
         .from("courses")
-        .select("free_for_logged_in")
+        .select("free_for_logged_in, price")
         .eq("id", body.meta.course_id)
         .maybeSingle();
       if (courseErr) {
         if (!isMissingFreeColumnError(courseErr)) {
           return NextResponse.json({ error: courseErr.message }, { status: 500 });
         }
+        const { data: priceRow } = await admin
+          .from("courses")
+          .select("price")
+          .eq("id", body.meta.course_id)
+          .maybeSingle();
+        const p = (priceRow as { price?: number | null } | null)?.price;
+        if (typeof p === "number" && Number.isFinite(p) && p > 0) serverPriceMinor = Math.round(p * 100);
       }
       if (course?.free_for_logged_in === true) {
         return NextResponse.json(
@@ -97,6 +105,8 @@ export async function POST(request: Request) {
           { status: 409 },
         );
       }
+      const p = (course as { price?: number | null } | null)?.price;
+      if (typeof p === "number" && Number.isFinite(p) && p > 0) serverPriceMinor = Math.round(p * 100);
     } else {
       const { data: ebook, error: ebookErr } = await admin
         .from("ebooks")
@@ -127,37 +137,6 @@ export async function POST(request: Request) {
       }
     }
 
-    const now = new Date().toISOString();
-    if (body.meta.kind === "course") {
-      await admin
-        .from("enrollments")
-        .upsert(
-          {
-            user_id: body.meta.user_id,
-            course_id: body.meta.course_id,
-            paid: false,
-            gateway: "paystack",
-            currency: body.currency ?? "GHS",
-            amount_minor: body.amountMinor,
-            updated_at: now,
-          },
-          { onConflict: "user_id,course_id" }
-        );
-    } else {
-      // create/ensure ebook purchase row exists as pending
-      await admin
-        .from("ebook_purchases")
-        .upsert(
-          {
-            user_id: body.meta.user_id,
-            ebook_id: body.meta.ebook_id,
-            status: "pending",
-            updated_at: now,
-          } as Record<string, unknown>,
-          { onConflict: "user_id,ebook_id" }
-        );
-    }
-
     // Use the authoritative server price when we have it (never trust the client amount blindly).
     const baseAmount = Math.round(serverPriceMinor ?? body.amountMinor);
     if (!Number.isInteger(baseAmount) || baseAmount <= 0) {
@@ -183,11 +162,42 @@ export async function POST(request: Request) {
       metaForPaystack.voucher_code = normalizeVoucherCode(body.voucherCode);
     }
 
+    const now = new Date().toISOString();
+    if (body.meta.kind === "course") {
+      await admin
+        .from("enrollments")
+        .upsert(
+          {
+            user_id: body.meta.user_id,
+            course_id: body.meta.course_id,
+            paid: false,
+            gateway: "paystack",
+            currency: PAYSTACK_CURRENCY,
+            amount_minor: amountToCharge,
+            updated_at: now,
+          },
+          { onConflict: "user_id,course_id" },
+        );
+    } else {
+      // Create/ensure the e-book purchase row exists as pending.
+      await admin
+        .from("ebook_purchases")
+        .upsert(
+          {
+            user_id: body.meta.user_id,
+            ebook_id: body.meta.ebook_id,
+            status: "pending",
+            updated_at: now,
+          } as Record<string, unknown>,
+          { onConflict: "user_id,ebook_id" },
+        );
+    }
+
     // Initialize Paystack
     const initPayload = {
       email: body.email,
       amount: amountToCharge,                       // minor units (pesewas)
-      currency: body.currency ?? "GHS",
+      currency: PAYSTACK_CURRENCY,
       callback_url,
       metadata: metaForPaystack,                    // we’ll read this on callback
     };

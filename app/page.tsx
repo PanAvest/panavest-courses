@@ -9,6 +9,8 @@ import PartnersMarquee from "@/components/home/PartnersMarquee";
 import HeroVisual from "@/components/home/HeroVisual";
 import DarkDecor from "@/components/DarkDecor";
 import RecoveryRedirect from "@/components/RecoveryRedirect";
+import Money from "@/components/currency/Money";
+import PriceCurrencyControl from "@/components/currency/PriceCurrencyControl";
 import { getPartnersCached, getPublicCoursesHome, getPublicEbooksHome } from "@/app/lib/public-data";
 
 const BRAND = {
@@ -383,6 +385,8 @@ export default async function HomePage() {
             </Link>
           </div>
 
+          <PriceCurrencyControl className="mt-6 sm:ml-auto sm:max-w-md" />
+
           <div className="mt-10 grid gap-6 2xl:gap-9 sm:grid-cols-2 lg:grid-cols-3">
             {featuredList.map((c, idx) => (
               <Link
@@ -420,6 +424,11 @@ export default async function HomePage() {
                       {c.description}
                     </p>
                   )}
+                  {c && typeof c.price === "number" && (
+                    <div className="mt-3 text-sm font-semibold" style={{ color: BRAND.primary }}>
+                      {c.free_for_logged_in ? "Free with login" : <Money amountGhs={c.price} />}
+                    </div>
+                  )}
                 </div>
               </Link>
             ))}
@@ -450,6 +459,8 @@ export default async function HomePage() {
               View all e-books →
             </Link>
           </div>
+
+          <PriceCurrencyControl className="mt-6 sm:ml-auto sm:max-w-md" />
 
           <div className="mt-10 grid gap-6 2xl:gap-9 sm:grid-cols-2 lg:grid-cols-4">
             {ebooksList.map((b, idx) => (
@@ -497,7 +508,7 @@ export default async function HomePage() {
                       >
                         {b.free_for_logged_in
                           ? "Free with login"
-                          : `GH₵ ${(b.price_cents / 100).toFixed(2)}`}
+                          : <Money amountGhs={b.price_cents / 100} />}
                       </span>
                     </div>
                   )}
