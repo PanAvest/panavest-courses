@@ -24,6 +24,30 @@ export function isCurrencyCode(value: unknown): value is CurrencyCode {
   return typeof value === "string" && CURRENCY_CODES.includes(value as CurrencyCode);
 }
 
+const COUNTRIES_BY_CURRENCY: Record<Exclude<CurrencyCode, "GHS">, readonly string[]> = {
+  USD: ["US", "EC", "SV", "PA", "TL", "MH", "FM", "PW"],
+  GBP: ["GB"],
+  EUR: ["AT", "BE", "HR", "CY", "EE", "FI", "FR", "DE", "GR", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PT", "SK", "SI", "ES"],
+  ZAR: ["ZA"],
+  INR: ["IN"],
+  NGN: ["NG"],
+  KES: ["KE"],
+  XOF: ["BJ", "BF", "CI", "GW", "ML", "NE", "SN", "TG"],
+  XAF: ["CM", "CF", "TD", "CG", "GQ", "GA"],
+  CAD: ["CA"],
+  AUD: ["AU"],
+  AED: ["AE"],
+};
+
+export function currencyForCountry(country: string | null | undefined): CurrencyCode {
+  const code = country?.trim().toUpperCase();
+  if (!code || code === "GH") return BASE_CURRENCY;
+  for (const [currency, countries] of Object.entries(COUNTRIES_BY_CURRENCY)) {
+    if (countries.includes(code)) return currency as CurrencyCode;
+  }
+  return "USD";
+}
+
 export function formatCurrency(amount: number, currency: CurrencyCode): string {
   return new Intl.NumberFormat("en", {
     style: "currency",

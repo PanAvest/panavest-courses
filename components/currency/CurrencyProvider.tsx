@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   BASE_CURRENCY,
@@ -39,11 +39,13 @@ export default function CurrencyProvider({ children }: { children: React.ReactNo
   const [asOf, setAsOf] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const userChoseCurrencyRef = useRef(false);
 
   useEffect(() => {
     let hasFreshCache = false;
     const savedCurrency = window.localStorage.getItem(PREFERENCE_KEY);
-    if (isCurrencyCode(savedCurrency)) setCurrencyState(savedCurrency);
+    const hasSavedPreference = isCurrencyCode(savedCurrency);
+    if (hasSavedPreference) setCurrencyState(savedCurrency);
 
     try {
       const rawCache = window.localStorage.getItem(RATES_KEY);
@@ -61,6 +63,19 @@ export default function CurrencyProvider({ children }: { children: React.ReactNo
     }
 
     const controller = new AbortController();
+    if (!hasSavedPreference) {
+      fetch("/api/currency/location", { cache: "no-store", signal: controller.signal })
+        .then(async (response) => {
+          const payload = (await response.json()) as { currency?: unknown };
+          if (!response.ok || !isCurrencyCode(payload.currency) || userChoseCurrencyRef.current) return;
+          setCurrencyState(payload.currency);
+          window.localStorage.setItem(PREFERENCE_KEY, payload.currency);
+        })
+        .catch(() => {
+          // Location is an optional enhancement; retain GHS when it is unavailable.
+        });
+    }
+
     fetch("/api/currency/rates", { signal: controller.signal })
       .then(async (response) => {
         const payload = (await response.json()) as { rates?: Rates; asOf?: string | null };
@@ -84,6 +99,7 @@ export default function CurrencyProvider({ children }: { children: React.ReactNo
   }, []);
 
   const setCurrency = useCallback((nextCurrency: CurrencyCode) => {
+    userChoseCurrencyRef.current = true;
     setCurrencyState(nextCurrency);
     window.localStorage.setItem(PREFERENCE_KEY, nextCurrency);
   }, []);
